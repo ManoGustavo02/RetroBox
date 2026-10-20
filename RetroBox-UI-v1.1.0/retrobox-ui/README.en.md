@@ -1,5 +1,7 @@
 # RetroBox UI
 
+**New in 2.5:** [offline Designer with visual blocks](../../designer/README.md), automatic locale, transactional forms, reusable components, recycled CardGrid, native flow graphs and read-only catalog diagnostics. [APIs](docs/DEVELOPMENT-TOOLS.md).
+
 ## 2.4.0
 
 UniversalScripts is a separate native catalog with Name, Description, an HTTPS URL (including Pastefy Raw) or local Callback, optional Id, category navigation and a UNIVERSAL badge. Uses existing actions, cancellation and profiles. API 2 and the GitHub library origin remain compatible. [Universal scripts](docs/UNIVERSAL-SCRIPTS.md) · [Release](docs/RELEASE-2.4.md).

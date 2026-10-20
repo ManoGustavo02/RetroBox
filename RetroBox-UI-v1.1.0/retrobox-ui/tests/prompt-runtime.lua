@@ -1,4 +1,4 @@
--- Run with RETROBOX_PROMPT_PATH=/absolute/path/Prompt-RetroBox-IA-v2.3.0.md
+-- Run with RETROBOX_PROMPT_PATH=/absolute/path/Prompt-RetroBox-IA-v2.5.0.md
 -- python3 tests/run_headless.py tests/prompt-runtime.lua
 local Mock=dofile('tests/mock_roblox.lua')
 local Library=dofile('RetroBox.lua')
@@ -42,4 +42,19 @@ assert(universal:GetSelectedScript().Name=='Aviso universal' and universal.Scrip
 assert(universal.PlayButton:Press());Mock.pump();assert(universal:GetUniversalScriptStatus('aviso').Status=='Completed')
 clean(universal.Window)
 print('PASS universal prompt example: independent native category, tag and explicit local callback')
-print('4/4 prompt examples passed with mocked HTTP and no executor files')
+for _,spec in ipairs({
+ {'localização e formulários','localization-forms'},
+ {'componentes reutilizáveis','reusable-components'},
+ {'grade de cards','card-grid'},
+ {'ligações visuais','visual-flow'},
+}) do
+ code=example('Exemplo funcional de '..spec[1]..' da 2.5.0')
+ local created=assert(load(code..'\nreturn window','@prompt-'..spec[2]))();Mock.pump()
+ if spec[2]=='localization-forms' then
+  local form=created._forms.preferences;form:SetDraft({name='Updated',enabled=true});assert(form:Apply());Mock.pump();assert(form:GetValue().name=='Updated')
+ elseif spec[2]=='reusable-components' then assert(created:GetFlag('wallet/balance')==1500 and created:GetFlag('bank/balance')==5000)
+ elseif spec[2]=='card-grid' then assert(created.Controls.tools:GetViewStats().Total==1000 and created.Controls.tools:GetViewStats().Pool<=64)
+ else created.Controls.amount:SetValue(42,true);assert(created.Controls.summary:GetValue()=='Quantidade: 42');assert(created.Controls.run:Press());Mock.pump() end
+ clean(created);print('PASS prompt 2.5 example: '..spec[2])
+end
+print('8/8 prompt examples passed with mocked HTTP and no executor files')

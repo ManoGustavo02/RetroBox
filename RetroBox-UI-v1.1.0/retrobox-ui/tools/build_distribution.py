@@ -13,6 +13,10 @@ END = '-- END RETRO200 UPDATE CORE'
 
 
 def embed():
+    catalog_path = REPOSITORY / 'designer/schema.json'
+    if catalog_path.exists():
+        data = json.dumps(json.loads(catalog_path.read_text()), ensure_ascii=False, separators=(',', ':'))
+        (ROOT / 'src/DesignerCatalog.lua').write_text('-- Generated from designer/schema.json; keep editor and runtime in sync.\ndo\n    local catalog=HttpService:JSONDecode([==[' + data + ']==])\n    function Library:GetDesignerCatalog() return copy(catalog) end\nend\n')
     core = (ROOT / 'src/UpdateCore.lua').read_text()
     api = (ROOT / 'src/UpdateAPI.lua').read_text()
     embedded = START + '\nlocal UpdateCore=(function()\n' + core + '\nend)()\n' + api + '\n' + END
@@ -24,6 +28,8 @@ def embed():
         ('RETRO210 GAME METADATA', ['GameMetadata.lua'], '    function Window:CreateScriptHub(options)'),
         ('RETRO240 UNIVERSAL SCRIPTS', ['UniversalScripts.lua'], '-- BEGIN RETRO230 HUB LAUNCHER'),
         ('RETRO230 HUB LAUNCHER', ['HubLauncher.lua'], '    function Window:CreateScriptHub(options)'),
+        ('RETRO250 CATALOG DIAGNOSTICS', ['CatalogDiagnostics.lua'], '    function Window:CreateScriptHub(options)'),
+        ('RETRO250 DEVELOPMENT TOOLS', ['DesignerCatalog.lua', 'DevelopmentComponents.lua', 'CardGrid.lua', 'FlowGraph.lua', 'Localization.lua'], 'return Library\n'),
         ('RETRO220 COMPACT COMPONENTS', ['CompactViews.lua', 'Preview.lua', 'Stepper.lua'], 'return Library\n'),
     ]
     for name, modules, marker in additions:

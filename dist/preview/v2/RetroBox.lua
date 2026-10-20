@@ -1,4 +1,4 @@
--- RetroBox UI 2.4.0 | Mano Gustavo | MIT License
+-- RetroBox UI 2.5.0 | Mano Gustavo | MIT License
 -- Standalone GUI library for Roblox client executors.
 -- Load the raw GitHub source with loadstring(game:HttpGet(URL))().
 
@@ -9,7 +9,7 @@ local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
 local TextService = game:GetService("TextService")
 
-local Library = { Version = "2.4.0", Themes = {}, Windows = {} }
+local Library = { Version = "2.5.0", Themes = {}, Windows = {} }
 local Window = {}; Window.__index = Window
 local Tab = {}; Tab.__index = Tab
 local Section = {}; Section.__index = Section
@@ -473,6 +473,10 @@ local function ui(window, class, properties, roles)
     if roles then window:_refreshInk(object) end
     if object:IsA("TextLabel") or object:IsA("TextButton") or object:IsA("TextBox") then
         window._textSizes[object]=object.TextSize or 14; object.TextSize=(object.TextSize or 14)*(window.TextScale or 1)
+    end
+    if window._watchLocalizedText then
+        if class=="TextLabel" or class=="TextButton" then window:_watchLocalizedText(object,"Text",properties.Text or "")
+        elseif class=="TextBox" then window:_watchLocalizedText(object,"PlaceholderText",properties.PlaceholderText or "") end
     end
     return object
 end
@@ -4791,6 +4795,7 @@ function Library:CreateWindow(options)
         FloatSize=options.FloatSize or 64,FloatOpacity=options.FloatOpacity or 1,QuickActionsEnabled=options.QuickActions~=false,
         LauncherText=options.LauncherText or "UI",LauncherPosition=normalizedPosition(options.LauncherPosition or Vector2.new(.025,.1)),
         _locale=translations[options.Locale or "pt-BR"] or translations["pt-BR"],
+        _localizationEnabled=options._LocalizationEnabled==true,
         _connections={},_skin={},_inkSurfaces={},_textSizes={},_focusTargets={},_icons={},_themeOverrides={},_rainbows={},_keybinds={},_destroyListeners={},
         _profiles={},_notifications={},_noticeCount=0,_nextId=0,_saveToken=0,_query="",
         ConfigVersion=configVersion,UnknownFlags=options.UnknownFlags or "Ignore",_migrations={},_profileExtras={Root={},Appearance={},Flags={}},
@@ -6736,6 +6741,8 @@ do
         assert(value.Confirm==nil or type(value.Confirm)=="string" and #value.Confirm<=4096,"Script Confirm must be text")
         assert(value.CurrentGameOnly==nil or type(value.CurrentGameOnly)=="boolean","CurrentGameOnly must be boolean")
         result.Callback=value.Callback; result.Enabled=value.Enabled; result.Confirm=value.Confirm; result.CurrentGameOnly=value.CurrentGameOnly==true
+        assert(value.SourceURL==nil or type(value.SourceURL)=="string" and #value.SourceURL<=2048 and value.SourceURL:match("^https://[%w%.%-]+[^%s]*$") and not value.SourceURL:find("[%c]"),"SourceURL must be HTTPS")
+        result.SourceURL=value.SourceURL
         result.Icon=value.Icon or "code"; resolveIcon(result.Icon)
         result.Requires={}
         for _,cap in ipairs(array(value.Requires or {},16,"Requires")) do
@@ -7223,7 +7230,7 @@ function Hub:_prepareCatalog(document)
                 key(item.Action,"Action")
                 spec.Callback=self._catalogActions[item.Action]
             elseif old then
-                spec.Callback=old.Callback
+                spec.Callback=old.Callback;spec.SourceURL=old.SourceURL
                 if item.Enabled==nil then spec.Enabled=old.Enabled end
                 if item.Confirm==nil then spec.Confirm=old.Confirm end
                 if item.Requires==nil then spec.Requires=old.Requires end
@@ -8263,6 +8270,103 @@ end
 
 -- END RETRO230 HUB LAUNCHER
 
+-- BEGIN RETRO250 CATALOG DIAGNOSTICS
+-- Catalog checks are explicit read-only downloads. Downloaded code is never run.
+function Hub:DiagnoseCatalog(options)
+    assert(not self.Destroyed,'Hub has been destroyed');options=options or {}
+    assert(options.Fetch==nil or type(options.Fetch)=='function','Fetch must be a developer transport')
+    assert(options.ValidateSyntax==nil or type(options.ValidateSyntax)=='boolean','ValidateSyntax must be boolean')
+    local maximum=options.MaxEntries or 256
+    assert(finite(maximum) and maximum%1==0 and maximum>=1 and maximum<=4096,'MaxEntries must be 1–4096')
+    local entries={}
+    for _,gameId in ipairs(self._order) do
+        local gameRecord=self._games[gameId]
+        for _,script in ipairs(gameRecord.Scripts) do entries[#entries+1]={GameId=gameId,ScriptId=script.Id,Name=script.Title,Kind='Game',URL=script.SourceURL,Callback=type(script.Callback)=='function'} end
+    end
+    for _,script in ipairs(self._universal.Scripts) do entries[#entries+1]={ScriptId=script.Id,Name=script.Name,Kind='Universal',URL=script.URL or script.SourceURL,Callback=type(script.Callback)=='function'} end
+    local report={LibraryVersion=Library.Version,HubId=self.Id,Started=os.clock(),Entries={},Total=#entries,Skipped=math.max(0,#entries-maximum),Status='Running'}
+    local previous=self._catalogDiagnosis;self._catalogDiagnosis=report
+    local handle,reason=self.Window:RunAction({Group='catalog-diagnostics/'..self.Id,Policy='Reject',Callback=function(ctx)
+        local cache={}
+        local function inspect(url)
+            if cache[url] then return copy(cache[url]) end
+            local ok,response=pcall(function()
+                if options.Fetch then return options.Fetch(url,ctx) end
+                assert(type(game.HttpGet)=='function','HttpGet is unavailable');return game:HttpGet(url)
+            end)
+            ctx:ThrowIfCancelled()
+            local row={}
+            if not ok then row.Status='HTTPError';row.Message=tostring(response):sub(1,512)
+            else
+                local body=response
+                if type(response)=='table' then body=response.Body;row.StatusCode=response.StatusCode end
+                if row.StatusCode and (row.StatusCode<200 or row.StatusCode>=300) then row.Status='HTTPError';row.Message='HTTP '..row.StatusCode
+                elseif type(body)~='string' or body:match('^%s*$') then row.Status='Empty'
+                elseif #body>2097152 then row.Status='TooLarge';row.Bytes=#body
+                elseif body:sub(1,512):lower():find('<!doctype',1,true) or body:sub(1,512):lower():find('<html',1,true) then row.Status='HTML';row.Bytes=#body
+                else
+                    row.Status='Available';row.Bytes=#body
+                    if options.ValidateSyntax then
+                        if type(loadstring)~='function' then row.Syntax='Unavailable'
+                        else
+                            local chunk,errorMessage=loadstring(body,'@RetroBox-Catalog-Diagnostic')
+                            row.Syntax=chunk and 'Compiled' or 'Invalid';row.Message=errorMessage and tostring(errorMessage):sub(1,512) or nil
+                            if not chunk then row.Status='InvalidSyntax' end
+                        end
+                    end
+                end
+            end
+            cache[url]=copy(row);return row
+        end
+        for i=1,math.min(maximum,#entries) do
+            ctx:ThrowIfCancelled();assert(not self.Destroyed,'Hub was destroyed')
+            local entry=entries[i];local row=entry.URL and inspect(entry.URL) or {Status=entry.Callback and 'Callback' or 'NoSource'}
+            row.GameId=entry.GameId;row.ScriptId=entry.ScriptId;row.Name=entry.Name;row.Kind=entry.Kind;row.URL=entry.URL
+            report.Entries[#report.Entries+1]=row;ctx:SetProgress(i,math.max(1,math.min(maximum,#entries)),entry.Name)
+        end
+        report.Status='Completed';report.Finished=os.clock();return copy(report)
+    end,OnComplete=function(completed)
+        if not self.Destroyed and self._catalogDiagnosis==report then
+            local status=completed:GetStatus().Status
+            if status~='Completed' then report.Status=status;report.Error=completed.Error end
+        end
+    end})
+    if handle then self.Scope:Add(handle,'Cancel','catalog-diagnostics');return handle end
+    self._catalogDiagnosis=previous;return nil,reason
+end
+function Hub:GetCatalogDiagnosis() return self._catalogDiagnosis and copy(self._catalogDiagnosis) or nil end
+function Hub:OpenCatalogDiagnostics(options)
+    assert(not self.Destroyed,'Hub has been destroyed')
+    if self._diagnosticsTab and not self._diagnosticsTab.Destroyed then self._diagnosticsTab:Select();return self._diagnosticsTab end
+    local window=self.Window;local tab=window:CreateTab({Title=window:_t17('Diagnóstico do Hub','Hub diagnostics'),Icon='info'})
+    self._diagnosticsTab=tab
+    local section=tab:CreateSection({Title=window:_t17('Verificar catálogo','Check catalog')})
+    local prefix='hub/'..self.Id..'/diagnostics/'
+    local status=section:AddLabel({Id=prefix..'status',Title=window:_t17('Downloads e validação opcionais; os scripts não serão executados.','Optional downloads and validation; scripts will not run.'),Height=48})
+    local list=section:AddVirtualList({Id=prefix..'results',Title=window:_t17('Resultados','Results'),Items={},Height=300,RowHeight=52})
+    local handle
+    section:AddButton({Id=prefix..'check',Title=window:_t17('Verificar links','Check links'),Callback=function()
+        local started,reason=self:DiagnoseCatalog(options)
+        if not started then status:SetText(tostring(reason));return end
+        handle=started
+        self.Scope:Remove('diagnostic-view')
+        self.Scope:Add(handle:Subscribe(function(state)
+            if self.Destroyed or tab.Destroyed or status.Destroyed then return end
+            status:SetText(state.Status..' · '..tostring(state.Message or ''))
+            local items={}
+            for index,record in ipairs((self:GetCatalogDiagnosis() or {}).Entries or {}) do
+                items[#items+1]={Id=tostring(index),Text=record.Name..' · '..record.Status,Description=record.Message or record.Kind}
+            end
+            list:SetItems(items)
+        end,true),'Disconnect','diagnostic-view')
+    end})
+    section:AddButton({Id=prefix..'cancel',Title=window:_t17('Cancelar verificação','Cancel check'),Callback=function() if handle then handle:Cancel('user cancelled') end end})
+    self.Scope:Add(function() if not tab.Destroyed then tab:Destroy() end;self._diagnosticsTab=nil;self._catalogDiagnosis=nil end)
+    tab:Select();return tab
+end
+
+-- END RETRO250 CATALOG DIAGNOSTICS
+
     function Window:CreateScriptHub(options)
         assert(type(options)=="table","Script Hub options must be a table")
         local id=key(options.Id or "script-hub","Hub Id"); self._scriptHubs=self._scriptHubs or {}; assert(not self._scriptHubs[id],"Hub Id already registered")
@@ -9118,5 +9222,948 @@ do
 end
 
 -- END RETRO220 COMPACT COMPONENTS
+
+-- BEGIN RETRO250 DEVELOPMENT TOOLS
+-- Generated from designer/schema.json; keep editor and runtime in sync.
+do
+    local catalog=HttpService:JSONDecode([==[{"Kind":"RetroBoxDesignerCatalog","SchemaVersion":1,"APIVersion":2,"MinVersion":"2.5.0","Limits":{"Controls":256,"Tabs":32,"Sections":128,"Nodes":256,"Edges":512,"States":128,"Templates":64,"ProjectBytes":2097152},"Controls":{"Toggle":{"Method":"AddToggle","Defaults":{"Title":"Ativar recurso","Default":false},"ValueType":"boolean"},"Slider":{"Method":"AddSlider","Defaults":{"Title":"Intensidade","Min":0,"Max":100,"Default":50},"ValueType":"number"},"Button":{"Method":"AddButton","Defaults":{"Title":"Executar","Text":"Executar"},"ValueType":"any"},"Input":{"Method":"AddInput","Defaults":{"Title":"Nome","Placeholder":"Digite aqui","Default":""},"ValueType":"string"},"Dropdown":{"Method":"AddDropdown","Defaults":{"Title":"Opção","Options":["Opção A","Opção B"],"Default":"Opção A"},"ValueType":"any"},"ColorPicker":{"Method":"AddColorPicker","Defaults":{"Title":"Cor","Default":"#32df7b"},"ValueType":"any"},"Label":{"Method":"AddLabel","Defaults":{"Title":"Seu texto aqui"},"ValueType":"string"},"Separator":{"Method":"AddSeparator","Defaults":{"Title":"Detalhes"},"ValueType":"string"},"Progress":{"Method":"AddProgress","Defaults":{"Title":"Progresso","Min":0,"Max":100,"Default":25},"ValueType":"number"},"StatCard":{"Method":"AddStatCard","Defaults":{"Title":"Total","Default":1250,"Unit":"itens","Format":"Compact"},"ValueType":"any"},"Chart":{"Method":"AddChart","Defaults":{"Title":"Histórico","Data":[10,30,20,45],"Type":"Line","Height":180},"ValueType":"any"},"Console":{"Method":"AddConsole","Defaults":{"Title":"Console","Height":150},"ValueType":"string"},"Image":{"Method":"AddImage","Defaults":{"Title":"Imagem","Image":"","Height":120},"ValueType":"any"},"VirtualList":{"Method":"AddVirtualList","Defaults":{"Title":"Lista","Items":[{"Id":"a","Text":"Item A"},{"Id":"b","Text":"Item B"}],"Height":180},"ValueType":"string"},"DataTable":{"Method":"AddDataTable","Defaults":{"Title":"Tabela","Columns":[{"Key":"Name","Title":"Nome"},{"Key":"Value","Title":"Valor"}],"Rows":[{"Id":"a","Name":"Exemplo","Value":10}],"Height":180},"ValueType":"string"},"TreeView":{"Method":"AddTreeView","Defaults":{"Title":"Árvore","Nodes":[{"Id":"root","Text":"Categoria","Children":[{"Id":"child","Text":"Item"}]}],"Height":180},"ValueType":"string"},"Preview":{"Method":"AddPreview","Defaults":{"Title":"Preview","Mode":"Image","Image":"","Height":180},"ValueType":"any"},"Stepper":{"Method":"AddStepper","Defaults":{"Title":"Etapas","Steps":[{"Id":"one","Title":"Preparar"},{"Id":"two","Title":"Concluir"}]},"ValueType":"any"},"CardGrid":{"Method":"AddCardGrid","Defaults":{"Title":"Catálogo","Height":340,"Items":[{"Id":"one","Title":"Ferramenta A","Description":"Seu componente ou recurso","Icon":"diamond","Badges":["Destaque"]},{"Id":"two","Title":"Ferramenta B","Description":"Personalize no painel","Icon":"tools","Badges":["Novo"]}]},"ValueType":"string"},"Form":{"Method":"CreateForm","Defaults":{"Title":"Configurações","Fields":[{"Id":"name","Type":"Input","Title":"Nome","Default":"Gustavo","Required":true},{"Id":"enabled","Type":"Toggle","Title":"Ativar","Default":false}]},"ValueType":"any"},"Keybind":{"Method":"AddKeybind","Defaults":{"Title":"Atalho","Default":"F","Mode":"Press"},"ValueType":"any"}},"OptionKeys":["Title","Description","Icon","Default","Text","Placeholder","Min","Max","Step","Suffix","Height","Options","Multi","Data","Items","Rows","Columns","Nodes","Image","Mode","Steps","Fields","Unit","Format","Type","MinCardWidth","CardHeight","Searchable","Visible","Disabled","Persist","ShowDescription","MaxLength","Live","Tooltip","EmptyText","Pinnable","Collapsible","Collapsed","Side","StackAt","Gap","Translate","Multiline"],"FlowNodes":{"Click":{"Category":"Event","Inputs":{},"Outputs":{"Then":"exec"},"Fields":{"Control":"control"},"Description":"Ao clicar em um botão"},"Change":{"Category":"Event","Inputs":{},"Outputs":{"Then":"exec","Value":"any"},"Fields":{"Control":"control"},"Description":"Quando o usuário altera um controle"},"Apply":{"Category":"Event","Inputs":{},"Outputs":{"Then":"exec","Value":"any"},"Fields":{"Control":"form"},"Description":"Quando um formulário é aplicado"},"Value":{"Category":"Data","Inputs":{},"Outputs":{"Value":"any"},"Fields":{"Control":"control","State":"state"},"Description":"Lê um controle ou estado"},"Constant":{"Category":"Data","Inputs":{},"Outputs":{"Value":"any"},"Fields":{"Value":"value"},"Description":"Valor constante"},"Compare":{"Category":"Data","Inputs":{"A":"any","B":"any"},"Outputs":{"Value":"boolean"},"Fields":{"Operator":["==","~=",">",">=","<","<="]},"Description":"Compara dois valores"},"Math":{"Category":"Data","Inputs":{"A":"number","B":"number"},"Outputs":{"Value":"number"},"Fields":{"Operator":["+","-","*","/","min","max"]},"Description":"Calcula um valor numérico"},"And":{"Category":"Data","Inputs":{"A":"boolean","B":"boolean"},"Outputs":{"Value":"boolean"},"Fields":{},"Description":"Ambas as condições"},"Or":{"Category":"Data","Inputs":{"A":"boolean","B":"boolean"},"Outputs":{"Value":"boolean"},"Fields":{},"Description":"Uma das condições"},"Not":{"Category":"Data","Inputs":{"Value":"boolean"},"Outputs":{"Value":"boolean"},"Fields":{},"Description":"Inverte a condição"},"Format":{"Category":"Data","Inputs":{"Value":"any"},"Outputs":{"Value":"string"},"Fields":{"Text":"text"},"Description":"Insere um valor em {value}"},"Branch":{"Category":"Action","Inputs":{"Execute":"exec","Condition":"boolean"},"Outputs":{"True":"exec","False":"exec"},"Fields":{},"Description":"Escolhe um caminho"},"Binding":{"Category":"Binding","Inputs":{"Value":"any"},"Outputs":{},"Fields":{"Control":"control","State":"state","Property":["Value","Title","Text","Description","Visible","Disabled"]},"Description":"Atualiza a interface sem executar callbacks"},"SetValue":{"Category":"Action","Inputs":{"Execute":"exec","Value":"any"},"Outputs":{"Then":"exec"},"Fields":{"Control":"control","State":"state"},"Description":"Altera um componente explicitamente"},"SetVisible":{"Category":"Action","Inputs":{"Execute":"exec","Value":"boolean"},"Outputs":{"Then":"exec"},"Fields":{"Control":"control"},"Description":"Altera um componente explicitamente"},"SetDisabled":{"Category":"Action","Inputs":{"Execute":"exec","Value":"boolean"},"Outputs":{"Then":"exec"},"Fields":{"Control":"control"},"Description":"Altera um componente explicitamente"},"SetText":{"Category":"Action","Inputs":{"Execute":"exec","Value":"any"},"Outputs":{"Then":"exec"},"Fields":{"Control":"control"},"Description":"Altera um componente explicitamente"},"Notify":{"Category":"Action","Inputs":{"Execute":"exec","Message":"string"},"Outputs":{"Then":"exec"},"Fields":{"Text":"text","Title":"text","Kind":["normal","success","error"]},"Description":"Mostra uma notificação"},"Call":{"Category":"Action","Inputs":{"Execute":"exec","Value":"any"},"Outputs":{"Then":"exec"},"Fields":{"Action":"action"},"Description":"Chama uma função conectada pelo desenvolvedor"},"SetLocale":{"Category":"Action","Inputs":{"Execute":"exec"},"Outputs":{"Then":"exec"},"Fields":{"Locale":["auto","pt-BR","en-US"]},"Description":"Muda o idioma da janela"},"ApplyForm":{"Category":"Action","Inputs":{"Execute":"exec"},"Outputs":{"Then":"exec"},"Fields":{"Control":"form"},"Description":"Valida e aplica um formulário"},"CancelForm":{"Category":"Action","Inputs":{"Execute":"exec"},"Outputs":{"Then":"exec"},"Fields":{"Control":"form"},"Description":"Descarta o rascunho de um formulário"}},"IconNames":["axe","backpack","bank","bolt","bow","check","chest","chevron-down","chevron-right","clock","close","code","coins","copy","credit-card","crown","diamond","download","error","eye","fish","folder","gamepad","gift","globe","grid","hammer","heart","home","info","key","keyboard","leaf","link","load","lock","magnet","map","maximize","minimize","mobile","money","mouse","notification","palette","pickaxe","potion","refresh","reset","restore","retrobox","rocket","save","screwdriver","search","settings","shield","shovel","skull","sliders","spark","star","success","sword","target","terminal","toolbox","tools","trophy","unlock","upload","user","volume","wallet","warning","wrench"],"ThemeNames":["Amber","Dracula","GameBoy","Hacker","Midnight","Monokai","Nord","Ocean","Paper","Retro98","Sakura","Terminal"]}]==])
+    function Library:GetDesignerCatalog() return copy(catalog) end
+end
+
+-- Reusable groups and transactional forms compose the existing public controls.
+do
+    local allowed={Toggle=true,Slider=true,Button=true,Input=true,Dropdown=true,ColorPicker=true,Label=true,Separator=true,
+        StatCard=true,Progress=true,Chart=true,Console=true,Image=true,VirtualList=true,DataTable=true,TreeView=true,
+        Preview=true,Stepper=true,CardGrid=true,Keybind=true}
+    local function id(value)
+        assert(type(value)=='string' and #value>=1 and #value<=64 and value:match('^[%w_.%-]+$'),'Group Id must contain 1–64 letters, numbers, dots, underscores or hyphens')
+        return value
+    end
+    local function owner(section,name,kind)
+        local window=section._window
+        assert(not section.Destroyed and not window.Destroyed,'Section has been destroyed')
+        window._componentGroups=window._componentGroups or {};assert(not window._componentGroups[name],'Duplicate component group Id')
+        local result={Id=id(name),Type=kind,_window=window,Section=section,Controls={},Scope=window:CreateScope()}
+        window._componentGroups[name]=result
+        result.Scope:Add(function() if window._componentGroups[name]==result then window._componentGroups[name]=nil end end)
+        function result:Manage(value,method,key) return self.Scope:Add(value,method,key) end
+        function result:SetVisible(value)
+            assert(type(value)=='boolean','Visible must be boolean')
+            for _,control in ipairs(self.Controls) do if not control.Destroyed then control:SetVisible(value) end end;return self
+        end
+        function result:SetDisabled(value)
+            assert(type(value)=='boolean','Disabled must be boolean');self.Disabled=value
+            for _,control in ipairs(self.Controls) do if not control.Destroyed then control:SetDisabled(value) end end;return self
+        end
+        function result:SetTitle(value) if self.Header then self.Header:SetText(tostring(value)) end;return self end
+        function result:SetDescription(value) if self.Header then self.Header:SetDescription(tostring(value)) end;return self end
+        function result:Destroy()
+            if self.Destroyed then return end
+            self.Destroyed=true;self.Scope:Destroy();self.Section=nil
+        end
+        result.Scope:Add(function()
+            result.Destroyed=true
+            for i=#result.Controls,1,-1 do local control=result.Controls[i];if not control.Destroyed then control:Destroy() end end
+            result.Controls={};result.Section=nil
+        end,nil,'controls')
+        result:Manage(section.Frame.Destroying:Connect(function() result:Destroy() end),'Disconnect')
+        return result
+    end
+    Library._components={}
+    function Library:RegisterComponent(name,builder,options)
+        id(name);assert(type(builder)=='function','Component builder must be a function')
+        assert(not self._components[name] or type(options)=='table' and options.Replace==true,'Component is already registered')
+        local count=0;for _ in pairs(self._components) do count=count+1 end;assert(self._components[name] or count<128,'Component registry limit is 128')
+        self._components[name]=builder;return self
+    end
+    function Library:GetComponentNames()
+        local result={};for name in pairs(self._components) do result[#result+1]=name end;table.sort(result);return result
+    end
+    function Section:AddComponent(name,options)
+        options=options or {};local builder=assert(Library._components[name],'Unknown reusable component')
+        local handle=owner(self,options.Id or name,'Component');local section=self;local context={Scope=handle.Scope,Window=self._window,Controls={},Props=options.Props or {}}
+        function context:Add(kind,settings)
+            assert(not handle.Destroyed and allowed[kind] and type(section['Add'..kind])=='function','Unknown or destroyed component control')
+            assert(#handle.Controls<32,'A reusable component accepts at most 32 child controls')
+            local prepared={};for key,value in pairs(settings or {}) do prepared[key]=value end
+            local child=id(prepared.Id or ('item-'..(#handle.Controls+1)))
+            assert(not self.Controls[child],'Duplicate component child Id')
+            prepared.Id=handle.Id..'/'..child
+            local control=section['Add'..kind](section,prepared)
+            handle.Controls[#handle.Controls+1]=control;self.Controls[child]=control;return control
+        end
+        function context:CreateState(value,settings)
+            local state=Library:CreateState(value,settings);handle:Manage(state,'Destroy');return state
+        end
+        function context:Manage(resource,method,key) return handle:Manage(resource,method,key) end
+        local ok,result=pcall(builder,context,context.Props)
+        if not ok then handle:Destroy();error(result,2) end
+        handle.Exports=result or {};handle.Children=context.Controls
+        function handle:Get(child) return self.Children[child] end
+        function handle:GetValue() local values={};for key,control in pairs(self.Children) do if not control.Destroyed then values[key]=control:GetValue() end end;return values end
+        function handle:SetValue(values,silent)
+            assert(type(values)=='table' and not self.Destroyed,'Component values need a live component and record')
+            local changes={};for key,value in pairs(values) do local child=assert(self.Children[key],'Unknown component child');changes[key]=child:_normalize(value) end
+            Library:Batch(function() for key,value in pairs(changes) do self.Children[key]:SetValue(value,silent~=false) end end);return self
+        end
+        local sources={};for _,child in pairs(handle.Children) do sources[#sources+1]=self._window:GetFlagState(child.Id) end
+        if #sources>0 then handle.State=self._window:Computed(sources,function() return handle:GetValue() end)
+        else handle.State=Library:CreateState({}) end
+        handle:Manage(handle.State,'Destroy')
+        function handle:OnChanged(callback)
+            assert(type(callback)=='function','Component listener must be a function')
+            local scope=self.Scope:Child();local connection={Connected=true}
+            for _,child in pairs(self.Children) do scope:Add(child:OnChanged(function() if connection.Connected and not self.Destroyed then callback(self:GetValue(),self) end end),'Disconnect') end
+            function connection:Disconnect() self.Connected=false;scope:Destroy() end
+            scope:Add(function() connection.Connected=false end);return connection
+        end
+        handle:Manage(function() handle.Children={};handle.Exports={};context.Controls={};context.Window=nil;context.Props=nil end)
+        return handle
+    end
+
+    local formTypes={Input=true,Toggle=true,Slider=true,Dropdown=true,ColorPicker=true}
+    function Section:CreateForm(options)
+        assert(type(options)=='table' and type(options.Fields)=='table' and #options.Fields>=1 and #options.Fields<=64,'Form needs 1–64 Fields')
+        local window=self._window;local name=id(options.Id)
+        window._forms=window._forms or {};assert(not window._forms[name],'Duplicate form Id')
+        assert(options.Validate==nil or type(options.Validate)=='function','Form Validate must be a function')
+        assert(options.OnApply==nil or type(options.OnApply)=='function','Form OnApply must be a function')
+        local fields,keys={},{}
+        for index,field in ipairs(options.Fields) do
+            assert(type(field)=='table' and formTypes[field.Type],'Unknown form field Type')
+            id(field.Id);assert(not keys[field.Id],'Duplicate form field Id')
+            assert(not ({_title=true,_status=true,_apply=true,_cancel=true})[field.Id],'Reserved form field Id')
+            assert(field.Required==nil or type(field.Required)=='boolean','Required must be boolean')
+            local prepared={};for key,value in pairs(field) do prepared[key]=value end
+            fields[index]=prepared;keys[field.Id]=true
+        end
+        local form=owner(self,name,'Form');form.Fields={};form.Errors={};form._definitions=fields;form._listeners={}
+        window._forms[name]=form
+        local function add(kind,settings)
+            settings.Persist=false;settings.Id=name..'/'..settings.Id
+            if options.Translate==false then settings.Translate=false end
+            local control=self['Add'..kind](self,settings);form.Controls[#form.Controls+1]=control;return control
+        end
+        local function values()
+            local result={}
+            for key,control in pairs(form.Fields) do
+                result[key]=control.Type=='Input' and control.Input.Text or control:GetValue()
+            end
+            return result
+        end
+        local function render()
+            if form.Destroyed then return end
+            form.Dirty=not same(values(),form._committed:Get())
+            form.Status:SetText(window:_t17(form.Dirty and 'Alterações não aplicadas' or 'Nenhuma alteração pendente',form.Dirty and 'Unapplied changes' or 'No pending changes'))
+            form.ApplyButton:SetDisabled(form.Disabled or not form.Dirty);form.CancelButton:SetDisabled(form.Disabled or not form.Dirty)
+        end
+        local ok,reason=pcall(function()
+            if options.Title then form.Header=add('Label',{Id='_title',Title=options.Title,Description=options.Description or '',Height=44}) end
+            for _,field in ipairs(fields) do
+                local settings={};for key,value in pairs(field) do settings[key]=value end
+                settings.Type=nil;settings.Required=nil;settings.Callback=nil;settings.State=nil;settings.FireOnInit=false
+                if options.Values and options.Values[field.Id]~=nil then settings.Default=copy(options.Values[field.Id]) end
+                local control=add(field.Type,settings);form.Fields[field.Id]=control
+                local errorLabel=add('Label',{Id=field.Id..'.error',Title='',Height=26,Visible=false});form.Errors[field.Id]=errorLabel
+            end
+            form._committed=Library:CreateState(values());form:Manage(form._committed,'Destroy')
+            form.State=window:Computed({form._committed},function(value) return value end)
+            form.Status=add('Label',{Id='_status',Title='',Height=28})
+            form.ApplyButton=add('Button',{Id='_apply',Title=window:_t17('Aplicar','Apply'),Icon='check',Callback=function() form:Apply() end})
+            form.CancelButton=add('Button',{Id='_cancel',Title=window:_t17('Cancelar','Cancel'),Icon='close',Callback=function() form:Cancel() end})
+            for _,control in pairs(form.Fields) do
+                form:Manage(control:OnChanged(function() render() end),'Disconnect')
+                if control.Type=='Input' then form:Manage(control.Input:GetPropertyChangedSignal('Text'):Connect(function() render() end),'Disconnect') end
+            end
+        end)
+        if not ok then form:Destroy();window._forms[name]=nil;error(reason,2) end
+        function form:GetValue() return self._committed:Get() end
+        function form:GetDraft() return values() end
+        function form:IsDirty() return not same(values(),self._committed:Get()) end
+        function form:_prepare(value)
+            assert(type(value)=='table','Form values must be a record')
+            local normalized={};local errors={}
+            for key in pairs(value) do assert(self.Fields[key],'Unknown form field: '..tostring(key)) end
+            for _,field in ipairs(fields) do
+                local candidate=value[field.Id]
+                local valid,result=pcall(self.Fields[field.Id]._normalize,self.Fields[field.Id],candidate)
+                if not valid then errors[field.Id]=tostring(result)
+                elseif field.Required and (result==nil or type(result)=='string' and result:match('^%s*$')) then errors[field.Id]=window:_t17('Campo obrigatório','Required field')
+                else normalized[field.Id]=copy(result) end
+            end
+            if next(errors)==nil and options.Validate then
+                local valid,message=options.Validate(copy(normalized),self)
+                if valid~=true then
+                    if type(message)=='table' then for key,text in pairs(message) do assert(self.Fields[key],'Validation returned an unknown field');errors[key]=tostring(text) end
+                    else errors._form=tostring(message or window:_t17('Revise os campos','Review the fields')) end
+                end
+            end
+            return next(errors)==nil,normalized,errors
+        end
+        function form:Validate()
+            assert(not self.Destroyed,'Form has been destroyed')
+            local valid,result,errors=self:_prepare(values());return valid,errors,result
+        end
+        function form:SetDraft(value)
+            assert(not self.Destroyed,'Form has been destroyed')
+            assert(type(value)=='table','Draft must be a record')
+            local changes={}
+            for key,item in pairs(value) do local control=assert(self.Fields[key],'Unknown form field');changes[key]=control:_normalize(item) end
+            Library:Batch(function() for key,item in pairs(changes) do self.Fields[key]:SetValue(item,true) end end)
+            render();return self
+        end
+        form.SetValue=form.SetDraft
+        function form:_commit(value,silent)
+            self._committed:Set(value)
+            for key,control in pairs(self.Fields) do control:SetValue(value[key],true) end
+            for _,errorLabel in pairs(self.Errors) do errorLabel:SetVisible(false) end
+            render()
+            if not silent then
+                call(window,options.OnApply,copy(value),self)
+                for _,field in ipairs(fields) do call(window,field.Callback,copy(value[field.Id]),self) end
+                for listener in pairs(self._listeners) do if listener.Connected then call(window,listener.Callback,copy(value),self) end end
+            end
+        end
+        function form:Apply()
+            assert(not self.Destroyed,'Form has been destroyed')
+            if self.Disabled then return false,'disabled' end
+            local valid,value,errors=self:_prepare(values())
+            for key,errorLabel in pairs(self.Errors) do errorLabel:SetText(errors[key] or '');errorLabel:SetVisible(errors[key]~=nil) end
+            if not valid then self.Status:SetText(errors._form or window:_t17('Revise os campos destacados','Review highlighted fields'));return false,copy(errors) end
+            if same(value,self._committed:Get()) then return false,'unchanged' end
+            self:_commit(value,false);window:_scheduleSave();return true,self:GetValue()
+        end
+        function form:Cancel()
+            assert(not self.Destroyed,'Form has been destroyed')
+            self:SetDraft(self._committed:Get());for _,errorLabel in pairs(self.Errors) do errorLabel:SetVisible(false) end;return self
+        end
+        function form:OnChanged(callback)
+            assert(type(callback)=='function','Form listener must be a function')
+            local listener={Connected=true,Callback=callback}
+            function listener:Disconnect() self.Connected=false;form._listeners[self]=nil end
+            self._listeners[listener]=true;return listener
+        end
+        form:Manage(function()
+            for listener in pairs(form._listeners) do listener.Connected=false end
+            form._listeners={};form.Fields={};form.Errors={};window._forms[name]=nil
+            if form.State and not form.State.Destroyed then form.State:Destroy() end
+        end,nil,'form')
+        render();return form
+    end
+    local export=Window._exportProfileExtras
+    function Window:_exportProfileExtras(profile)
+        export(self,profile)
+        if self._forms and next(self._forms) then
+            profile.Forms={};for name,form in pairs(self._forms) do if not form.Destroyed then profile.Forms[name]=form:GetValue() end end
+        end
+        return profile
+    end
+    local prepare=Window._prepareProfile
+    function Window:_prepareProfile(source,options)
+        local profile,extras,policy=prepare(self,source,options);local changes={}
+        if profile.Forms~=nil then
+            assert(type(profile.Forms)=='table','Profile Forms must be a record')
+            for name,value in pairs(profile.Forms) do
+                local form=self._forms and self._forms[name]
+                if form and not form.Destroyed then
+                    local valid,normalized=form:_prepare(value);assert(valid,'Profile contains invalid form: '..name);changes[#changes+1]={Form=form,Value=normalized}
+                end
+            end
+        end
+        self._preparedForms=changes;return profile,extras,policy
+    end
+    local import=Window.ImportConfig
+    function Window:ImportConfig(source,options)
+        self._preparedForms=nil
+        local ok,reason=import(self,source,options);local changes=self._preparedForms;self._preparedForms=nil
+        if ok then Library:Batch(function() for _,change in ipairs(changes or {}) do change.Form:_commit(change.Value,true) end end) end
+        return ok,reason
+    end
+end
+
+-- A bounded recycled card viewport; scrolling does not create one UI per item.
+do
+    local function items(value)
+        assert(type(value)=='table' and #value<=5000,'CardGrid accepts at most 5000 Items')
+        local result,ids={},{}
+        for key in pairs(value) do assert(type(key)=='number' and key%1==0 and key>=1 and key<=#value,'Items must be a dense array') end
+        for index,record in ipairs(value) do
+            assert(type(record)=='table' and type(record.Id)=='string' and #record.Id>=1 and #record.Id<=128 and not ids[record.Id],'Card Ids must be unique nonempty strings')
+            local entry={Id=record.Id,Title=record.Title or record.Id,Description=record.Description or '',Image=record.Image,Icon=record.Icon,Category=record.Category or '',
+                Badges={},Enabled=record.Enabled~=false,Translate=record.Translate~=false}
+            for _,key in ipairs({'Title','Description','Category'}) do assert(type(entry[key])=='string' and #entry[key]<=2048,'Invalid card '..key) end
+            assert(entry.Image==nil or type(entry.Image)=='string' and #entry.Image<=2048,'Invalid card Image');resolveIcon(entry.Icon)
+            assert(record.Badges==nil or type(record.Badges)=='table' and #record.Badges<=4,'Card accepts at most four Badges')
+            for _,badge in ipairs(record.Badges or {}) do assert(type(badge)=='string' and #badge<=64,'Invalid card Badge');entry.Badges[#entry.Badges+1]=badge end
+            result[index]=entry;ids[entry.Id]=index
+        end
+        return result,ids
+    end
+    function Section:AddCardGrid(options)
+        options=options or {};local initial,index=items(options.Items or {})
+        local height=options.Height or 340;local cardHeight=options.CardHeight or 158;local minWidth=options.MinCardWidth or 180
+        local gap=options.Gap or 10;local columns=options.Columns
+        assert(finite(height) and height>=180 and height<=900,'Grid Height must be 180–900')
+        assert(finite(cardHeight) and cardHeight>=120 and cardHeight<=300,'CardHeight must be 120–300')
+        assert(finite(minWidth) and minWidth>=140 and minWidth<=600,'MinCardWidth must be 140–600')
+        assert(finite(gap) and gap>=0 and gap<=24,'Grid Gap must be 0–24')
+        assert(columns==nil or finite(columns) and columns%1==0 and columns>=1 and columns<=6,'Columns must be 1–6')
+        assert(options.OnActivate==nil or type(options.OnActivate)=='function','OnActivate must be a function')
+        local actions,actionIds={},{}
+        for _,action in ipairs(options.Actions or {}) do
+            assert(#actions<3 and type(action)=='table' and type(action.Id)=='string' and not actionIds[action.Id],'Grid accepts at most three unique Actions')
+            assert(type(action.Text)=='string' and #action.Text<=64 and type(action.Callback)=='function','Action needs Text and Callback')
+            actions[#actions+1]={Id=action.Id,Text=action.Text,Callback=action.Callback};actionIds[action.Id]=true
+        end
+        local self=base(self,'CardGrid',options,height);local window=self._window
+        self.Persist=options.Persist==true;self.Items=initial;self._cardIndex=index;self._cards={};self._filtered={};self.Query='';self.Filter=nil
+        local top=#self.Description>0 and 46 or 26
+        if options.Searchable~=false then
+            self.Search=ui(window,'TextBox',{Parent=self.Frame,Position=U2(0,top),Size=UDim2.new(1,0,0,28),Text='',PlaceholderText=window:_t17('Pesquisar cards…','Search cards…'),
+                Font=window.Font,TextSize=12,ClearTextOnFocus=false,BorderSizePixel=1},{BackgroundColor3='Inset',TextColor3='Text',PlaceholderColor3='Muted',BorderColor3='Border'})
+            top=top+34
+            connect(self,self.Search:GetPropertyChangedSignal('Text'),function() self:SetQuery(self.Search.Text) end)
+        end
+        self.Viewport=ui(window,'ScrollingFrame',{Parent=self.Frame,Position=U2(0,top),Size=UDim2.new(1,0,1,-top),CanvasSize=U2(0,0),CanvasPosition=Vector2.new(0,0),
+            BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=5,ScrollingDirection=Enum.ScrollingDirection.Y,ClipsDescendants=true},{ScrollBarImageColor3='Accent'})
+        self.Empty=label(window,self.Viewport,options.EmptyText or window:_t17('Nenhum card encontrado','No cards found'),{Size=UDim2.new(1,-8,0,48),TextWrapped=true},'Muted')
+        local function makeCard()
+            local card={}
+            card.Frame=ui(window,'TextButton',{Parent=self.Viewport,Text='',AutoButtonColor=false,BorderSizePixel=1,ClipsDescendants=true},
+                {BackgroundColor3='Surface',BorderColor3='Border'})
+            card.Icon=iconSlot(window,card.Frame,nil,'grid',24,U2(8,8),'Text')
+            self:Manage(card.Icon,'Destroy')
+            card.Image=ui(window,'ImageLabel',{Parent=card.Frame,Position=U2(8,8),Size=U2(28,28),BackgroundTransparency=1,Image='',Visible=false})
+            card.Title=label(window,card.Frame,'',{Position=U2(40,7),Size=UDim2.new(1,-48,0,24),TextSize=12,TextTruncate=Enum.TextTruncate.AtEnd})
+            card.Description=label(window,card.Frame,'',{Position=U2(8,40),Size=UDim2.new(1,-16,0,44),TextSize=11,TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top,TextTruncate=Enum.TextTruncate.AtEnd},'Muted')
+            card.Badges=label(window,card.Frame,'',{Position=U2(8,87),Size=UDim2.new(1,-16,0,18),TextSize=10,TextTruncate=Enum.TextTruncate.AtEnd},'Accent')
+            card.Actions={}
+            for i,action in ipairs(actions) do
+                card.Actions[i]=button(window,self,card.Frame,action.Text,{Position=UDim2.new((i-1)/#actions,6,1,-34),Size=UDim2.new(1/#actions,-12,0,27),TextSize=10},function()
+                    local record=card.Record
+                    if not self.Disabled and record and record.Enabled and not self.Destroyed then call(window,action.Callback,copy(record),self) end
+                end)
+            end
+            connect(self,card.Frame.Activated,function()
+                local record=card.Record
+                if self.Destroyed or self.Disabled or not record or not record.Enabled then return end
+                self:SetValue(record.Id);call(window,options.OnActivate,copy(record),self)
+            end)
+            self._cards[#self._cards+1]=card;return card
+        end
+        function self:_normalize(value)
+            assert(value==nil or type(value)=='string' and self._cardIndex[value],'Unknown card Id')
+            return value
+        end
+        function self:_filterCards()
+            self._filtered={}
+            for _,record in ipairs(self.Items) do
+                local haystack=(record.Title..' '..record.Description..' '..record.Category..' '..table.concat(record.Badges,' ')):lower()
+                if (self.Query=='' or haystack:find(self.Query:lower(),1,true)) and (not self.Filter or record.Category==self.Filter or table.find(record.Badges,self.Filter)) then
+                    self._filtered[#self._filtered+1]=record
+                end
+            end
+        end
+        function self:_render()
+            if self.Destroyed or not self.Viewport or not self.Viewport.Parent then return end
+            local width=math.max(140,self.Viewport.AbsoluteSize.X-8)
+            local count=columns or math.max(1,math.min(6,math.floor((width+gap)/(minWidth+gap))))
+            local cardWidth=(width-(count-1)*gap)/count
+            local rows=math.ceil(#self._filtered/count);local step=cardHeight+gap
+            self.Viewport.CanvasSize=U2(0,rows*step)
+            local viewportHeight=math.max(100,self.Viewport.AbsoluteSize.Y)
+            local first=math.max(0,math.floor(self.Viewport.CanvasPosition.Y/step)-1)
+            local pool=math.min(64,math.max(0,math.min(rows-first,math.ceil(viewportHeight/step)+3))*count)
+            self.Empty.Visible=#self._filtered==0
+            for i=1,pool do
+                local card=self._cards[i] or makeCard();local itemIndex=first*count+i;local record=self._filtered[itemIndex]
+                card.Frame.Visible=record~=nil;card.Record=record
+                if record then
+                    card.Frame.Position=U2(((i-1)%count)*(cardWidth+gap),(first+math.floor((i-1)/count))*step)
+                    card.Frame.Size=U2(cardWidth,cardHeight);card.Frame.Active=not self.Disabled and record.Enabled
+                    window:_bind(card.Frame,{BorderColor3=record.Id==self.Value and 'Accent' or 'Border'})
+                    card.Title.Text=record.Title;card.Description.Text=record.Description;card.Badges.Text=table.concat(record.Badges,' · ')
+                    card.Icon:Set(record.Image and false or record.Icon);card.Image.Visible=record.Image~=nil;card.Image.Image=record.Image or ''
+                    card.Title.TextTransparency=record.Enabled and 0 or .4
+                    for _,action in ipairs(card.Actions) do action.Active=not self.Disabled and record.Enabled end
+                    window:SetTextTranslation(card.Frame,options.Translate~=false and record.Translate)
+                end
+            end
+            for i=pool+1,#self._cards do self._cards[i].Frame.Visible=false;self._cards[i].Record=nil end
+            self._columnCount=count
+        end
+        function self:SetQuery(value)
+            assert(type(value)=='string' and #value<=256,'Grid query exceeds 256 bytes')
+            self.Query=value;self:_filterCards();self.Viewport.CanvasPosition=Vector2.new(0,0);self:_render();return self
+        end
+        function self:SetFilter(value)
+            assert(value==nil or type(value)=='string' and #value<=64,'Filter must be a category or badge')
+            self.Filter=value;self:SetQuery(self.Query);return self
+        end
+        function self:SetItems(value)
+            local prepared,ids=items(value);self.Items=prepared;self._cardIndex=ids
+            if self.Value and not ids[self.Value] then self:SetValue(nil,true) end
+            self:SetQuery(self.Query);return self
+        end
+        function self:GetItems() return copy(self.Items) end
+        function self:GetSelectedItem() local selected=self._cardIndex[self.Value];return selected and copy(self.Items[selected]) or nil end
+        function self:GetViewStats() return {Total=#self.Items,Filtered=#self._filtered,Pool=#self._cards,Columns=self._columnCount} end
+        connect(self,self.Viewport:GetPropertyChangedSignal('CanvasPosition'),function() self:_render() end)
+        connect(self,self.Viewport:GetPropertyChangedSignal('AbsoluteSize'),function() self:_render() end)
+        self:Manage(function() self.Items={};self._filtered={};self._cards={};self._cardIndex={};self.Viewport=nil;self.Empty=nil;self.Search=nil end)
+        self:_filterCards();return init(self,options,nil)
+    end
+end
+
+-- Typed finite graphs connect public controls, States and developer actions.
+-- No node evaluates source code. Execution starts only from explicit events.
+do
+    local types=Library:GetDesignerCatalog().FlowNodes
+    local function plain(value,seen,depth,budget)
+        local kind=type(value);budget.Count=budget.Count+1;assert(budget.Count<=32768,'Graph data exceeds its budget')
+        if kind=='nil' or kind=='boolean' then return value end
+        if kind=='number' then assert(finite(value),'Graph numbers must be finite');return value end
+        if kind=='string' then budget.Bytes=budget.Bytes+#value;assert(budget.Bytes<=2097152,'Graph strings exceed 2 MiB');return value end
+        assert(kind=='table' and getmetatable(value)==nil and depth<16 and not seen[value],'Graph must be acyclic plain data')
+        seen[value]=true;local result={}
+        for key,item in pairs(value) do
+            assert(type(key)=='string' or type(key)=='number' and finite(key),'Invalid graph key')
+            assert(key~='__proto__' and key~='constructor' and key~='prototype','Reserved graph key')
+            result[key]=plain(item,seen,depth+1,budget)
+        end
+        seen[value]=nil;return result
+    end
+    function Library:CloneDesignerData(value) return plain(value,{},0,{Count=0,Bytes=0}) end
+    local function array(value,maximum,name)
+        assert(type(value)=='table' and #value<=maximum,name..' exceeds its limit')
+        for key in pairs(value) do assert(type(key)=='number' and key%1==0 and key>=1 and key<=#value,name..' must be a dense array') end
+        return value
+    end
+    local function key(value)
+        assert(type(value)=='string' and #value>=1 and #value<=128 and value:match('^[%w_./%-]+$'),'Graph Id must contain 1–128 portable characters')
+        return value
+    end
+    local function controlType(control)
+        return ({Toggle='boolean',Slider='number',Input='string',Label='string',Separator='string',CardGrid='string',Progress='number',Console='string',VirtualList='string',DataTable='string',TreeView='string'})[control.Type] or 'any'
+    end
+    local function prepare(definition,bindings)
+        local graph=Library:CloneDesignerData(definition);bindings=bindings or {}
+        assert(type(graph)=='table','Flow graph must be a record');key(graph.Id or 'flow')
+        local controls,states,actions=bindings.Controls or {},bindings.States or {},bindings.Actions or {}
+        local nodes,incoming,outgoing={}, {},{}
+        for _,node in ipairs(array(graph.Nodes or {},256,'Nodes')) do
+            key(node.Id);assert(not nodes[node.Id] and types[node.Type],'Duplicate node or unknown Type')
+            nodes[node.Id]=node;incoming[node.Id]={};outgoing[node.Id]={}
+            if node.Control then assert(type(node.Control)=='string' and controls[node.Control] and not controls[node.Control].Destroyed,'Unknown control: '..tostring(node.Control)) end
+            if node.State then assert(states[node.State] and Library:_isState(states[node.State]) and not states[node.State].Destroyed,'Unknown State') end
+            local spec=types[node.Type]
+            for field,choices in pairs(spec.Fields) do
+                if type(choices)=='table' then assert(node[field]~=nil and table.find(choices,node[field]),'Invalid '..field..' in '..node.Id) end
+            end
+            local kind=node.Type
+            if kind=='Value' or kind=='Binding' or kind=='SetValue' then
+                assert((node.Control~=nil)~=(node.State~=nil),'Node needs exactly one Control or State')
+            end
+            if kind=='Click' then assert(node.Control and controls[node.Control].Type=='Button','Click needs a Button')
+            elseif kind=='Change' then assert(node.Control and type(controls[node.Control].OnChanged)=='function','Change needs a value control')
+            elseif kind=='Apply' or kind=='ApplyForm' or kind=='CancelForm' then assert(node.Control and controls[node.Control].Type=='Form','Node needs a Form')
+            elseif kind=='Call' then assert(type(node.Action)=='string' and type(actions[node.Action])=='function','Action is not connected: '..tostring(node.Action))
+            elseif kind=='SetVisible' or kind=='SetDisabled' or kind=='SetText' then assert(node.Control,'Node needs a Control')
+            elseif kind=='Format' or kind=='Notify' then assert(type(node.Text)=='string' and #node.Text<=8192,'Node needs Text') end
+            if node.State and (kind=='Binding' or kind=='SetValue') then assert(not states[node.State].ReadOnly,'Cannot write a read-only State') end
+        end
+        local edgeKeys={}
+        for _,edge in ipairs(array(graph.Edges or {},512,'Edges')) do
+            assert(type(edge)=='table' and nodes[edge.From] and nodes[edge.To],'Edge refers to an unknown node')
+            local source,target=types[nodes[edge.From].Type],types[nodes[edge.To].Type]
+            local output,input=source.Outputs[edge.Out],target.Inputs[edge.Input]
+            assert(output and input,'Edge refers to an unknown port')
+            assert((output=='exec')==(input=='exec'),'Execution and data ports cannot be connected')
+            local signature=edge.From..'/'..edge.Out..'/'..edge.To..'/'..edge.Input
+            assert(not edgeKeys[signature],'Duplicate edge');edgeKeys[signature]=true
+            if input~='exec' then assert(not incoming[edge.To][edge.Input],'Input already has a connection');incoming[edge.To][edge.Input]=edge end
+            outgoing[edge.From][edge.Out]=outgoing[edge.From][edge.Out] or {};table.insert(outgoing[edge.From][edge.Out],edge)
+        end
+        local marks={}
+        local function visit(name)
+            assert(marks[name]~=1,'Flow graph contains a cycle')
+            if marks[name]==2 then return end
+            marks[name]=1
+            for _,edges in pairs(outgoing[name]) do for _,edge in ipairs(edges) do visit(edge.To) end end
+            marks[name]=2
+        end
+        for name in pairs(nodes) do visit(name) end
+        local inferred={}
+        local function outputType(name,port)
+            local cache=name..'/'..port;if inferred[cache] then return inferred[cache] end
+            local node=nodes[name];local result=types[node.Type].Outputs[port]
+            if result=='any' then
+                if node.Type=='Constant' then result=type(node.Value);if result=='nil' or result=='table' then result='any' end
+                elseif node.Control then result=controlType(controls[node.Control])
+                elseif node.State then result=type(states[node.State]:Get());if result=='nil' or result=='table' then result='any' end end
+            end
+            inferred[cache]=result;return result
+        end
+        for name,node in pairs(nodes) do
+            for port,inputType in pairs(types[node.Type].Inputs) do
+                if inputType~='exec' then
+                    local edge=incoming[name][port]
+                    local optional=node.Type=='Notify' and port=='Message' or node.Type=='Call' and port=='Value'
+                    assert(edge or optional,'Missing data input '..name..'.'..port)
+                    if edge then
+                        local sourceType=outputType(edge.From,edge.Out)
+                        local expected=inputType
+                        if node.Type=='Binding' or node.Type=='SetValue' then
+                            local property=node.Property or 'Value'
+                            if property=='Visible' or property=='Disabled' then expected='boolean'
+                            elseif property~='Value' then expected='string'
+                            elseif node.Control then expected=controlType(controls[node.Control])
+                            elseif node.State then expected=type(states[node.State]:Get());if expected=='table' or expected=='nil' then expected='any' end end
+                        end
+                        assert(expected=='any' or sourceType=='any' or expected==sourceType,'Incompatible port types at '..name..'.'..port)
+                    end
+                end
+            end
+        end
+        local dependency,bindingsByTarget,bindingProperties={}, {},{}
+        local function sources(name,found,seen)
+            seen=seen or {};if seen[name] then return end;seen[name]=true
+            local node=nodes[name]
+            if node.Type=='Value' or node.Type=='Change' or node.Type=='Apply' then
+                found[(node.Control and 'control/'..node.Control) or 'state/'..node.State]=true
+            end
+            for _,edge in pairs(incoming[name]) do sources(edge.From,found,seen) end
+        end
+        for name,node in pairs(nodes) do
+            if node.Type=='Binding' then
+                local target=node.Control and 'control/'..node.Control or 'state/'..node.State
+                assert(not node.State or node.Property=='Value','State bindings write the Value property')
+                local property=target..'/'..node.Property
+                assert(not bindingProperties[property],'A property cannot have multiple bindings');bindingProperties[property]=true
+                if node.State or node.Property=='Value' or node.Property=='Text' then
+                    dependency[target]=dependency[target] or {};sources(name,dependency[target])
+                    bindingsByTarget[target]=bindingsByTarget[target] or {};table.insert(bindingsByTarget[target],name)
+                end
+            end
+        end
+        local seen={}
+        local function feedback(name)
+            assert(seen[name]~=1,'Bindings contain a value feedback cycle')
+            if seen[name]==2 then return end;seen[name]=1
+            for source in pairs(dependency[name] or {}) do feedback(source) end
+            seen[name]=2
+        end
+        for name in pairs(dependency) do feedback(name) end
+        local bindingOrder,bindingMarks={},{}
+        local function orderBinding(name)
+            if bindingMarks[name] then return end;bindingMarks[name]=true
+            local found={};sources(name,found)
+            for source in pairs(found) do for _,upstream in ipairs(bindingsByTarget[source] or {}) do orderBinding(upstream) end end
+            bindingOrder[#bindingOrder+1]=nodes[name]
+        end
+        for _,node in ipairs(graph.Nodes or {}) do if node.Type=='Binding' then orderBinding(node.Id) end end
+        return graph,nodes,incoming,outgoing,bindingOrder
+    end
+    function Library:ValidateFlowGraph(definition,bindings)
+        local ok,value=pcall(prepare,definition,bindings)
+        if not ok then return false,tostring(value) end
+        return true,value
+    end
+    function Control:OnActivated(callback)
+        assert(not self.Destroyed and type(callback)=='function','OnActivated needs a live control and callback')
+        if not self._activationListeners then
+            self._activationListeners={};self:Manage(function() for listener in pairs(self._activationListeners) do listener.Connected=false end;self._activationListeners={} end)
+        end
+        local control=self;local listener={Connected=true,Callback=callback}
+        function listener:Disconnect() self.Connected=false;control._activationListeners[self]=nil end
+        self._activationListeners[listener]=true;return listener
+    end
+    local addButton=Section.AddButton
+    function Section:AddButton(options)
+        local control=addButton(self,options);local press=control.Press
+        function control:Press(...)
+            local accepted,reason=press(self,...)
+            if accepted then for listener in pairs(self._activationListeners or {}) do if listener.Connected then call(self._window,listener.Callback,self) end end end
+            return accepted,reason
+        end
+        return control
+    end
+    function Window:CreateFlowGraph(definition,bindings)
+        assert(not self.Destroyed,'Window has been destroyed')
+        bindings=bindings or {};local controls=bindings.Controls or self.Controls;local states=bindings.States or {};local actions=bindings.Actions or {}
+        for _,control in pairs(controls) do assert(control._window==self,'Flow control belongs to another window') end
+        for _,state in pairs(states) do assert(state._window==nil or state._window==self,'Flow State belongs to another window') end
+        local graph,nodes,incoming,outgoing,bindingOrder=prepare(definition,{Controls=controls,States=states,Actions=actions})
+        self._flows=self._flows or {};local name=graph.Id or 'flow';assert(not self._flows[name],'Duplicate flow Id')
+        local window=self;local flow={Id=name,Scope=self:CreateScope(),Definition=graph,Controls=controls,States=states,Actions=actions,Executed=0,Events=0}
+        self._flows[name]=flow
+        local function readTarget(node)
+            if node.State then return assert(not states[node.State].Destroyed and states[node.State],'State was destroyed'):Get() end
+            local control=assert(not controls[node.Control].Destroyed and controls[node.Control],'Control was destroyed')
+            return control:GetValue()
+        end
+        local evaluate
+        local function input(node,port)
+            local edge=incoming[node.Id][port];if not edge then return nil end;return evaluate(edge.From,edge.Out)
+        end
+        evaluate=function(name,port)
+            local node=nodes[name];local kind=node.Type
+            if kind=='Constant' then return copy(node.Value) end
+            if kind=='Value' or kind=='Change' or kind=='Apply' then return readTarget(node) end
+            if kind=='Not' then return not input(node,'Value') end
+            if kind=='Format' then return (window:Translate(node.Text):gsub('{value}',function() return tostring(input(node,'Value')) end)) end
+            local a,b=input(node,'A'),input(node,'B')
+            if kind=='And' then return a and b elseif kind=='Or' then return a or b end
+            if kind=='Compare' then
+                local op=node.Operator
+                if op=='==' then return same(a,b) elseif op=='~=' then return not same(a,b)
+                elseif op=='>' then return a>b elseif op=='>=' then return a>=b elseif op=='<' then return a<b else return a<=b end
+            end
+            assert(kind=='Math' and finite(a) and finite(b),'Math inputs must be finite numbers')
+            local op=node.Operator;local result
+            if op=='+' then result=a+b elseif op=='-' then result=a-b elseif op=='*' then result=a*b
+            elseif op=='/' then assert(b~=0,'Division by zero');result=a/b elseif op=='min' then result=math.min(a,b) else result=math.max(a,b) end
+            assert(finite(result),'Math result must be finite');return result
+        end
+        local function write(node,value,property)
+            if node.State then assert(not states[node.State].Destroyed,'State was destroyed');states[node.State]:Set(value);return end
+            local control=assert(not controls[node.Control].Destroyed and controls[node.Control],'Control was destroyed')
+            if property=='Value' then control:SetValue(value,true)
+            elseif property=='Visible' then assert(type(value)=='boolean','Visible requires boolean');control:SetVisible(value)
+            elseif property=='Disabled' then assert(type(value)=='boolean','Disabled requires boolean');control:SetDisabled(value)
+            elseif property=='Description' then control:SetDescription(tostring(value))
+            elseif property=='Text' and control.Type=='Button' then control._normalText=tostring(value);control:_render()
+            elseif property=='Text' and control.SetText then control:SetText(tostring(value))
+            else control:SetTitle(tostring(value)) end
+        end
+        function flow:Refresh()
+            if self.Destroyed or window.Destroyed or window._closing or self._refreshing then return end
+            self._refreshing=true
+            local ok,reason=window:_protected(function()
+                for _,node in ipairs(bindingOrder) do write(node,input(node,'Value'),node.Property) end
+            end,{Phase='FlowBinding',Operation=self.Id})
+            self._refreshing=false;self.LastError=not ok and tostring(reason) or nil
+        end
+        local execute
+        local function nextNodes(node,port,ctx,budget)
+            for _,edge in ipairs(outgoing[node.Id][port] or {}) do execute(nodes[edge.To],ctx,budget) end
+        end
+        execute=function(node,ctx,budget)
+            ctx:ThrowIfCancelled();assert(not flow.Destroyed and not window.Destroyed,'Flow was destroyed')
+            budget.Count=budget.Count+1;assert(budget.Count<=512,'Flow execution budget exceeded');flow.Executed=flow.Executed+1
+            local kind=node.Type
+            if kind=='Branch' then nextNodes(node,input(node,'Condition') and 'True' or 'False',ctx,budget);return
+            elseif kind=='SetValue' then write(node,input(node,'Value'),'Value')
+            elseif kind=='SetVisible' then write(node,input(node,'Value'),'Visible')
+            elseif kind=='SetDisabled' then write(node,input(node,'Value'),'Disabled')
+            elseif kind=='SetText' then write(node,input(node,'Value'),'Text')
+            elseif kind=='Notify' then window:Notify({Title=window:Translate(node.Title or 'RetroBox'),Content=input(node,'Message') or window:Translate(node.Text),Kind=node.Kind})
+            elseif kind=='Call' then local result,reason=actions[node.Action](ctx,input(node,'Value'),flow);assert(result~=false,reason or 'Developer action failed')
+            elseif kind=='SetLocale' then window:SetLocale(node.Locale)
+            elseif kind=='ApplyForm' then local ok,reason=controls[node.Control]:Apply();assert(ok or reason=='unchanged','Form validation failed')
+            elseif kind=='CancelForm' then controls[node.Control]:Cancel()
+            else error('Invalid executable node: '..kind) end
+            ctx:ThrowIfCancelled();nextNodes(node,'Then',ctx,budget)
+        end
+        function flow:Trigger(nodeId)
+            if self.Destroyed or window.Destroyed then return nil,'Flow has been destroyed' end
+            local node=nodes[nodeId];if not node or types[node.Type].Category~='Event' then return nil,'Unknown event node' end
+            self.Events=self.Events+1
+            local handle,reason=window:RunAction({Group='flow/'..UpdateCore.SHA256(self.Id):sub(1,24),Policy='Reject',Callback=function(ctx)
+                nextNodes(node,'Then',ctx,{Count=0});return true
+            end})
+            if handle then self.Scope:Add(handle,'Cancel','flow-action') end
+            return handle,reason
+        end
+        function flow:Destroy()
+            if self.Destroyed then return end;self.Destroyed=true;self.Scope:Destroy()
+        end
+        function flow:GetDefinition() return self.Definition and copy(self.Definition) or nil end
+        flow.Scope:Add(function() flow.Destroyed=true;window._flows[name]=nil;flow.Controls={};flow.States={};flow.Actions={};flow.Definition=nil;controls={};states={};actions={};nodes={};incoming={};outgoing={};bindingOrder={} end)
+        local observed={}
+        for _,node in ipairs(graph.Nodes or {}) do
+            if node.Type=='Click' then flow.Scope:Add(controls[node.Control]:OnActivated(function() if not flow.Destroyed then flow:Trigger(node.Id) end end),'Disconnect')
+            elseif node.Type=='Change' or node.Type=='Apply' then flow.Scope:Add(controls[node.Control]:OnChanged(function() if not flow.Destroyed and not window._importing then flow:Trigger(node.Id) end end),'Disconnect') end
+            if node.Type=='Value' or node.Type=='Change' or node.Type=='Apply' then
+                local source
+                if node.State then source=states[node.State]
+                elseif controls[node.Control].Type=='Form' or controls[node.Control].Type=='Component' then source=controls[node.Control].State
+                else source=window:GetFlagState(controls[node.Control].Id) end
+                if not observed[source] then observed[source]=true;flow.Scope:Add(source:Subscribe(function() flow:Refresh() end),'Disconnect') end
+            end
+        end
+        flow:Refresh();return flow
+    end
+end
+
+-- Text localization is owned by each window. Input values and code identifiers
+-- are never translated; providers receive only explicitly registered messages.
+do
+    local builtinPairs={}
+    local function locale(value)
+        assert(type(value)=='string' and #value<=24,'Locale must be a language code or auto')
+        value=value:lower():gsub('_','-')
+        if value=='auto' then return 'auto' end
+        if value=='pt' or value:match('^pt%-') then return 'pt-BR' end
+        if value=='en' or value:match('^en%-') then return 'en-US' end
+        assert(value:match('^[a-z][a-z]%-[%w%-]+$'),'Invalid locale code')
+        return value:sub(1,3)..value:sub(4):upper()
+    end
+    local function detected()
+        local player=Players.LocalPlayer
+        if player then
+            local ok,value=pcall(function() return player.LocaleId end)
+            if ok and type(value)=='string' and value~='' then local parsed,code=pcall(locale,value);if parsed then return code,'Player.LocaleId' end end
+        end
+        local ok,service=pcall(function() return game:GetService('LocalizationService') end)
+        if ok and service then
+            for _,key in ipairs({'RobloxLocaleId','SystemLocaleId'}) do
+                local read,value=pcall(function() return service[key] end)
+                if read and type(value)=='string' and value~='' then
+                    local parsed,code=pcall(locale,value);if parsed then return code,key end
+                end
+            end
+        end
+        return 'en-US','fallback'
+    end
+    local function placeholders(value)
+        local keys={};for key in value:gmatch('{([%w_]+)}') do keys[key]=true end;return keys
+    end
+    local function validTranslation(source,target)
+        assert(type(target)=='string' and #target<=8192,'Translation must contain at most 8192 bytes')
+        assert(same(placeholders(source),placeholders(target)),'Translation must preserve every placeholder')
+        return target
+    end
+    local function interpolate(value,args)
+        return (value:gsub('{([%w_]+)}',function(key)
+            local item=args and args[key];return item==nil and ('{'..key..'}') or tostring(item)
+        end))
+    end
+    local function dictionary(value)
+        assert(type(value)=='table','Translations must be a table')
+        local result,count={},0
+        for key,entry in pairs(value) do
+            count=count+1;assert(count<=4096 and type(key)=='string' and #key>=1 and #key<=256,'Translation key limit exceeded')
+            assert(type(entry)=='table' and type(entry.Source)=='string' and #entry.Source<=8192,'Translation entry needs Source')
+            local record={Source=entry.Source,Context=entry.Context,Values={}}
+            assert(entry.Context==nil or type(entry.Context)=='string' and #entry.Context<=512,'Invalid translation context')
+            for code,text in pairs(entry.Values or {}) do
+                local normalized=locale(code);assert(normalized~='auto','A translation cannot target auto')
+                record.Values[normalized]=validTranslation(entry.Source,text)
+            end
+            result[key]=record
+        end
+        return result
+    end
+    function Library:DetectLocale() return detected() end
+    function Library:ValidateTranslations(value) return dictionary(value) end
+    for key,pt in pairs(translations['pt-BR']) do
+        local en=translations['en-US'][key]
+        if type(pt)=='string' and type(en)=='string' then builtinPairs[pt]={['pt-BR']=pt,['en-US']=en};builtinPairs[en]=builtinPairs[pt] end
+    end
+    function Window:_t17(pt,en)
+        if type(pt)=='string' and type(en)=='string' then
+            self._builtinTextPairs=self._builtinTextPairs or {}
+            local pairsForWindow=self._builtinTextPairs
+            local pair={['pt-BR']=pt,['en-US']=en};pairsForWindow[pt]=pair;pairsForWindow[en]=pair
+            local upper={['pt-BR']=pt:upper(),['en-US']=en:upper()};pairsForWindow[pt:upper()]=upper;pairsForWindow[en:upper()]=upper
+        end
+        return self._locale==translations['en-US'] and en or pt
+    end
+    function Window:_translateLiteral(source)
+        local entry=self._literalMessages and self._literalMessages[source]
+        if type(entry)=='table' then return self:Translate(entry.Key):upper() end
+        if entry then return self:Translate(entry) end
+        local pair=self._builtinTextPairs and self._builtinTextPairs[source] or builtinPairs[source]
+        local code=self.Locale or (self._locale==translations['pt-BR'] and 'pt-BR' or 'en-US')
+        return pair and (pair[code] or pair['en-US']) or source
+    end
+    function Window:_watchLocalizedText(object,property,source)
+        if not self._localizationEnabled or type(source)~='string' then return end
+        self._localizedText=self._localizedText or {}
+        local properties=self._localizedText[object]
+        if not properties then
+            properties={};self._localizedText[object]=properties
+            local destroy
+            destroy=object.Destroying:Connect(function()
+                local fields=self._localizedText and self._localizedText[object]
+                if fields then
+                    for _,slot in pairs(fields) do if slot.Connection then slot.Connection:Disconnect() end end
+                    self._localizedText[object]=nil
+                end
+                if destroy then destroy:Disconnect();destroy=nil end
+            end)
+            properties._destroy={Connection=destroy}
+        end
+        if properties[property] then return end
+        local slot={Source=source,Ignore=false};properties[property]=slot
+        local function render()
+            if self.Destroyed or self._closing or not object.Parent or slot.Ignore or slot.Writing then return end
+            local value=slot.Key and self:Translate(slot.Key,slot.Args) or self:_translateLiteral(slot.Source)
+            if object[property]~=value then slot.Writing=true;object[property]=value;slot.Writing=false end
+        end
+        slot.Render=render
+        slot.Connection=object:GetPropertyChangedSignal(property):Connect(function()
+            if not slot.Writing then slot.Source=object[property];slot.Key=nil;slot.Args=nil;render() end
+        end)
+        render()
+    end
+    function Window:SetTextTranslation(object,enabled)
+        assert(type(enabled)=='boolean','Translation visibility must be boolean')
+        for candidate,properties in pairs(self._localizedText or {}) do
+            local current=candidate
+            while current and current~=object do current=current.Parent end
+            if current==object then
+                for property,slot in pairs(properties) do
+                    if property~='_destroy' then
+                        slot.Ignore=not enabled
+                        if candidate.Parent and not self.Destroyed then
+                            if enabled then slot.Render() else slot.Writing=true;candidate[property]=slot.Source;slot.Writing=false end
+                        end
+                    end
+                end
+            end
+        end
+        return self
+    end
+    function Window:RegisterTranslations(value)
+        assert(not self.Destroyed,'Window has been destroyed')
+        local prepared=dictionary(value);self._messages=self._messages or {};self._literalMessages=self._literalMessages or {}
+        for key,entry in pairs(prepared) do
+            local old=self._messages[key]
+            if old then self._literalMessages[old.Source]=nil;self._literalMessages[old.Source:upper()]=nil;for _,text in pairs(old.Values) do self._literalMessages[text]=nil;self._literalMessages[text:upper()]=nil end end
+            self._messages[key]=entry;self._literalMessages[entry.Source]=key
+            if entry.Source:upper()~=entry.Source then self._literalMessages[entry.Source:upper()]={Key=key,Upper=true} end
+            for code,text in pairs(entry.Values) do
+                self._literalMessages[text]=key
+                if text:upper()~=text then self._literalMessages[text:upper()]={Key=key,Upper=true} end
+                if self._supportedLocales then self._supportedLocales[code]=true end
+            end
+        end
+        self:_refreshLocalizedText();return self
+    end
+    function Window:Translate(key,args)
+        assert(type(key)=='string','Translation key must be a string')
+        local entry=self._messages and self._messages[key]
+        if not entry then return interpolate(key,args) end
+        local text=entry.Values[self.Locale]
+        if text then
+            if self._missingTranslations then self._missingTranslations[key]=nil end
+        else
+            if self.Locale==self.SourceLocale then text=entry.Source
+            else
+                self._missingTranslations=self._missingTranslations or {};self._missingTranslations[key]=true
+                text=entry.Values[self.FallbackLocale] or entry.Source
+            end
+        end
+        return interpolate(text,args)
+    end
+    function Window:GetMissingTranslations()
+        local result={};for key in pairs(self._missingTranslations or {}) do result[#result+1]=key end;table.sort(result);return result
+    end
+    function Window:_refreshLocalizedText()
+        if self.Destroyed then return end
+        for object,properties in pairs(self._localizedText or {}) do
+            if object.Parent then for name,slot in pairs(properties) do if name~='_destroy' and not slot.Ignore then slot.Render() end end end
+        end
+    end
+    function Window:BindText(object,property,key,args)
+        assert(property=='Text' and not object:IsA('TextBox') or property=='PlaceholderText' and object:IsA('TextBox'),'BindText accepts display text or placeholders')
+        assert(self._messages and self._messages[key],'Unknown translation key')
+        self:_watchLocalizedText(object,property,object[property])
+        local slot=assert(self._localizedText[object][property]);slot.Key=key;slot.Args=copy(args);slot.Ignore=false;slot.Render()
+        return self
+    end
+    function Window:GetLocale() return self.Locale,self.LocalePolicy end
+    function Window:SetLocale(value)
+        assert(not self.Destroyed,'Window has been destroyed')
+        local policy=locale(value);local resolved,origin=policy,'manual'
+        if policy=='auto' then resolved,origin=detected() end
+        if resolved~='pt-BR' and resolved~='en-US' and not self._supportedLocales[resolved] then resolved=self.FallbackLocale end
+        self.LocalePolicy,self.Locale,self.LocaleOrigin=policy,resolved,origin
+        self._locale=translations[resolved] or translations['en-US'];self._missingTranslations={}
+        self:_refreshLocalizedText()
+        for _,flow in pairs(self._flows or {}) do if not flow.Destroyed then flow:Refresh() end end
+        if self._localePicker then
+            local codes={'auto'};for code in pairs(self._supportedLocales) do codes[#codes+1]=code end
+            if not table.find(codes,policy) then codes[#codes+1]=policy end
+            self._localePicker:SetOptions(codes,true);self._localePicker:SetValue(policy,true)
+        end
+        self:_scheduleSave();return self
+    end
+    function Window:RequestTranslation(key)
+        assert(not self.Destroyed and self._messages and self._messages[key],'Unknown translation key')
+        if type(self.TranslationProvider)~='function' then return nil,'No translation provider configured' end
+        local entry=self._messages[key];local target=self.Locale
+        if entry.Values[target] or target==self.SourceLocale then return nil,'Translation already available' end
+        return self:RunAction({Id='translate/'..UpdateCore.SHA256(key..target):sub(1,20),Group='translations',Policy='Queue',Callback=function(ctx)
+            ctx:ThrowIfCancelled()
+            local translated=self.TranslationProvider({Key=key,Text=entry.Source,SourceLocale=self.SourceLocale,TargetLocale=target,Context=entry.Context},ctx)
+            ctx:ThrowIfCancelled();validTranslation(entry.Source,translated)
+            if self.Destroyed or self._messages[key]~=entry then return {Skipped=true,Reason='Translation entry was replaced'} end
+            entry.Values[target]=translated;self._literalMessages[translated]=key;self._missingTranslations[key]=nil
+            self:_refreshLocalizedText();return translated
+        end})
+    end
+    local create=Library.CreateWindow
+    function Library:CreateWindow(options)
+        options=options or {};local passed={};for key,value in pairs(options) do passed[key]=value end
+        local policy=locale(options.Locale or 'auto');local resolved=policy=='auto' and detected() or policy
+        local sourceLocale=locale(options.SourceLocale or 'pt-BR');local fallbackLocale=locale(options.FallbackLocale or 'en-US')
+        assert(sourceLocale~='auto' and fallbackLocale~='auto','Source and fallback locales cannot be auto')
+        local messages=dictionary(options.Translations or {})
+        assert(options.TranslationProvider==nil or type(options.TranslationProvider)=='function','TranslationProvider must be a developer callback')
+        passed.Locale=resolved=='pt-BR' and 'pt-BR' or 'en-US';passed._LocalizationEnabled=true
+        local window=create(self,passed)
+        window.SourceLocale=sourceLocale;window.FallbackLocale=fallbackLocale
+        window._supportedLocales={['pt-BR']=true,['en-US']=true}
+        window._supportedLocales[sourceLocale]=true;window._supportedLocales[fallbackLocale]=true
+        for _,entry in pairs(messages) do for code in pairs(entry.Values) do window._supportedLocales[code]=true end end
+        window._messages={};window._literalMessages={};window._missingTranslations={};window.TranslationProvider=options.TranslationProvider
+        window:RegisterTranslations(messages);window:SetLocale(policy)
+        window:Manage(function()
+            for _,properties in pairs(window._localizedText or {}) do for _,slot in pairs(properties) do if slot.Connection then slot.Connection:Disconnect() end end end
+            window._localizedText={};window._messages={};window._literalMessages={};window._builtinTextPairs={};window.TranslationProvider=nil
+        end,nil,'localization')
+        if window._settingsTab then
+            local section=window._settingsTab:CreateSection({Title='Idioma / Language',Icon='settings'})
+            local codes={'auto'};for code in pairs(window._supportedLocales) do codes[#codes+1]=code end
+            if not table.find(codes,policy) then codes[#codes+1]=policy end
+            window._localePicker=section:AddDropdown({Id='__retrobox/locale',Internal=true,Title='Idioma / Language',Options=codes,Default=policy,Callback=function(value) window:SetLocale(value) end})
+        end
+        return window
+    end
+    for _,kind in ipairs({'Toggle','Slider','Button','Input','Dropdown','Keybind','ColorPicker','Label','Separator','Progress','Console','Image','StatCard','Chart','VirtualList','DataTable','TreeView','Preview','Stepper','CardGrid'}) do
+        local method=Section['Add'..kind]
+        if method then
+            Section['Add'..kind]=function(section,options)
+                local control=method(section,options)
+                if options and options.Translate==false then section._window:SetTextTranslation(control.Frame,false) end
+                return control
+            end
+        end
+    end
+    local export=Window._exportProfileExtras
+    function Window:_exportProfileExtras(profile)
+        export(self,profile);profile.Appearance.Locale=self.LocalePolicy;return profile
+    end
+    local prepare=Window._prepareProfile
+    function Window:_prepareProfile(source,options)
+        local profile,extras,policy=prepare(self,source,options)
+        if profile.Appearance and profile.Appearance.Locale~=nil then locale(profile.Appearance.Locale) end
+        return profile,extras,policy
+    end
+    local import=Window.ImportConfig
+    function Window:ImportConfig(source,options)
+        local ok,reason=import(self,source,options)
+        if ok then
+            local profile=type(source)=='string' and HttpService:JSONDecode(source) or source
+            if profile.Appearance and profile.Appearance.Locale then self:SetLocale(profile.Appearance.Locale) end
+        end
+        return ok,reason
+    end
+end
+
+-- END RETRO250 DEVELOPMENT TOOLS
 
 return Library

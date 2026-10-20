@@ -1,3 +1,27 @@
+# Preparação e publicação · RetroBox 2.5.0
+
+Repositório: **ManoGustavo02/RetroBox**, main, API **2**. Designer HTML offline com blocos, JSON e exportação Luau; localização, formulários, componentes reutilizáveis, CardGrid, FlowGraph e diagnóstico são recursos nativos para todos os consumidores.
+
+## Organização e compatibilidade
+
+O README bilíngue destaca [o HTML e seu guia](../designer/README.md). A pasta designer contém fontes, HTML autossuficiente, catálogo compartilhado, assets reais, projetos JSON, fixtures Luau e testes. API 2, bootstrap, pasta histórica, licença e releases até 2.4 foram preservados. Nenhum jogo ou Id do catálogo do usuário foi reescrito; nenhum paste foi publicado nem Raw inventado.
+
+## Validação local
+
+465 testes nativos com 39 exemplos; 22 testes Node; oito cenários no Chromium; três exportações Luau reais; 37 testes do Mano Gustavo Hub; oito exemplos do prompt integral e dois testes Python de distribuição. Quinze manifestos e 22 arquivos históricos conferidos. Runtime 702260 bytes, SHA-256 a72afad60f1cd9b5a107245a728bfd250f1e93815ef0e94edec9ec99a1ba50d7. Detalhes: [VALIDATION.md](../RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
+
+## Conferência remota
+
+Publicação atômica, acesso aos arquivos públicos e CI hospedado serão registrados após observação. As verificações acima são locais. GitHub Pages, About/topics e configurações administrativas não são pressupostos como alterados; o Designer abre pelo HTML baixado.
+
+## Tradução e prévia
+
+Locale usa o idioma configurado no Roblox, sem inferir nacionalidade. Dicionários funcionam offline; tradução arbitrária precisa do serviço do desenvolvedor. O editor envia apenas mensagens cadastradas mediante ação explícita. Custom Call exige handlers Luau. A prévia e o double de engine não substituem a conferência de fontes, gestos, assets/modelos e layout no cliente Roblox.
+
+---
+
+## Histórico da publicação 2.4.0
+
 # Preparação e publicação · RetroBox 2.4.0
 
 Repositório: **ManoGustavo02/RetroBox**, branch **main**, API **2**. Os caminhos históricos da biblioteca e o bootstrap permanente foram preservados. A 2.4.0 acrescenta suporte nativo a scripts universais para todos os consumidores de CreateScriptHub.

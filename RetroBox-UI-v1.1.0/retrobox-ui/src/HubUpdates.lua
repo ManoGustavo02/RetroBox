@@ -47,7 +47,7 @@ function Hub:_prepareCatalog(document)
                 key(item.Action,"Action")
                 spec.Callback=self._catalogActions[item.Action]
             elseif old then
-                spec.Callback=old.Callback
+                spec.Callback=old.Callback;spec.SourceURL=old.SourceURL
                 if item.Enabled==nil then spec.Enabled=old.Enabled end
                 if item.Confirm==nil then spec.Confirm=old.Confirm end
                 if item.Requires==nil then spec.Requires=old.Requires end

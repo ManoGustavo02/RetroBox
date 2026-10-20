@@ -344,7 +344,7 @@ local function jsonDecode(text)
 end
 Mock.Viewport=Vector2.new(1280,720)
 local player=Instance.new("Player")
-player.Name="TestUser"; player.DisplayName="Test Player"; player.UserId=42
+player.Name="TestUser"; player.DisplayName="Test Player"; player.LocaleId="pt-br"; player.UserId=42
 local playerGui=Instance.new("PlayerGui"); playerGui.Name="PlayerGui"; playerGui.Parent=player
 local services={
     ContentProvider={PreloadAsync=function(_,assets,callback)

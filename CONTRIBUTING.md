@@ -30,3 +30,8 @@ python3 tools/verify_origin_migration.py
 - Revise diffs antes de publicar; não inclua tokens, cookies, dados pessoais ou arquivos de ambiente locais.
 
 Os testes não executam os scripts de gameplay reais de projetos consumidores. O código executável de exemplos deve ser legível e revisável. Vulnerabilidades seguem [SECURITY.md](SECURITY.md).
+
+
+## Designer
+
+O HTML é gerado: edite `designer/src/`, execute `python3 tools/build_designer.py` na raiz e confira `--check`. Catálogo, temas e ícones são compartilhados com a library. Em `designer/`, rode `npm ci --ignore-scripts`, `npm test`, `npx playwright install chromium` e `npm run test:browser`. Exportações de referência são executadas também na suíte Lua. Mudanças no compilador devem atualizar os projetos/fixtures e passar nos dois runtimes. Não introduza avaliação de código no JSON ou dependências externas obrigatórias no HTML.

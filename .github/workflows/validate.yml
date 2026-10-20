@@ -41,3 +41,29 @@ jobs:
       - name: Test promotion, rollback and immutable releases
         working-directory: RetroBox-UI-v1.1.0/retrobox-ui
         run: python3 tests/test_release_pipeline.py
+  designer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout reviewed revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install asset-test runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y liblua5.4-0
+      - name: Check generated Designer assets and single-file build
+        run: python3 tools/build_designer.py --check
+      - name: Install pinned development dependencies
+        working-directory: designer
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Test project model and actual Luau compiler fixtures
+        working-directory: designer
+        run: npm test
+      - name: Install Chromium for browser tests
+        working-directory: designer
+        run: npx playwright install --with-deps chromium
+      - name: Test offline editor in Chromium
+        working-directory: designer
+        run: npm run test:browser

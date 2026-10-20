@@ -8,6 +8,10 @@ Library de GUI em Luau para desenvolvedores de scripts executados no cliente Rob
 
 *A imagem é um conceito visual, com perfil ilustrativo. A GUI usa objetos nativos do Roblox; a renderização em executor ainda precisa ser conferida.*
 
+## Versão 2.5.0 — Designer e ferramentas de desenvolvimento
+
+[Designer HTML offline](../../designer/README.md): 21 componentes nativos, agrupamento Row, 22 blocos, prévia, idiomas, JSON e exportação Luau. A library adiciona Locale auto/PT/EN com dicionários e provider opcional, formulários Aplicar/Cancelar, fábricas reutilizáveis, CardGrid reciclado, grafos tipados e diagnóstico do catálogo. [APIs e limites](docs/DEVELOPMENT-TOOLS.md) · [Release 2.5](docs/RELEASE-2.5.md).
+
 ## Versão 2.4.0
 
 Scripts universais são uma coleção nativa independente dos jogos, com nome, descrição, URL HTTPS (como Raw do Pastefy), tag própria, pesquisa, execução e cancelamento. Id é opcional. O bootstrap continua no GitHub da ManoGustavo02 e a API 2 permanece compatível. [Guia de universais](docs/UNIVERSAL-SCRIPTS.md) · [Release 2.4](docs/RELEASE-2.4.md).

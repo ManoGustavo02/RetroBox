@@ -2,7 +2,7 @@
 
 # RetroBox UI
 
-<p align="center"><img src="assets/retrobox-badges.svg" alt="RetroBox 2.4.0 · API 2 · 12 temas · 76 pixel icons · MIT" width="795"></p>
+<p align="center"><img src="assets/retrobox-badges.svg" alt="RetroBox 2.5.0 · API 2 · 12 temas · 76 pixel icons · MIT" width="795"></p>
 
 [![Validação](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml)
 
@@ -12,7 +12,15 @@ Biblioteca de GUI em Luau para scripts executados no cliente Roblox por executor
 
 [English](README.en.md) · [Começar](RetroBox-UI-v1.1.0/retrobox-ui/README.md) · [API](RetroBox-UI-v1.1.0/retrobox-ui/docs/API.md) · [Script Hub](RetroBox-UI-v1.1.0/retrobox-ui/docs/SCRIPT-HUB.md) · [Exemplos](RetroBox-UI-v1.1.0/retrobox-ui/examples) · [Segurança](SECURITY.md)
 
-> **RetroBox 2.4.0 · API 2** — distribuição da conta **ManoGustavo02**. 420/420 testes de lógica aprovados e 35 exemplos verificados; scripts universais disponíveis no Hub nativo. Os testes de lógica não substituem a conferência visual no executor. [Histórico e validação](RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
+> **RetroBox 2.5.0 · API 2** — distribuição da conta **ManoGustavo02**. Designer offline com blocos e exportação Luau; idiomas automáticos, formulários, componentes reutilizáveis, CardGrid e diagnóstico do catálogo. Os testes de lógica não substituem a conferência visual no executor. [Histórico e validação](RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
+
+## Designer visual: monte e conecte no navegador
+
+[**Baixar RetroBox Designer — HTML único**](https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/designer/index.html) · [**Como abrir e usar**](designer/README.md) · [Projetos de exemplo](designer/examples/)
+
+Salve o arquivo com extensão `.html` e abra-o no navegador. Arraste controles, edite formulários, escolha o tema, interligue blocos tipados e teste a prévia. Salve o projeto em JSON e exporte Luau usando as APIs reais da library. Funciona offline; traduções automáticas opcionais usam seu próprio serviço. O GitHub mostra o código do arquivo; o editor abre depois de baixá-lo.
+
+[Idiomas, formulários, componentes, CardGrid e grafos — APIs 2.5](RetroBox-UI-v1.1.0/retrobox-ui/docs/DEVELOPMENT-TOOLS.md).
 
 ## O que dá para construir
 
@@ -42,7 +50,7 @@ Este endereço permanente resolve as próximas atualizações compatíveis da AP
 ```lua
 local RetroBox = loadstring(game:HttpGet(
     "https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua"
-))({Channel = "stable", MinVersion = "2.4.0"})
+))({Channel = "stable", MinVersion = "2.5.0"})
 ```
 
 Monte os componentes na sequência padrão da library:
@@ -70,6 +78,8 @@ Para um catálogo, use [CreateScriptHub](RetroBox-UI-v1.1.0/retrobox-ui/examples
 | `RetroBox-UI-v1.1.0/retrobox-ui/docs/` | API, guias, migrações e relatórios das versões. |
 | `RetroBox-UI-v1.1.0/retrobox-ui/examples/` | Exemplos funcionais de demonstração. |
 | `RetroBox-UI-v1.1.0/retrobox-ui/tests/` | Testes de lógica e double de engine. |
+| `designer/index.html` e `designer/src/` | Editor visual completo e suas fontes, catálogo e projetos JSON. |
+| `tools/build_designer.py` | Build determinístico do HTML e extração dos assets reais. |
 | `dist/bootstrap/`, `dist/channels/`, `dist/releases/` | Bootstrap, canais e artefatos versionados. |
 
 A pasta histórica faz parte dos caminhos compatíveis. A apresentação deste repositório adiciona documentação na raiz sem mover a library, alterar a API ou reescrever releases.

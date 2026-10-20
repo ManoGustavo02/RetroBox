@@ -1,3 +1,29 @@
+# Validação · RetroBox UI 2.5.0
+
+## Designer e ferramentas · 20/10/2026 (UTC)
+
+- **465/465 testes de lógica** da biblioteca, com **39 exemplos**. Incluem 42 novas regressões de idiomas, provider, forms, componentes, CardGrid, grafos e diagnóstico; três exportações Luau reais do Designer executadas contra os construtores nativos.
+- **22/22 testes Node** do modelo/compilador: catálogo/ícones/temas reais, JSON inválido, protótipos/ciclos, escaping Luau, namespaces, traduções/parâmetros, tipos e feedback, rascunhos, templates e simulador.
+- **8/8 testes no Chromium**: abertura offline, edição/duplicação/exclusão/undo, downloads JSON/Luau, reimportação, campos de formulário, ligações tipadas e movimento de blocos, PT/EN, tradutor HTTPS simulado e painéis em tela pequena.
+- **37/37 testes do Mano Gustavo Hub 2.2.0** contra a 2.5, preservando os sete jogos/IDs, tema Hacker, universais e links configurados. O export conhecido foi usado sem mudar o catálogo; alterações externas do usuário no Pastefy não foram baixadas.
+- **8/8 exemplos do prompt completo**: os quatro anteriores preservados byte a byte e quatro novos exemplos funcionais.
+- **2/2 testes Python** de promoção/rollback/imutabilidade; **15 manifestos**, **22 arquivos históricos**, assets do editor e build determinístico conferidos.
+- Runtime: **702260 bytes**, SHA-256 **a72afad60f1cd9b5a107245a728bfd250f1e93815ef0e94edec9ec99a1ba50d7**. O bootstrap permanente foi preservado por bytes; Stable/Preview resolvem a nova release e Pinned preserva as anteriores.
+
+Os testes do navegador usaram Chrome Headless Shell 155.0.8059.84 com Playwright 1.62.1. O HTML não precisa dessas dependências para funcionar; elas são usadas somente nos testes. Transports de tradução, Pastefy e gameplay são controlados nos testes; código real de gameplay não foi executado. As regressões estritas de PixelIcon mantêm zero Parent bloqueado, zero escrita em ícone destruído e retorno das conexões ao baseline.
+
+A conferência pública e o workflow hospedado são registrados separadamente no [relatório de publicação](../../../docs/PREPARATION-REPORT.md). A renderização da engine Roblox não está disponível aqui. A prévia HTML não comprova fontes, gestos, imagens/modelos 3D ou compatibilidade de um executor específico; confira esses pontos no cliente final.
+
+## Reprodução
+
+Na raiz: `python3 tools/verify_repository.py` e `python3 tools/build_designer.py --check`. Na pasta da library: `python3 tools/verify_distribution.py`, `python3 tools/verify_origin_migration.py`, `python3 tests/run_headless.py`, `python3 tests/test_release_pipeline.py`. No Designer: `npm ci --ignore-scripts`, `npm test`, `npx playwright install chromium` e `npm run test:browser`.
+
+Os testes do prompt usam `RETROBOX_PROMPT_PATH=/caminho/Prompt-RetroBox-IA-v2.5.0.md python3 tests/run_headless.py tests/prompt-runtime.lua`. Esse arquivo integral é entregue ao proprietário separadamente.
+
+---
+
+## Histórico da validação 2.4.0
+
 # Validação · RetroBox UI 2.4.0
 
 ## Scripts universais · 20/10/2026 (UTC)

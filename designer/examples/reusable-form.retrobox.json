@@ -1,0 +1,194 @@
+{
+  "Kind": "RetroBoxDesignerProject",
+  "SchemaVersion": 1,
+  "MinVersion": "2.5.0",
+  "Window": {
+    "Id": "reusable-form",
+    "Title": "Meu projeto",
+    "Subtitle": "Monte, conecte e exporte",
+    "Theme": "Hacker",
+    "Locale": "auto",
+    "SourceLocale": "pt-BR",
+    "Size": {
+      "X": 790,
+      "Y": 570
+    }
+  },
+  "Tabs": [
+    {
+      "Id": "principal",
+      "Title": "Principal",
+      "Icon": "grid",
+      "Columns": 1,
+      "Sections": [
+        {
+          "Id": "geral",
+          "Title": "Controles",
+          "Icon": "settings",
+          "Controls": [
+            {
+              "Id": "enabled",
+              "Type": "Toggle",
+              "Options": {
+                "Title": "Ativar recurso",
+                "Default": true
+              }
+            },
+            {
+              "Id": "amount",
+              "Type": "Slider",
+              "Options": {
+                "Title": "Quantidade",
+                "Min": 0,
+                "Max": 100,
+                "Step": 1,
+                "Default": 25
+              }
+            },
+            {
+              "Id": "summary",
+              "Type": "Label",
+              "Options": {
+                "Title": "Quantidade: 25"
+              }
+            },
+            {
+              "Id": "run",
+              "Type": "Button",
+              "Options": {
+                "Title": "Executar",
+                "Text": "Executar"
+              }
+            },
+            {
+              "Id": "stats1",
+              "Type": "Component",
+              "Template": "stats",
+              "Props": {}
+            },
+            {
+              "Id": "settings",
+              "Type": "Form",
+              "Options": {
+                "Title": "Configurações",
+                "Fields": [
+                  {
+                    "Id": "name",
+                    "Type": "Input",
+                    "Title": "Nome",
+                    "Default": "Gustavo",
+                    "Required": true
+                  },
+                  {
+                    "Id": "enabled",
+                    "Type": "Toggle",
+                    "Title": "Ativar",
+                    "Default": false
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "States": [],
+  "Templates": [
+    {
+      "Id": "stats",
+      "Controls": [
+        {
+          "Id": "coins",
+          "Type": "StatCard",
+          "Options": {
+            "Title": "Moedas",
+            "Default": 5
+          }
+        },
+        {
+          "Id": "key",
+          "Type": "Keybind",
+          "Options": {
+            "Default": "F",
+            "Title": "Atalho"
+          }
+        }
+      ]
+    }
+  ],
+  "Translations": {},
+  "Flow": {
+    "Id": "principal",
+    "Nodes": [
+      {
+        "Id": "read-amount",
+        "Type": "Value",
+        "Control": "amount",
+        "Position": {
+          "X": 40,
+          "Y": 40
+        }
+      },
+      {
+        "Id": "format",
+        "Type": "Format",
+        "Text": "Quantidade: {value}",
+        "Position": {
+          "X": 340,
+          "Y": 40
+        }
+      },
+      {
+        "Id": "summary-binding",
+        "Type": "Binding",
+        "Control": "summary",
+        "Property": "Text",
+        "Position": {
+          "X": 640,
+          "Y": 40
+        }
+      },
+      {
+        "Id": "click",
+        "Type": "Click",
+        "Control": "run",
+        "Position": {
+          "X": 40,
+          "Y": 270
+        }
+      },
+      {
+        "Id": "notice",
+        "Type": "Notify",
+        "Text": "Você acionou um evento visual.",
+        "Title": "Meu projeto",
+        "Kind": "success",
+        "Position": {
+          "X": 340,
+          "Y": 270
+        }
+      }
+    ],
+    "Edges": [
+      {
+        "From": "read-amount",
+        "Out": "Value",
+        "To": "format",
+        "Input": "Value"
+      },
+      {
+        "From": "format",
+        "Out": "Value",
+        "To": "summary-binding",
+        "Input": "Value"
+      },
+      {
+        "From": "click",
+        "Out": "Then",
+        "To": "notice",
+        "Input": "Execute"
+      }
+    ]
+  }
+}

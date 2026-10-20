@@ -1,0 +1,312 @@
+{
+  "Kind": "RetroBoxDesignerProject",
+  "SchemaVersion": 1,
+  "MinVersion": "2.5.0",
+  "Window": {
+    "Id": "all-components",
+    "Title": "Meu projeto",
+    "Subtitle": "Monte, conecte e exporte",
+    "Theme": "Hacker",
+    "Locale": "auto",
+    "SourceLocale": "pt-BR",
+    "Size": {
+      "X": 790,
+      "Y": 570
+    }
+  },
+  "Tabs": [
+    {
+      "Id": "principal",
+      "Title": "Principal",
+      "Icon": "grid",
+      "Columns": 1,
+      "Sections": [
+        {
+          "Id": "geral",
+          "Title": "Controles",
+          "Icon": "settings",
+          "Controls": [
+            {
+              "Id": "toggle",
+              "Type": "Toggle",
+              "Options": {
+                "Title": "Ativar recurso",
+                "Default": false
+              }
+            },
+            {
+              "Id": "slider",
+              "Type": "Slider",
+              "Options": {
+                "Title": "Intensidade",
+                "Min": 0,
+                "Max": 100,
+                "Default": 50
+              }
+            },
+            {
+              "Id": "button",
+              "Type": "Button",
+              "Options": {
+                "Title": "Executar",
+                "Text": "Executar"
+              }
+            },
+            {
+              "Id": "input",
+              "Type": "Input",
+              "Options": {
+                "Title": "Nome",
+                "Placeholder": "Digite aqui",
+                "Default": ""
+              }
+            },
+            {
+              "Id": "dropdown",
+              "Type": "Dropdown",
+              "Options": {
+                "Title": "Opção",
+                "Options": [
+                  "Opção A",
+                  "Opção B"
+                ],
+                "Default": "Opção A"
+              }
+            },
+            {
+              "Id": "colorpicker",
+              "Type": "ColorPicker",
+              "Options": {
+                "Title": "Cor",
+                "Default": "#32df7b"
+              }
+            },
+            {
+              "Id": "label",
+              "Type": "Label",
+              "Options": {
+                "Title": "Seu texto aqui"
+              }
+            },
+            {
+              "Id": "separator",
+              "Type": "Separator",
+              "Options": {
+                "Title": "Detalhes"
+              }
+            },
+            {
+              "Id": "progress",
+              "Type": "Progress",
+              "Options": {
+                "Title": "Progresso",
+                "Min": 0,
+                "Max": 100,
+                "Default": 25
+              }
+            },
+            {
+              "Id": "statcard",
+              "Type": "StatCard",
+              "Options": {
+                "Title": "Total",
+                "Default": 1250,
+                "Unit": "itens",
+                "Format": "Compact"
+              }
+            },
+            {
+              "Id": "chart",
+              "Type": "Chart",
+              "Options": {
+                "Title": "Histórico",
+                "Data": [
+                  10,
+                  30,
+                  20,
+                  45
+                ],
+                "Type": "Line",
+                "Height": 180
+              }
+            },
+            {
+              "Id": "console",
+              "Type": "Console",
+              "Options": {
+                "Title": "Console",
+                "Height": 150
+              }
+            },
+            {
+              "Id": "image",
+              "Type": "Image",
+              "Options": {
+                "Title": "Imagem",
+                "Image": "",
+                "Height": 120
+              }
+            },
+            {
+              "Id": "virtuallist",
+              "Type": "VirtualList",
+              "Options": {
+                "Title": "Lista",
+                "Items": [
+                  {
+                    "Id": "a",
+                    "Text": "Item A"
+                  },
+                  {
+                    "Id": "b",
+                    "Text": "Item B"
+                  }
+                ],
+                "Height": 180
+              }
+            },
+            {
+              "Id": "datatable",
+              "Type": "DataTable",
+              "Options": {
+                "Title": "Tabela",
+                "Columns": [
+                  {
+                    "Key": "Name",
+                    "Title": "Nome"
+                  },
+                  {
+                    "Key": "Value",
+                    "Title": "Valor"
+                  }
+                ],
+                "Rows": [
+                  {
+                    "Id": "a",
+                    "Name": "Exemplo",
+                    "Value": 10
+                  }
+                ],
+                "Height": 180
+              }
+            },
+            {
+              "Id": "treeview",
+              "Type": "TreeView",
+              "Options": {
+                "Title": "Árvore",
+                "Nodes": [
+                  {
+                    "Id": "root",
+                    "Text": "Categoria",
+                    "Children": [
+                      {
+                        "Id": "child",
+                        "Text": "Item"
+                      }
+                    ]
+                  }
+                ],
+                "Height": 180
+              }
+            },
+            {
+              "Id": "preview",
+              "Type": "Preview",
+              "Options": {
+                "Title": "Preview",
+                "Mode": "Image",
+                "Image": "",
+                "Height": 180
+              }
+            },
+            {
+              "Id": "stepper",
+              "Type": "Stepper",
+              "Options": {
+                "Title": "Etapas",
+                "Steps": [
+                  {
+                    "Id": "one",
+                    "Title": "Preparar"
+                  },
+                  {
+                    "Id": "two",
+                    "Title": "Concluir"
+                  }
+                ]
+              }
+            },
+            {
+              "Id": "cardgrid",
+              "Type": "CardGrid",
+              "Options": {
+                "Title": "Catálogo",
+                "Height": 340,
+                "Items": [
+                  {
+                    "Id": "one",
+                    "Title": "Ferramenta A",
+                    "Description": "Seu componente ou recurso",
+                    "Icon": "diamond",
+                    "Badges": [
+                      "Destaque"
+                    ]
+                  },
+                  {
+                    "Id": "two",
+                    "Title": "Ferramenta B",
+                    "Description": "Personalize no painel",
+                    "Icon": "tools",
+                    "Badges": [
+                      "Novo"
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "Id": "form",
+              "Type": "Form",
+              "Options": {
+                "Title": "Configurações",
+                "Fields": [
+                  {
+                    "Id": "name",
+                    "Type": "Input",
+                    "Title": "Nome",
+                    "Default": "Gustavo",
+                    "Required": true
+                  },
+                  {
+                    "Id": "enabled",
+                    "Type": "Toggle",
+                    "Title": "Ativar",
+                    "Default": false
+                  }
+                ]
+              }
+            },
+            {
+              "Id": "keybind",
+              "Type": "Keybind",
+              "Options": {
+                "Title": "Atalho",
+                "Default": "F",
+                "Mode": "Press"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "States": [],
+  "Templates": [],
+  "Translations": {},
+  "Flow": {
+    "Id": "all-components",
+    "Nodes": [],
+    "Edges": []
+  }
+}

@@ -1,0 +1,743 @@
+{
+  "Kind": "RetroBoxDesignerCatalog",
+  "SchemaVersion": 1,
+  "APIVersion": 2,
+  "MinVersion": "2.5.0",
+  "Limits": {
+    "Controls": 256,
+    "Tabs": 32,
+    "Sections": 128,
+    "Nodes": 256,
+    "Edges": 512,
+    "States": 128,
+    "Templates": 64,
+    "ProjectBytes": 2097152
+  },
+  "Controls": {
+    "Toggle": {
+      "Method": "AddToggle",
+      "Defaults": {
+        "Title": "Ativar recurso",
+        "Default": false
+      },
+      "ValueType": "boolean"
+    },
+    "Slider": {
+      "Method": "AddSlider",
+      "Defaults": {
+        "Title": "Intensidade",
+        "Min": 0,
+        "Max": 100,
+        "Default": 50
+      },
+      "ValueType": "number"
+    },
+    "Button": {
+      "Method": "AddButton",
+      "Defaults": {
+        "Title": "Executar",
+        "Text": "Executar"
+      },
+      "ValueType": "any"
+    },
+    "Input": {
+      "Method": "AddInput",
+      "Defaults": {
+        "Title": "Nome",
+        "Placeholder": "Digite aqui",
+        "Default": ""
+      },
+      "ValueType": "string"
+    },
+    "Dropdown": {
+      "Method": "AddDropdown",
+      "Defaults": {
+        "Title": "Opção",
+        "Options": [
+          "Opção A",
+          "Opção B"
+        ],
+        "Default": "Opção A"
+      },
+      "ValueType": "any"
+    },
+    "ColorPicker": {
+      "Method": "AddColorPicker",
+      "Defaults": {
+        "Title": "Cor",
+        "Default": "#32df7b"
+      },
+      "ValueType": "any"
+    },
+    "Label": {
+      "Method": "AddLabel",
+      "Defaults": {
+        "Title": "Seu texto aqui"
+      },
+      "ValueType": "string"
+    },
+    "Separator": {
+      "Method": "AddSeparator",
+      "Defaults": {
+        "Title": "Detalhes"
+      },
+      "ValueType": "string"
+    },
+    "Progress": {
+      "Method": "AddProgress",
+      "Defaults": {
+        "Title": "Progresso",
+        "Min": 0,
+        "Max": 100,
+        "Default": 25
+      },
+      "ValueType": "number"
+    },
+    "StatCard": {
+      "Method": "AddStatCard",
+      "Defaults": {
+        "Title": "Total",
+        "Default": 1250,
+        "Unit": "itens",
+        "Format": "Compact"
+      },
+      "ValueType": "any"
+    },
+    "Chart": {
+      "Method": "AddChart",
+      "Defaults": {
+        "Title": "Histórico",
+        "Data": [
+          10,
+          30,
+          20,
+          45
+        ],
+        "Type": "Line",
+        "Height": 180
+      },
+      "ValueType": "any"
+    },
+    "Console": {
+      "Method": "AddConsole",
+      "Defaults": {
+        "Title": "Console",
+        "Height": 150
+      },
+      "ValueType": "string"
+    },
+    "Image": {
+      "Method": "AddImage",
+      "Defaults": {
+        "Title": "Imagem",
+        "Image": "",
+        "Height": 120
+      },
+      "ValueType": "any"
+    },
+    "VirtualList": {
+      "Method": "AddVirtualList",
+      "Defaults": {
+        "Title": "Lista",
+        "Items": [
+          {
+            "Id": "a",
+            "Text": "Item A"
+          },
+          {
+            "Id": "b",
+            "Text": "Item B"
+          }
+        ],
+        "Height": 180
+      },
+      "ValueType": "string"
+    },
+    "DataTable": {
+      "Method": "AddDataTable",
+      "Defaults": {
+        "Title": "Tabela",
+        "Columns": [
+          {
+            "Key": "Name",
+            "Title": "Nome"
+          },
+          {
+            "Key": "Value",
+            "Title": "Valor"
+          }
+        ],
+        "Rows": [
+          {
+            "Id": "a",
+            "Name": "Exemplo",
+            "Value": 10
+          }
+        ],
+        "Height": 180
+      },
+      "ValueType": "string"
+    },
+    "TreeView": {
+      "Method": "AddTreeView",
+      "Defaults": {
+        "Title": "Árvore",
+        "Nodes": [
+          {
+            "Id": "root",
+            "Text": "Categoria",
+            "Children": [
+              {
+                "Id": "child",
+                "Text": "Item"
+              }
+            ]
+          }
+        ],
+        "Height": 180
+      },
+      "ValueType": "string"
+    },
+    "Preview": {
+      "Method": "AddPreview",
+      "Defaults": {
+        "Title": "Preview",
+        "Mode": "Image",
+        "Image": "",
+        "Height": 180
+      },
+      "ValueType": "any"
+    },
+    "Stepper": {
+      "Method": "AddStepper",
+      "Defaults": {
+        "Title": "Etapas",
+        "Steps": [
+          {
+            "Id": "one",
+            "Title": "Preparar"
+          },
+          {
+            "Id": "two",
+            "Title": "Concluir"
+          }
+        ]
+      },
+      "ValueType": "any"
+    },
+    "CardGrid": {
+      "Method": "AddCardGrid",
+      "Defaults": {
+        "Title": "Catálogo",
+        "Height": 340,
+        "Items": [
+          {
+            "Id": "one",
+            "Title": "Ferramenta A",
+            "Description": "Seu componente ou recurso",
+            "Icon": "diamond",
+            "Badges": [
+              "Destaque"
+            ]
+          },
+          {
+            "Id": "two",
+            "Title": "Ferramenta B",
+            "Description": "Personalize no painel",
+            "Icon": "tools",
+            "Badges": [
+              "Novo"
+            ]
+          }
+        ]
+      },
+      "ValueType": "string"
+    },
+    "Form": {
+      "Method": "CreateForm",
+      "Defaults": {
+        "Title": "Configurações",
+        "Fields": [
+          {
+            "Id": "name",
+            "Type": "Input",
+            "Title": "Nome",
+            "Default": "Gustavo",
+            "Required": true
+          },
+          {
+            "Id": "enabled",
+            "Type": "Toggle",
+            "Title": "Ativar",
+            "Default": false
+          }
+        ]
+      },
+      "ValueType": "any"
+    },
+    "Keybind": {
+      "Method": "AddKeybind",
+      "Defaults": {
+        "Title": "Atalho",
+        "Default": "F",
+        "Mode": "Press"
+      },
+      "ValueType": "any"
+    }
+  },
+  "OptionKeys": [
+    "Title",
+    "Description",
+    "Icon",
+    "Default",
+    "Text",
+    "Placeholder",
+    "Min",
+    "Max",
+    "Step",
+    "Suffix",
+    "Height",
+    "Options",
+    "Multi",
+    "Data",
+    "Items",
+    "Rows",
+    "Columns",
+    "Nodes",
+    "Image",
+    "Mode",
+    "Steps",
+    "Fields",
+    "Unit",
+    "Format",
+    "Type",
+    "MinCardWidth",
+    "CardHeight",
+    "Searchable",
+    "Visible",
+    "Disabled",
+    "Persist",
+    "ShowDescription",
+    "MaxLength",
+    "Live",
+    "Tooltip",
+    "EmptyText",
+    "Pinnable",
+    "Collapsible",
+    "Collapsed",
+    "Side",
+    "StackAt",
+    "Gap",
+    "Translate",
+    "Multiline"
+  ],
+  "FlowNodes": {
+    "Click": {
+      "Category": "Event",
+      "Inputs": {},
+      "Outputs": {
+        "Then": "exec"
+      },
+      "Fields": {
+        "Control": "control"
+      },
+      "Description": "Ao clicar em um botão"
+    },
+    "Change": {
+      "Category": "Event",
+      "Inputs": {},
+      "Outputs": {
+        "Then": "exec",
+        "Value": "any"
+      },
+      "Fields": {
+        "Control": "control"
+      },
+      "Description": "Quando o usuário altera um controle"
+    },
+    "Apply": {
+      "Category": "Event",
+      "Inputs": {},
+      "Outputs": {
+        "Then": "exec",
+        "Value": "any"
+      },
+      "Fields": {
+        "Control": "form"
+      },
+      "Description": "Quando um formulário é aplicado"
+    },
+    "Value": {
+      "Category": "Data",
+      "Inputs": {},
+      "Outputs": {
+        "Value": "any"
+      },
+      "Fields": {
+        "Control": "control",
+        "State": "state"
+      },
+      "Description": "Lê um controle ou estado"
+    },
+    "Constant": {
+      "Category": "Data",
+      "Inputs": {},
+      "Outputs": {
+        "Value": "any"
+      },
+      "Fields": {
+        "Value": "value"
+      },
+      "Description": "Valor constante"
+    },
+    "Compare": {
+      "Category": "Data",
+      "Inputs": {
+        "A": "any",
+        "B": "any"
+      },
+      "Outputs": {
+        "Value": "boolean"
+      },
+      "Fields": {
+        "Operator": [
+          "==",
+          "~=",
+          ">",
+          ">=",
+          "<",
+          "<="
+        ]
+      },
+      "Description": "Compara dois valores"
+    },
+    "Math": {
+      "Category": "Data",
+      "Inputs": {
+        "A": "number",
+        "B": "number"
+      },
+      "Outputs": {
+        "Value": "number"
+      },
+      "Fields": {
+        "Operator": [
+          "+",
+          "-",
+          "*",
+          "/",
+          "min",
+          "max"
+        ]
+      },
+      "Description": "Calcula um valor numérico"
+    },
+    "And": {
+      "Category": "Data",
+      "Inputs": {
+        "A": "boolean",
+        "B": "boolean"
+      },
+      "Outputs": {
+        "Value": "boolean"
+      },
+      "Fields": {},
+      "Description": "Ambas as condições"
+    },
+    "Or": {
+      "Category": "Data",
+      "Inputs": {
+        "A": "boolean",
+        "B": "boolean"
+      },
+      "Outputs": {
+        "Value": "boolean"
+      },
+      "Fields": {},
+      "Description": "Uma das condições"
+    },
+    "Not": {
+      "Category": "Data",
+      "Inputs": {
+        "Value": "boolean"
+      },
+      "Outputs": {
+        "Value": "boolean"
+      },
+      "Fields": {},
+      "Description": "Inverte a condição"
+    },
+    "Format": {
+      "Category": "Data",
+      "Inputs": {
+        "Value": "any"
+      },
+      "Outputs": {
+        "Value": "string"
+      },
+      "Fields": {
+        "Text": "text"
+      },
+      "Description": "Insere um valor em {value}"
+    },
+    "Branch": {
+      "Category": "Action",
+      "Inputs": {
+        "Execute": "exec",
+        "Condition": "boolean"
+      },
+      "Outputs": {
+        "True": "exec",
+        "False": "exec"
+      },
+      "Fields": {},
+      "Description": "Escolhe um caminho"
+    },
+    "Binding": {
+      "Category": "Binding",
+      "Inputs": {
+        "Value": "any"
+      },
+      "Outputs": {},
+      "Fields": {
+        "Control": "control",
+        "State": "state",
+        "Property": [
+          "Value",
+          "Title",
+          "Text",
+          "Description",
+          "Visible",
+          "Disabled"
+        ]
+      },
+      "Description": "Atualiza a interface sem executar callbacks"
+    },
+    "SetValue": {
+      "Category": "Action",
+      "Inputs": {
+        "Execute": "exec",
+        "Value": "any"
+      },
+      "Outputs": {
+        "Then": "exec"
+      },
+      "Fields": {
+        "Control": "control",
+        "State": "state"
+      },
+      "Description": "Altera um componente explicitamente"
+    },
+    "SetVisible": {
+      "Category": "Action",
+      "Inputs": {
+        "Execute": "exec",
+        "Value": "boolean"
+      },
+      "Outputs": {
+        "Then": "exec"
+      },
+      "Fields": {
+        "Control": "control"
+      },
+      "Description": "Altera um componente explicitamente"
+    },
+    "SetDisabled": {
+      "Category": "Action",
+      "Inputs": {
+        "Execute": "exec",
+        "Value": "boolean"
+      },
+      "Outputs": {
+        "Then": "exec"
+      },
+      "Fields": {
+        "Control": "control"
+      },
+      "Description": "Altera um componente explicitamente"
+    },
+    "SetText": {
+      "Category": "Action",
+      "Inputs": {
+        "Execute": "exec",
+        "Value": "any"
+      },
+      "Outputs": {
+        "Then": "exec"
+      },
+      "Fields": {
+        "Control": "control"
+      },
+      "Description": "Altera um componente explicitamente"
+    },
+    "Notify": {
+      "Category": "Action",
+      "Inputs": {
+        "Execute": "exec",
+        "Message": "string"
+      },
+      "Outputs": {
+        "Then": "exec"
+      },
+      "Fields": {
+        "Text": "text",
+        "Title": "text",
+        "Kind": [
+          "normal",
+          "success",
+          "error"
+        ]
+      },
+      "Description": "Mostra uma notificação"
+    },
+    "Call": {
+      "Category": "Action",
+      "Inputs": {
+        "Execute": "exec",
+        "Value": "any"
+      },
+      "Outputs": {
+        "Then": "exec"
+      },
+      "Fields": {
+        "Action": "action"
+      },
+      "Description": "Chama uma função conectada pelo desenvolvedor"
+    },
+    "SetLocale": {
+      "Category": "Action",
+      "Inputs": {
+        "Execute": "exec"
+      },
+      "Outputs": {
+        "Then": "exec"
+      },
+      "Fields": {
+        "Locale": [
+          "auto",
+          "pt-BR",
+          "en-US"
+        ]
+      },
+      "Description": "Muda o idioma da janela"
+    },
+    "ApplyForm": {
+      "Category": "Action",
+      "Inputs": {
+        "Execute": "exec"
+      },
+      "Outputs": {
+        "Then": "exec"
+      },
+      "Fields": {
+        "Control": "form"
+      },
+      "Description": "Valida e aplica um formulário"
+    },
+    "CancelForm": {
+      "Category": "Action",
+      "Inputs": {
+        "Execute": "exec"
+      },
+      "Outputs": {
+        "Then": "exec"
+      },
+      "Fields": {
+        "Control": "form"
+      },
+      "Description": "Descarta o rascunho de um formulário"
+    }
+  },
+  "IconNames": [
+    "axe",
+    "backpack",
+    "bank",
+    "bolt",
+    "bow",
+    "check",
+    "chest",
+    "chevron-down",
+    "chevron-right",
+    "clock",
+    "close",
+    "code",
+    "coins",
+    "copy",
+    "credit-card",
+    "crown",
+    "diamond",
+    "download",
+    "error",
+    "eye",
+    "fish",
+    "folder",
+    "gamepad",
+    "gift",
+    "globe",
+    "grid",
+    "hammer",
+    "heart",
+    "home",
+    "info",
+    "key",
+    "keyboard",
+    "leaf",
+    "link",
+    "load",
+    "lock",
+    "magnet",
+    "map",
+    "maximize",
+    "minimize",
+    "mobile",
+    "money",
+    "mouse",
+    "notification",
+    "palette",
+    "pickaxe",
+    "potion",
+    "refresh",
+    "reset",
+    "restore",
+    "retrobox",
+    "rocket",
+    "save",
+    "screwdriver",
+    "search",
+    "settings",
+    "shield",
+    "shovel",
+    "skull",
+    "sliders",
+    "spark",
+    "star",
+    "success",
+    "sword",
+    "target",
+    "terminal",
+    "toolbox",
+    "tools",
+    "trophy",
+    "unlock",
+    "upload",
+    "user",
+    "volume",
+    "wallet",
+    "warning",
+    "wrench"
+  ],
+  "ThemeNames": [
+    "Amber",
+    "Dracula",
+    "GameBoy",
+    "Hacker",
+    "Midnight",
+    "Monokai",
+    "Nord",
+    "Ocean",
+    "Paper",
+    "Retro98",
+    "Sakura",
+    "Terminal"
+  ]
+}

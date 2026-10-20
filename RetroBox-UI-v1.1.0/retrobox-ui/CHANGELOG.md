@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.5.0 · 2026-10-20
+
+- Designer HTML offline com 21 componentes, Row, 22 blocos tipados, prévia, PT/EN, JSON e compilador Luau real.
+- Localização automática por janela, dicionários, parâmetros, provider explícito e preferência em perfis.
+- Formulários transacionais, componentes reutilizáveis, CardGrid com pool limitado e grafos sem ciclos.
+- Diagnóstico de catálogo por download/compilação explícitos, sem executar o conteúdo.
+- Fontes do editor, catálogo compartilhado, exemplos, testes Chromium e integração contínua.
+- API 2, bootstrap, estrutura histórica, jogos/IDs dos consumidores e pins publicados preservados.
+
 ## 2.4.0 · 2026-10-20
 
 - UniversalScripts nativo e separado de Games, com categoria, tag UNIVERSAL e nome/descrição/URL ou Callback.

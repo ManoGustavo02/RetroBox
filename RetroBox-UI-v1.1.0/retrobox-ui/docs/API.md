@@ -1,5 +1,7 @@
 # RetroBox UI API · 2.4.0
 
+**Adições 2.5.0/API 2:** [Localização, Form, Component, CardGrid, FlowGraph e diagnóstico](DEVELOPMENT-TOOLS.md) · [Designer HTML](../../../designer/README.md). Os métodos anteriores continuam disponíveis.
+
 Os nomes públicos são em inglês. `Locale` aceita `"pt-BR"` e `"en-US"`. Textos dos controles pertencem ao seu script.
 
 ## Library
