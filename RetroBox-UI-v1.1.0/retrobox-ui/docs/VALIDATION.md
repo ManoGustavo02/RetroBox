@@ -12,7 +12,7 @@ As regressões cobrem definição mínima e Id automático, validação atômica
 
 Arquivos: src/UniversalScripts.lua, src/HubLauncher.lua, src/HubUpdates.lua, RetroBox.lua, builder, testes, novo exemplo e documentação/distribuição. Veja [RELEASE-2.4.md](RELEASE-2.4.md) e [UNIVERSAL-SCRIPTS.md](UNIVERSAL-SCRIPTS.md).
 
-O [relatório de publicação](../../../docs/PREPARATION-REPORT.md) registra separadamente os resultados públicos observados. HTTP local é simulado, com fontes inofensivas; nenhum script real de gameplay foi executado. Não há renderer Roblox neste ambiente. Aparência, gestos e compatibilidade com o executor precisam de conferência nativa.
+Após a publicação da 2.4.0, nove arquivos públicos passaram na comparação por bytes, Stable/Preview/Pinned passaram em três verificações com o bootstrap baixado e o workflow do commit de distribuição concluiu com sucesso. O [relatório de publicação](../../../docs/PREPARATION-REPORT.md) registra separadamente os resultados públicos observados. HTTP local é simulado, com fontes inofensivas; nenhum script real de gameplay foi executado. Não há renderer Roblox neste ambiente. Aparência, gestos e compatibilidade com o executor precisam de conferência nativa.
 
 ## Reprodução
 

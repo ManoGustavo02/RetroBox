@@ -31,7 +31,13 @@ HTTP de testes usa respostas controladas. Nenhum script real de gameplay foi exe
 
 ## Conferência remota
 
-Publicação da 2.4.0 e conferência pública em andamento. Resultados de raw, árvore e CI serão registrados após a observação, sem inferi-los dos testes locais. A 2.3.1 permanece no histórico com suas provas anteriores.
+- Publicação atômica em main: commit `b645d10cf4d6354499512b1d792ac7df0dad821b`, árvore `4dc5b0934c7077ea8a2fd171c5ec55f3211308b1`. Os **260 arquivos** da árvore remota correspondem à árvore local testada; resposta recursiva sem truncamento.
+- **9 arquivos públicos** baixados por HTTPS sem login, com **HTTP 200** e igualdade de bytes: bootstrap, Stable, Preview, pin 2.4.0, runtime imutável, aliases de runtime e documentação. Ambos os canais resolvem 2.4.0.
+- O bootstrap baixado publicamente passou em **3/3** verificações: Stable, Preview e Pinned 2.4.0, criando e destruindo o Hub Hacker com categoria/tag universal e uma fonte inofensiva de transporte simulado. Sem conexões residuais, Parent bloqueado ou escrita em ícone destruído. O transporte Pastefy e o renderer continuam simulados.
+- [GitHub Actions · Validate RetroBox](https://github.com/ManoGustavo02/RetroBox/actions/runs/39364680359), associado ao commit de distribuição, concluiu com **success**. O badge consulta o workflow real.
+- O arquivo do Mano Gustavo Hub é uma entrega separada; não foi publicado em um novo repositório ou paste. As URLs reais do Pastefy precisam ser fornecidas pelo proprietário.
+
+A 2.3.1 e seus resultados anteriores permanecem no histórico. A documentação desta evidência é publicada em um commit posterior sem alterar os bytes da distribuição.
 
 ## Apresentação e backup
 
