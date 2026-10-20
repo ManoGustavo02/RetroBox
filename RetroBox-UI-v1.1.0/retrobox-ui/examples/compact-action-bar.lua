@@ -1,0 +1,16 @@
+-- Compact actions reuse the library's floating actions, including Hold release.
+local RetroBox=loadstring(game:HttpGet('https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua'))({Channel='stable',MinVersion='2.2.0'})
+local window=RetroBox:CreateWindow({Id='compact-actions-demo',Title='RetroBox / Atalhos',Locale='pt-BR'})
+local section=window:CreateTab({Title='Ações',Icon='bolt'}):CreateSection('Ações locais')
+local toggle=section:AddToggle({Id='enabled',Title='Ativar simulação'})
+local button=section:AddButton({Id='notice',Title='Aviso',Callback=function() window:Notify({Content='Ação executada'}) end})
+local hold=section:AddKeybind({Id='hold',Title='Segurar',Mode='Hold',Default=Enum.KeyCode.F,Callback=function(active)
+    window:SetSubtitle(active and 'Segurando' or 'Solto')
+end})
+local bar=window:CreateActionBar({Id='shortcuts',Title='Atalhos',Position=Vector2.new(.03,.65),Width=330})
+bar:AddAction({Control=toggle,Text='Ativar'})
+bar:AddAction({Control=button,Text='Aviso'})
+bar:AddAction({Control=hold,Text='Segurar'})
+section:AddButton({Title='Mostrar atalhos',Callback=function() bar:SetVisible(true) end})
+section:AddButton({Title='Ocultar menu',Callback=function() window:Hide() end})
+return window,bar

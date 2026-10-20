@@ -1,0 +1,119 @@
+# Script Hub · RetroBox 2.3.1
+
+O hub é opcional. A sequência normal `HTTP → CreateWindow → CreateTab → CreateSection → controles` continua disponível. O modo usa a mesma janela, as listas virtuais, as flags, os perfis, os temas, os scopes e as ações da RetroBox.
+
+`Library:CreateScriptHub(options)` cria um hub com uma janela própria. `window:CreateScriptHub(options)` adiciona um hub a uma janela existente. Ambos retornam um manager com `Window`, `Tab`, `Id`, `GameList`, `ScriptList` e os métodos abaixo. Não execute funções vindas de perfis; o catálogo é definido pelo desenvolvedor em código.
+
+## Cadastro
+
+| Campo | Contrato |
+| --- | --- |
+| `Id` | ID estável de 1–64 letras, números, ponto, hífen ou sublinhado. |
+| `Title` | Título do hub; a factory também aceita as opções normais da janela, como Theme, Locale e ConfigFolder. |
+| `WindowId` / `HubId` | A factory permite separar o ID da janela do ID do manager. |
+| `AutoDetectGame` | `true` por padrão; seleciona uma correspondência do catálogo, sem executar ações. |
+| `ConfirmTeleport` | `true` por padrão. |
+| `Teleporter` | Adapter opcional `function(placeId, player, gameMetadata, ctx)`. Deve retornar false, motivo se rejeitar a solicitação. |
+| `Games` | Array denso, até 512 jogos e 4096 scripts no total. |
+
+Jogo: `{Id, Name?, PlaceId?, UniverseId?, Description?, FallbackName?, Notes?, Image?, Order?, Scripts={...}}`. Id continua obrigatório. Desde a 2.1.0, Name pode ser omitido com PlaceId/UniverseId válido e GameMetadata habilitado; caso contrário continua obrigatório. Name/FallbackName têm até 128 bytes, Description/Notes até 2048. FallbackName identifica o jogo enquanto os dados não chegam; Notes aparece em Info. Nenhum deles bloqueia consultas automáticas. Name ou Description fornecidos são personalizações por campo, inclusive Description="" intencional. PlaceId e UniverseId são inteiros positivos exatos até 2^53−1, com significados distintos. Order é inteiro entre −1000000 e 1000000, padrão ordem de cadastro. Image aceita ID numérico ou conteúdo Roblox `rbxassetid://`, `rbxthumb://`, `rbxasset://`; URLs web não são colocadas no ImageLabel. `false` pode limpar PlaceId, UniverseId ou Image em UpdateGame.
+
+Script: `{Id, Title, Description?, Icon?, Author?, Version?, Status?, Enabled?, CurrentGameOnly?, Requires?, Confirm?, Callback?}`. Até 128 por jogo, IDs únicos dentro dele. Title/Author até 128 bytes, Description até 2048, Version 64, Status 128, Confirm 4096. Sem Callback, a entrada permanece indisponível. Icon usa o catálogo pixel art existente. Enabled é bool ou `function(hub, gameMetadata, scriptMetadata)`; CurrentGameOnly restringe a disponibilidade ao contexto correspondente.
+
+`Requires` pode conter `HttpGet`, `loadstring`, `readfile`, `writefile` ou `setclipboard`. Essas capacidades pertencem à ação cadastrada: o hub e a library não exigem `readfile` para carregar. Nenhuma URL de código é interpretada pelo catálogo; Executar script chama somente o Callback registrado em código pelo desenvolvedor.
+
+```lua
+-- Carregue a RetroBox primeiro pelo raw confirmado da versão, como no prompt.
+local hub = Library:CreateScriptHub({
+    Id = "meu-hub", Title = "Meu Hub", Theme = "Retro98", Locale = "pt-BR",
+    AutoDetectGame = true, ConfigFolder = "RetroBox/MeuHub",
+    Games = {{
+        Id = "current", Name = "Jogo desta sessão",
+        PlaceId = game.PlaceId, UniverseId = game.GameId,
+        Scripts = {{Id = "notice", Title = "Mostrar aviso", Icon = "info",
+            Callback = function(ctx, activeHub)
+                ctx:ThrowIfCancelled()
+                activeHub.Window:Notify({Content = "Ação de demonstração."})
+                return {Shown = true}
+            end}},
+    }},
+})
+```
+
+## Métodos
+
+| Método | Resultado / comportamento |
+| --- | --- |
+| `AddGame(record)` | Retorna o ID; valida antes da mutação. |
+| `UpdateGame(id, patch)` | Retorna hub; ID não é renomeado. Cancela ações da versão anterior do cadastro. |
+| `RemoveGame(id)` | Bool; remove entrada e ajusta seleção/favoritos. |
+| `GetGame(id)`, `GetGames()` | Cópias de metadados; callbacks/predicates não são expostos nem serializados. |
+| `SelectGame(id)`, `GetSelectedGame()` | Bool, motivo / metadados. Reutiliza a janela e as listas. |
+| `DetectCurrentGame()`, `IsCurrentGame(id)` | ID ou nil / bool. PlaceId exato tem prioridade; depois UniverseId = game.GameId. |
+| `SetGameQuery(text)`, `SetScriptQuery(text)` | Pesquisa imediata sem executar ações; até 256 bytes, case insensitive em ASCII e capitais latinas pt-BR. |
+| `SetSort("Order"/"Alphabetical"/"Favorites")` | Mantém a seleção. IDs das opções são estáveis entre idiomas. |
+| `IsFavorite(id)`, `SetFavorite(id, bool)` | Estado persistido pelo perfil normal. |
+| `AddScript(gameId, record)` | Retorna hub; exige ID único. |
+| `UpdateScript(gameId, scriptId, patch)` | Retorna hub; pode atualizar disponibilidade, metadados e callback. |
+| `RemoveScript(gameId, scriptId)` | Bool. |
+| `GetScript(gameId, scriptId)` | Metadados sem função executável. |
+| `IsScriptAvailable(gameId, scriptId)` | Bool, motivo. Revalida também no início da ação. |
+| `GetScriptStatus(gameId, scriptId)` | Snapshot Available/Unavailable/Queued/Running/Cancelling/Completed/Failed/Cancelled. |
+| `RefreshScripts()` | Atualiza os dados após uma dependência externa mudar. |
+| `RunScript(gameId, scriptId, {Confirmed?})` | Handle/erro; ou nil, `confirmation pending`. Runtime compartilhado, grupo exclusivo por entrada, sem execuções duplicadas. |
+| `GetThumbnailStatus(gameId)` | Status Loading/Loaded/Unavailable, URI e erro quando houver. |
+| `RetryThumbnail(gameId)` | Reenvia uma falha; não duplica trabalho já Loading. |
+| `TeleportToGame(gameId, {Confirmed?})` | Handle/erro; confirmação por padrão, sem auto Play. |
+| `Show()`, `Hide()`, `Destroy()` | Retorna hub / destruição. Factory própria destrói também a janela; hub anexado remove seu tab e recursos. |
+
+Callbacks de scripts recebem `(ctx, hub, gameMetadata, scriptMetadata)`. Cooperem com cancelamento: `ctx:ThrowIfCancelled()`, `ctx:IsCancelled()`, `ctx:AwaitAction()` e `ctx:Manage()`. Um callback que ignora cancelamento não pode ser interrompido à força pelo runtime. A conclusão só é mostrada depois do resultado real da ação. Retornar `false, "motivo"` produz Failed; levantar erro também. Remover/atualizar o cadastro solicita cancelamento da execução anterior.
+
+## Perfis e imagens
+
+A descrição do jogo aparece no destaque, com Ler descrição/Recolher; a do script aparece no card, junto de créditos, versão e estado. Info mostra os textos completos e Notes. O layout mede texto e respeita escala/largura. Desligar descrições auxiliares dos controles não remove o conteúdo do catálogo. As referências GameDetails/ScriptDetails continuam atualizadas e focáveis pela pesquisa global.
+
+Favoritos, ordenação e jogo selecionado usam flags estáveis `hub/<HubId>/favorites`, `hub/<HubId>/sort`, `hub/<HubId>/games`. Construa o catálogo antes de LoadConfig. Restauração silenciosa atualiza a interface pelas flags observáveis. Favoritos ausentes do catálogo são descartados; uma seleção inexistente é normalizada para nil e uma entrada disponível é escolhida. Dados dos jogos, callbacks, busca, imagens e execuções não entram no perfil. Schema/ConfigVersion permanecem compatíveis com perfis anteriores.
+
+As linhas são recicladas, com pool máximo 64. Miniaturas usam `rbxthumb://type=GameIcon&id=<UniverseId>&w=150&h=150`; sem UniverseId, `GameThumbnail` usa PlaceId e 256×144. ContentProvider:PreloadAsync roda fora da criação da interface, no máximo quatro pedidos simultâneos; cache/pendências são limitados a 128 URIs. Sem serviço, sem imagem ou em erro, permanece o fallback em pixel art. Ocultar/reabrir preserva a seleção. Destruir cancela os scopes, observadores, trabalhos de imagem e ações gerenciadas.
+
+## Teleporte
+
+O destino sempre usa PlaceId, nunca UniverseId. A seleção automática e o load de perfil não teleportam. Há confirmação por padrão e proteção contra solicitações duplicadas. Falhas síncronas e TeleportInitFailed são informadas; após 30 segundos sem confirmação, a espera local termina como Unconfirmed. Solicitar um teleporte não confirma a chegada e não produz um aviso de sucesso antecipado.
+
+O fluxo nativo compatível no cliente usa `TeleportService:Teleport(placeId, LocalPlayer)`, uma API legada. Roblox recomenda TeleportAsync no servidor, via RemoteEvent definido pela própria experiência. Em um hub universal de cliente não há um RemoteEvent de servidor que se possa presumir; configure Teleporter para essa integração quando disponível. A library não chama TeleportAsync no cliente nem tenta contornar bloqueios do ambiente. Método legado, assets e entrada real exigem teste no executor de destino.
+
+Fontes oficiais: [URIs de assets](https://create.roblox.com/docs/projects/assets), [TeleportService](https://create.roblox.com/docs/reference/engine/classes/TeleportService), [migração de teleportes](https://create.roblox.com/docs/projects/teleport#migrate-to-secure-teleports).
+
+Veja [script-hub.lua](../examples/script-hub.lua), [distribuição remota](DISTRIBUTION.md) e [validação](VALIDATION.md).
+
+
+## Layout 2.0
+
+A apresentação padrão é um launcher nativo. O destaque usa imagem com ScaleType.Crop e placeholder pixel art; divide imagem/informações em largura suficiente e usa capa com informações abaixo em telas menores. Image tem prioridade. Na imagem principal, PlaceId usa GameThumbnail 256×144; as linhas usam UniverseId/GameIcon quando presente. Textos de status vazios são ocultos.
+
+A navegação usa linhas compactas, marcador de seleção, pesquisa com limpeza e sort traduzido sem alterar os IDs das opções. No desktop, as duas colunas rolam independentemente; em largura pequena, empilham. NavigationRatio aceita .3–.55 (padrão .31), StackAt 480–1000 (padrão 700), ScriptListMaxRows 1–12 (padrão 4) e GameListMaxRows 2–16 (padrão 7). TextScale também aumenta o ponto de empilhamento e altura das linhas.
+
+A lista de scripts seleciona, sem botão de execução por linha. Um script é escolhido automaticamente; SelectScript(id) e GetSelectedScript() permitem controlar a escolha. A última seleção válida por jogo fica na sessão. PlayButton conserva sua referência/ID, agora com texto Executar script / Run Script. ExecutionStatus mostra estado/progresso/erro real. CancelButton só aparece quando há execução e solicita cancelamento cooperativo. Entrar no jogo continua sendo exclusivamente teleporte.
+
+## Atualizações
+
+Version, CatalogVersion, Actions, CatalogUpdate e CodeUpdate separam código/dados/ação/compatibilidade. GetVersion, CheckForUpdates, GetUpdateStatus, SetUpdateChannel e ReloadCatalog estão descritos em [HUB-AUTO-UPDATE.md](HUB-AUTO-UPDATE.md). JSON não cria callbacks nem executa URLs. O catálogo é validado antes da mutação; preserva controles e preferências ainda válidas. Código e library são aplicados na próxima inicialização.
+
+## Smart Game Metadata na 2.1.0
+
+CreateScriptHub, AddGame, UpdateGame e CatalogUpdate preenchem campos ausentes de modo assíncrono no mesmo Hub 2.0. GameMetadata controla provider opcional, TTLs e concorrência. RefreshGameMetadata/GetGameMetadataStatus permitem consulta explícita e diagnóstico. Dados externos não substituem campos manuais ou callbacks. Consulte [GAME-METADATA.md](GAME-METADATA.md) para os limites oficiais de PlaceId/UniverseId e [smart-game-metadata.lua](../examples/smart-game-metadata.lua).
+
+## Launcher nativo na 2.3.0
+
+A mesma estrutura é instalada por Library:CreateScriptHub e window:CreateScriptHub, sem adaptadores nos consumidores. A janela com hubs usa navegação horizontal; remover o último hub anexado restaura a navegação comum. Janelas sem hubs usam o layout tradicional.
+
+A biblioteca tem filtros Todos/Favoritos/Jogo atual, miniaturas, busca e ordenação. Cards de scripts mostram descrição, autor, versão e estado. A barra fixa reúne script selecionado, andamento, erro/resultado, atividade, Executar, Cancelar e Info. O destaque reúne nome/descrição/imagem, favoritos, atualização de metadados e teleporte com status. Tudo acompanha Theme/Locale; Hacker é uma opção, Retro98 continua padrão.
+
+| Método | Contrato |
+| --- | --- |
+| `SetCatalogFilter(value)` | All, Favorites ou Current; retorna hub. Não executa ações. |
+| `GetCatalogFilter()` | Filtro atual. |
+
+O filtro é persistido em `hub/<HubId>/catalog-filter`. Os IDs anteriores não mudaram. FallbackName/Notes também são aceitos no catálogo JSON declarativo, sem callbacks/URLs executáveis.
+
+[Exemplo nativo](../examples/native-hub-launcher.lua) · [Migração e estado da publicação](RELEASE-2.3.1.md). O exemplo usa o bootstrap da conta nova e MinVersion=2.3.1.

@@ -1,0 +1,39 @@
+name: Erro na RetroBox
+description: Relatar um problema reproduzível da biblioteca.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: "Para vulnerabilidades, siga SECURITY.md. Remova credenciais e dados pessoais dos logs."
+  - type: input
+    id: version
+    attributes:
+      label: Versão e build da library
+      placeholder: "2.3.0 / API 2"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Ambiente e componente afetado
+      description: "Informe dispositivo, ambiente de execução e se usa Script Hub, janela comum ou componente compacto."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reprodução mínima
+      description: "Passos e trecho mínimo de interface em ambiente autorizado."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Resultado esperado e observado
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Erro e logs sem dados sensíveis
+      render: text

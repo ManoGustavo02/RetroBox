@@ -1,0 +1,43 @@
+name: Validate RetroBox
+"on":
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: retrobox-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout reviewed revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install logic-test runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y liblua5.4-0
+      - name: Verify repository documentation and assets
+        run: python3 tools/verify_repository.py
+      - name: Verify standalone modules are incorporated
+        working-directory: RetroBox-UI-v1.1.0/retrobox-ui
+        run: |
+          python3 tools/build_distribution.py --embed-only
+          git diff --exit-code -- RetroBox.lua Loader.lua
+          git diff --exit-code -- ../../dist/Loader.lua ../../dist/bootstrap/v2.lua
+      - name: Verify released distribution bytes
+        working-directory: RetroBox-UI-v1.1.0/retrobox-ui
+        run: |
+          python3 tools/verify_distribution.py
+          python3 tools/verify_origin_migration.py
+      - name: Run headless logic tests and shipped examples
+        working-directory: RetroBox-UI-v1.1.0/retrobox-ui
+        run: python3 tests/run_headless.py
+      - name: Test promotion, rollback and immutable releases
+        working-directory: RetroBox-UI-v1.1.0/retrobox-ui
+        run: python3 tests/test_release_pipeline.py
