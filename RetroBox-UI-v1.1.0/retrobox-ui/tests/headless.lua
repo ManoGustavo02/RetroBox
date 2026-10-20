@@ -346,6 +346,8 @@ dofile("tests/update.lua")(Mock,Library,test)
 dofile("tests/hub-update.lua")(Mock,Library,test)
 dofile("tests/game-metadata.lua")(Mock,Library,test)
 dofile("tests/hub-launcher.lua")(Mock,Library,test)
+dofile("tests/universal-scripts.lua")(Mock,Library,test)
+dofile("tests/universal-catalog.lua")(Mock,Library,test)
 dofile("tests/session-integration.lua")(Mock,Library,test)
 dofile("tests/profiler.lua")(Mock,Library,test)
 dofile("tests/cancellable-operation.lua")(Mock,Library,test)
@@ -369,7 +371,7 @@ test("all shipped examples use the public API and clean up",function()
         return Mock.distributionHTTP(game,url)
     end
     local seen={}
-    for _,file in ipairs({"quickstart","showcase","custom-theme","storage-adapter","tooltips","workflows","icons","dashboard","runtime-integration","contrast-showcase","advanced-components","theme-studio","runtime-inspector","dashboard-builder","command-palette","help-accessibility","themes-gallery","script-hub","remote-loader","loader-stable","loader-preview","loader-pinned","hub-bootstrap","hub-catalog","smart-game-metadata","runtime-profiler","session-snapshots","integration-helper","cancellable-operation","mini-hud","compact-action-bar","context-preview","operation-stepper","native-hub-launcher"}) do
+    for _,file in ipairs({"quickstart","showcase","custom-theme","storage-adapter","tooltips","workflows","icons","dashboard","runtime-integration","contrast-showcase","advanced-components","theme-studio","runtime-inspector","dashboard-builder","command-palette","help-accessibility","themes-gallery","script-hub","remote-loader","loader-stable","loader-preview","loader-pinned","hub-bootstrap","hub-catalog","smart-game-metadata","runtime-profiler","session-snapshots","integration-helper","cancellable-operation","mini-hud","compact-action-bar","context-preview","operation-stepper","native-hub-launcher","universal-scripts"}) do
         loadstring=function(source,name)
             local chunk,err=load(source,name)
             if not chunk then return nil,err end
@@ -378,7 +380,7 @@ test("all shipped examples use the public API and clean up",function()
         dofile("examples/"..file..".lua")
         Mock.pump()
     end
-    assert(requests>=102 and #loaded==34)
+    assert(requests>=105 and #loaded==35)
     for _,library in ipairs(loaded) do
         for window in pairs(library.Windows) do
             if window.Id=="themes-gallery" then

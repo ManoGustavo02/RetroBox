@@ -16,5 +16,7 @@
   "RetroBox-UI-v1.1.0/retrobox-ui/examples/hub-distribution/catalog/dist/channels/stable/v1.json": "7294a16c9a75becc855396176d7f5d6daa090f73d4b3d0e37e5b7f5f72de992b",
   "RetroBox-UI-v1.1.0/retrobox-ui/examples/hub-distribution/catalog/dist/channels/preview/v1.json": "a09a8050c1925ca1fda017a7c12c43895e421006354822a4922b3d3aa6e15a98",
   "RetroBox-UI-v1.1.0/retrobox-ui/examples/hub-distribution/catalog/dist/releases/1.0.0/manifest.json": "ded8431b30c03b218d99e08d1efe8e4299c09a1b65c7dfa850e2fab653de6155",
-  "RetroBox-UI-v1.1.0/retrobox-ui/examples/hub-distribution/catalog/dist/releases/1.0.0/catalog.json": "012b5f880029906b05585aadf752c24626465c422f54b2efea5272c0a04ea2b6"
+  "RetroBox-UI-v1.1.0/retrobox-ui/examples/hub-distribution/catalog/dist/releases/1.0.0/catalog.json": "012b5f880029906b05585aadf752c24626465c422f54b2efea5272c0a04ea2b6",
+  "dist/releases/2.3.1/manifest.json": "600558c62b587e95639afbcca344f82b3b98c99f0dd53eb4588ed4339dbdc093",
+  "dist/releases/2.3.1/RetroBox.lua": "cdf44090273caed178ba477fcb17abc408d535ee4402dbcf0459a1ead828c424"
 }

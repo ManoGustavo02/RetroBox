@@ -1,7 +1,8 @@
 return function(Mock,Library,test)
     local root="https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main"
+    local version=Library.Version
     test("new updater defaults to the confirmed new account",function()
-        assert(Library.Version=="2.3.1" and Library.APIVersion==2)
+        assert(Library:CompareVersions(version,"2.3.1")>=0 and Library.APIVersion==2)
         assert(Library:CreateUpdater():GetStatus().Root==root)
         assert(Library:CreateUpdater({Root="https://example.test/custom"}):GetStatus().Root=="https://example.test/custom")
     end)
@@ -17,11 +18,11 @@ return function(Mock,Library,test)
                 local f=assert(io.open("../../"..path,"rb"));local bytes=f:read("*a");f:close();return bytes
             end
             loadstring=load
-            local remote,report=assert(loadfile("Loader.lua"))({Channel=channel,Version=channel=="pinned" and "2.3.1" or nil,MinVersion="2.3.1",Cache=false})
-            assert(remote.Version=="2.3.1" and remote.APIVersion==2 and report.State=="Loaded" and report.Root==root)
+            local remote,report=assert(loadfile("Loader.lua"))({Channel=channel,Version=channel=="pinned" and version or nil,MinVersion=version,Cache=false})
+            assert(remote.Version==version and remote.APIVersion==2 and report.State=="Loaded" and report.Root==root)
             assert(report.Channel==channel and #requests==2)
-            assert(requests[1]==(channel=="pinned" and "dist/releases/2.3.1/manifest.json" or "dist/channels/"..channel.."/v2.json"))
-            assert(requests[2]=="dist/releases/2.3.1/RetroBox.lua")
+            assert(requests[1]==(channel=="pinned" and "dist/releases/"..version.."/manifest.json" or "dist/channels/"..channel.."/v2.json"))
+            assert(requests[2]=="dist/releases/"..version.."/RetroBox.lua")
             local window=remote:CreateWindow({Id="origin-"..channel,Theme="Hacker",FileStorage=false})
             local section=window:CreateTab("Principal"):CreateSection("Controles")
             local calls=0

@@ -1,6 +1,7 @@
 -- Embedded inside the Script Hub scope, after its existing catalog methods.
 local gameFields={Id=true,Name=true,PlaceId=true,UniverseId=true,Description=true,Image=true,Order=true,Scripts=true,FallbackName=true,Notes=true}
 local scriptFields={Id=true,Title=true,Description=true,Icon=true,Author=true,Version=true,Status=true,Enabled=true,CurrentGameOnly=true,Requires=true,Confirm=true,Action=true}
+local universalFields={Name=true};for name in pairs(scriptFields) do universalFields[name]=true end
 local function declarative(record,fields,label)
     assert(type(record)=="table",label.." must be a record")
     for field,value in pairs(record) do
@@ -8,10 +9,27 @@ local function declarative(record,fields,label)
         assert(type(value)~="function" and type(value)~="thread" and typeof(value)~="Instance","Catalogs cannot contain executable values")
     end
 end
+function Hub:_prepareUniversalCatalog(values)
+    local records,ids={},{}
+    for _,item in ipairs(array(values,128,'UniversalScripts')) do
+        declarative(item,universalFields,'universal script')
+        assert(item.Enabled==nil or type(item.Enabled)=='boolean','Catalog Enabled must be boolean')
+        assert(item.Icon==nil or type(item.Icon)=='string','Catalog Icon must be text')
+        local old=self:_script(UNIVERSAL_KEY,item.Id)
+        local value={};for k,v in pairs(old and old._definition or {}) do value[k]=k=='Requires' and copy(v) or v end
+        for k,v in pairs(item) do if k~='Action' then value[k]=copy(v) end end
+        if item.Title~=nil and item.Name==nil then value.Name=nil end
+        if item.Action then key(item.Action,'Action');value.Callback=self._catalogActions[item.Action];value.URL=nil end
+        local spec=normalizeUniversalScript(value,true)
+        assert(not ids[spec.Id],'Duplicate universal script Id: '..spec.Id)
+        ids[spec.Id]=true;records[#records+1]=spec
+    end
+    return records
+end
 function Hub:_prepareCatalog(document)
     assert(not self.Destroyed,"Hub has been destroyed")
     assert(document.SchemaVersion==1 and document.Kind=="HubCatalog" and document.HubId==self.Id,"Catalog belongs to a different hub or protocol")
-    local fields={SchemaVersion=true,Kind=true,HubId=true,Version=true,Games=true}
+    local fields={SchemaVersion=true,Kind=true,HubId=true,Version=true,Games=true,UniversalScripts=true}
     for name in pairs(document) do assert(fields[name],"Unknown catalog field: "..tostring(name)) end
     UpdateCore.ParseVersion(document.Version)
     local entries={}
@@ -38,7 +56,10 @@ function Hub:_prepareCatalog(document)
         end
         entries[index]=rec
     end
-    return normalizeGames(entries)
+    local games=normalizeGames(entries)
+    local universals=document.UniversalScripts~=nil and self:_prepareUniversalCatalog(document.UniversalScripts) or nil
+    self:_checkUniversalCount(universals and #universals or #self._universal.Scripts,games)
+    return games,universals
 end
 function Hub:GetVersion() return self.Version end
 function Hub:GetUpdateStatus()
@@ -72,21 +93,28 @@ function Hub:ReloadCatalog(context)
     self._reloadingCatalog=true
     local ok,reason=pcall(function()
         if context then context:ThrowIfCancelled() end
-        self._preparedCatalog=nil
+        self._preparedCatalog=nil;self._preparedUniversals=nil
         local document,report=self._catalogUpdater:Load("json")
         assert(document,report)
         assert(not self.Destroyed,"Hub was destroyed during the update")
         if context then context:ThrowIfCancelled() end
-        local initial=self._preparedCatalog or self:_prepareCatalog(document)
+        local initial,universals=self._preparedCatalog,self._preparedUniversals
+        if not initial then initial,universals=self:_prepareCatalog(document) end
         local games,order={},{}
         for _,rec in ipairs(initial) do games[rec.Id]=rec; order[#order+1]=rec.Id end
         -- Validation is complete. Mutate the catalog once and keep native controls.
         for id in pairs(self._games) do self:_cancelScripts(id) end
-        self._games,self._order=games,order; self._scriptStatus={}; self.CatalogVersion=document.Version
+        local statuses={}
+        if universals~=nil then
+            self:_cancelScripts(UNIVERSAL_KEY);self._universal=newUniversalRecord(self,universals);self._universalConfigured=true
+        else
+            for name,status in pairs(self._scriptStatus) do if name:sub(1,#UNIVERSAL_KEY+1)==UNIVERSAL_KEY..'/' then statuses[name]=status end end
+        end
+        self._games,self._order=games,order; self._scriptStatus=statuses; self.CatalogVersion=document.Version
         self:_afterCatalog()
         return report
     end)
-    self._preparedCatalog=nil; self._reloadingCatalog=false
+    self._preparedCatalog=nil;self._preparedUniversals=nil; self._reloadingCatalog=false
     if not ok then self._catalogUpdater.Report.State="Failed"; self._catalogUpdater.Report.Error=tostring(reason); return false,tostring(reason) end
     return true,reason
 end
@@ -103,16 +131,17 @@ function Hub:_setupUpdates(options)
     end
     if options.CatalogUpdate then
         local settings=configured(options.CatalogUpdate,"HubCatalog",self.CatalogVersion)
-        settings.ValidateData=function(document) self._preparedCatalog=self:_prepareCatalog(document); return true end
+        settings.ValidateData=function(document) self._preparedCatalog,self._preparedUniversals=self:_prepareCatalog(document); return true end
         self._catalogUpdater=UpdateCore.New(settings)
     end
     if options.CodeUpdate then self._codeUpdater=UpdateCore.New(configured(options.CodeUpdate,"Hub",self.Version)) end
 end
 function Hub:SelectScript(id)
-    if not self:_script(self.SelectedGameId,id) then return false,"Script is unavailable" end
-    self.ScriptList:SetValue(id); self._selectedScripts[self.SelectedGameId]=id; self:_refreshScriptDetails(); return true
+    local selectedKey=self:_selectedKey()
+    if not self:_script(selectedKey,id) then return false,"Script is unavailable" end
+    self.ScriptList:SetValue(id); self._selectedScripts[selectedKey]=id; self:_refreshScriptDetails(); return true
 end
-function Hub:GetSelectedScript() return self:GetScript(self.SelectedGameId,self.ScriptList:GetValue()) end
+function Hub:GetSelectedScript() return self:GetScript(self:_selectedKey(),self.ScriptList:GetValue()) end
 function Hub:_layoutHub()
     if self.Launcher then self.Launcher:QueueRefresh() end
 end

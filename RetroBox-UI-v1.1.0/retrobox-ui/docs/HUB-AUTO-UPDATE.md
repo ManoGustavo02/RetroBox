@@ -58,3 +58,8 @@ python3 RetroBox-UI-v1.1.0/retrobox-ui/tools/build_hub_release.py --root caminho
 Os arquivos-fonte/caminhos do comando são arquivos do checkout do **publicador**, não requisitos no executor. O builder gera releases imutáveis, digest/tamanho e manifesto de canal com compatibilidade de library. Publique em seu repositório, verifique os RAWs e promova o canal com `--channel stable`. Para rollback acrescente `--rollback <versão existente>`; publique o novo apontamento e conserve o histórico anterior. Origins de código e catálogo podem ter pastas separadas e versões independentes.
 
 Arquivos e origens reais da demonstração estão em [hub-distribution](../examples/hub-distribution/Hub-source.lua), [hub-bootstrap.lua](../examples/hub-bootstrap.lua) e [hub-catalog.lua](../examples/hub-catalog.lua). Nenhum recurso altera arquivos de terceiros nem contorna restrições do ambiente.
+
+
+## Universais em catálogos JSON (2.4.0)
+
+UniversalScripts é opcional no documento. Omitir preserva os universais locais; [] remove explicitamente. Apenas metadados e Action registrada localmente são aceitos. URL/Source/Callback continuam proibidos no JSON. Uma URL local existente é preservada quando a Action não é substituída. A aplicação de jogos e universais é atômica. Consulte [UNIVERSAL-SCRIPTS](UNIVERSAL-SCRIPTS.md) e exija MinVersion=2.4.0 no manifesto desses catálogos.

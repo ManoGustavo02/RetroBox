@@ -22,6 +22,7 @@ def embed():
         ('RETRO210 RUNTIME PROFILER', ['RuntimeProfiler.lua'], '    local Context={}; Context.__index=Context'),
         ('RETRO210 SESSION AND INTEGRATION', ['SessionSnapshots.lua', 'Integration.lua'], '-- BEGIN CENTRAL ANIMATOR'),
         ('RETRO210 GAME METADATA', ['GameMetadata.lua'], '    function Window:CreateScriptHub(options)'),
+        ('RETRO240 UNIVERSAL SCRIPTS', ['UniversalScripts.lua'], '-- BEGIN RETRO230 HUB LAUNCHER'),
         ('RETRO230 HUB LAUNCHER', ['HubLauncher.lua'], '    function Window:CreateScriptHub(options)'),
         ('RETRO220 COMPACT COMPONENTS', ['CompactViews.lua', 'Preview.lua', 'Stepper.lua'], 'return Library\n'),
     ]

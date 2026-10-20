@@ -2,6 +2,7 @@
 -- Catalogs, runtime, callbacks and control identities remain owned by Hub.
 function Hub:_displayGameName(record)
     if not record then return self.Window:_t17('Escolha um jogo','Choose a game') end
+    if record.Universal then return record.Name end
     local native=self:_game(record.Id)
     local status=self:GetGameMetadataStatus(record.Id)
     if native and native._metadataManual.Name or status and status.Fields and status.Fields.Name then return record.Name end
@@ -143,9 +144,13 @@ function Hub:_installLauncher(options)
     end
     local filter=extra:AddDropdown({Id='hub/'..hub.Id..'/catalog-filter',Title=tr('Filtro do catálogo','Catalog filter'),Options={'All','Favorites','Current'},Default='All',Visible=false})
     launcher.Filter=filter
-    ui.All=extraButton('all',tr('Todos','All'),false,function() filter:SetValue('All') end)
-    ui.Favorites=extraButton('favorites',tr('Favoritos','Favorites'),'star',function() filter:SetValue('Favorites') end)
-    ui.Current=extraButton('current',tr('Atual','Current'),'gamepad',function() filter:SetValue('Current') end)
+    local category=extra:AddDropdown({Id='hub/'..hub.Id..'/catalog-category',Title=tr('Categoria','Category'),Options={'Games','Universal'},Default='Games',Visible=false})
+    launcher.Category=category
+    local function gamesCategory() if hub:GetSelectedCategory()=='Universal' then category:SetValue('Games') end end
+    ui.All=extraButton('all',tr('Todos','All'),false,function() gamesCategory(); filter:SetValue('All') end)
+    ui.Favorites=extraButton('favorites',tr('Favoritos','Favorites'),'star',function() gamesCategory(); filter:SetValue('Favorites') end)
+    ui.Current=extraButton('current',tr('Atual','Current'),'gamepad',function() gamesCategory(); filter:SetValue('Current') end)
+    ui.Universal=extraButton('universals',tr('Scripts universais','Universal scripts'),'code',function() hub:SelectUniversalScripts() end)
     ui.Expand=extraButton('description',tr('Ler descrição','Read description'),'info',function() launcher.Expanded=not launcher.Expanded; launcher:Refresh() end)
     ui.Retry=extraButton('refresh',tr('Atualizar','Refresh'),'refresh',function()
         local selected=hub:GetSelectedGame()
@@ -155,7 +160,7 @@ function Hub:_installLauncher(options)
         return accepted,reason
     end)
     ui.More=extraButton('details','Info','info',function()
-        local record=hub:GetSelectedGame(); local spec=hub:GetSelectedScript()
+        local record=hub:_selectedCatalog(); local spec=hub:GetSelectedScript()
         local status=record and spec and hub:GetScriptStatus(record.Id,spec.Id)
         local source=record
         local parts={record and displayName(record) or tr('Nenhum jogo selecionado','No game selected')}
@@ -166,7 +171,7 @@ function Hub:_installLauncher(options)
         window:Dialog({Title=tr('Detalhes','Details'),Content=cut(table.concat(parts,'\n\n'),7800),Icon='info'})
     end)
     local moved={hub.GameSearch,hub.Sort,hub.GameList,hub.GameImage,hub.FavoriteButton,hub.TeleportButton,hub.ScriptSearch,hub.ScriptList,
-        hub.PlayButton,hub.CancelButton,ui.All,ui.Favorites,ui.Current,ui.Expand,ui.Retry,ui.More}
+        hub.PlayButton,hub.CancelButton,ui.All,ui.Favorites,ui.Current,ui.Universal,ui.Expand,ui.Retry,ui.More}
     for _,control in ipairs(moved) do
         if control~=hub.Sort then
         function control:_layoutDescription()
@@ -178,7 +183,7 @@ function Hub:_installLauncher(options)
         control.Frame.AutomaticSize=Enum.AutomaticSize.None
         control.DescriptionLabel.Visible=false
     end
-    for _,control in ipairs({ui.All,ui.Favorites,ui.Current,ui.Expand,ui.Retry,ui.More}) do
+    for _,control in ipairs({ui.All,ui.Favorites,ui.Current,ui.Universal,ui.Expand,ui.Retry,ui.More}) do
         control.TitleLabel.Visible=false; control.Frame.BackgroundTransparency=1
         control.Button.Position=U2(0,0); control.Button.Size=UDim2.fromScale(1,1)
         if control._titleIcon and control._titleIcon.Frame then
@@ -194,6 +199,7 @@ function Hub:_installLauncher(options)
     move(hub.ScriptSearch,ui.Details); move(hub.ScriptList,ui.Details)
     move(hub.PlayButton,ui.Dock); move(hub.CancelButton,ui.Dock)
     move(ui.All,ui.Filters); move(ui.Favorites,ui.Filters); move(ui.Current,ui.Filters)
+    move(ui.Universal,ui.Navigation)
     move(ui.Expand,ui.Details); move(ui.Retry,ui.GameActions); move(ui.More,ui.Dock)
     tab.Container.Visible=false
     hub.GameSearch.Input.PlaceholderText=tr('Buscar jogos…','Search games…')
@@ -208,7 +214,7 @@ function Hub:_installLauncher(options)
 
     -- Keep native TextButton semantics/focus, with a separate padded caption so
     -- pixel icons never overlap a centered caption at narrow/mobile widths.
-    local captionControls={ui.All,ui.Favorites,ui.Current,ui.Expand,ui.Retry,ui.More,hub.FavoriteButton,hub.TeleportButton,hub.PlayButton,hub.CancelButton}
+    local captionControls={ui.All,ui.Favorites,ui.Current,ui.Universal,ui.Expand,ui.Retry,ui.More,hub.FavoriteButton,hub.TeleportButton,hub.PlayButton,hub.CancelButton}
     local function syncCaption(control)
         local caption=control._hubCaption
         if not alive() or not caption or not caption.Parent or not control.Frame.Parent then return end
@@ -267,7 +273,7 @@ function Hub:_installLauncher(options)
     end
     local states={Available='Disponível',Unavailable=tr('Indisponível','Unavailable'),Queued='Na fila',Running='Executando',Cancelling='Cancelando',Completed='Concluído',Failed='Falha',Cancelled='Cancelado'}
     function hub.ScriptList:_renderNode(row,index)
-        local record=hub:GetSelectedGame(); local item=self.Items[index]
+        local record=hub:_selectedCatalog(); local item=self.Items[index]
         local spec=record and hub:GetScript(record.Id,item.Id); if not spec then return end
         local status=hub:GetScriptStatus(record.Id,spec.Id) or {Status='Unavailable'}
         local selected=self:GetValue()==spec.Id
@@ -280,10 +286,16 @@ function Hub:_installLauncher(options)
             row.LauncherDescription=label(row.Button,'ScriptDescription','',11,'Muted'); row.LauncherDescription.TextWrapped=true; row.LauncherDescription.TextYAlignment=Enum.TextYAlignment.Top
             row.LauncherState=label(row.Button,'ScriptState','',10,'Accent'); row.LauncherState.TextXAlignment=Enum.TextXAlignment.Right
             row.LauncherMark=panel(row.Button,'SelectionMark','Accent')
+            row.UniversalTag=label(row.Button,'UniversalTag','UNIVERSAL',9,'AccentText')
+            row.UniversalTag.TextXAlignment=Enum.TextXAlignment.Center;row.UniversalTag.BackgroundTransparency=0
+            bind(row.UniversalTag,{BackgroundColor3='Accent',TextColor3='AccentText'})
         end
         row.Labels[1].Visible=false
         local width=math.max(100,row.Button.Size.X.Offset); local scale=window.TextScale or 1
-        rect(row.LauncherTitle,44,10,width-56,22*scale)
+        local badgeWidth=record.Universal and math.min(94*scale,(width-64)*.5) or 0
+        row.UniversalTag.Visible=record.Universal==true
+        rect(row.UniversalTag,width-badgeWidth-12,10,badgeWidth,20*scale)
+        rect(row.LauncherTitle,44,10,math.max(20,width-56-(badgeWidth>0 and badgeWidth+8 or 0)),22*scale)
         rect(row.LauncherCredit,44,34*scale,width-56,16*scale)
         rect(row.LauncherDescription,14,55*scale,width-28,32*scale)
         rect(row.LauncherState,width-140,34*scale,126,16*scale)
@@ -297,7 +309,7 @@ function Hub:_installLauncher(options)
         local role=status.Status=='Failed' and 'Danger' or (status.Status=='Unavailable' or status.Status=='Cancelled') and 'Muted' or 'Accent'
         bind(row.LauncherState,{TextColor3=role}); bind(row.LauncherTitle,{TextColor3=selected and 'Accent' or 'Text'})
         row.Button.BorderSizePixel=1
-        for _,object in ipairs({row.LauncherTitle,row.LauncherCredit,row.LauncherDescription,row.LauncherState}) do window:_refreshInk(object) end
+        for _,object in ipairs({row.LauncherTitle,row.LauncherCredit,row.LauncherDescription,row.LauncherState,row.UniversalTag}) do window:_refreshInk(object) end
     end
 
     function launcher:LayoutChrome()
@@ -339,7 +351,10 @@ function Hub:_installLauncher(options)
         local sortY=8
         local searchY=(touch and 58 or 46)+(hub.Sort.Open and 192 or 0)
         local filtersY=searchY+inputHeight+8
-        local navHeader=filtersY+filterHeight-6
+        local universalVisible=hub._universalConfigured or #hub:GetUniversalScripts()>0
+        ui.Universal.Frame.Visible=universalVisible
+        local universalY=filtersY+filterHeight+8
+        local navHeader=filtersY+filterHeight-6+(universalVisible and filterHeight+10 or 0)
         local rowHeight=math.ceil(60*ts)
         local navHeight=columns and bodyHeight or navHeader+math.min(3,hub.GameListMaxRows,math.max(1,hub.GameList:GetViewStats().Filtered))*rowHeight+38
         navHeight=math.max(navHeader+64,navHeight); self.NavigationHeight=navHeight
@@ -347,6 +362,7 @@ function Hub:_installLauncher(options)
         rect(ui.LibraryTitle,14,12,navWidth-140,22); ui.CatalogCount.Visible=false; ui.SortLabel.Visible=false
         rect(hub.GameSearch.Frame,12,searchY,navWidth-24,inputHeight)
         rect(ui.Filters,12,filtersY,navWidth-24,filterHeight)
+        if universalVisible then rect(ui.Universal.Frame,12,universalY,navWidth-24,filterHeight) end
         local segment=(navWidth-28)/3
         for i,control in ipairs({ui.All,ui.Favorites,ui.Current}) do rect(control.Frame,(i-1)*(segment+2),0,segment,filterHeight) end
         rect(hub.Sort.Frame,navWidth-122,sortY,110,inputHeight+(hub.Sort.Open and 192 or 0))
@@ -380,13 +396,15 @@ function Hub:_installLauncher(options)
         rect(ui.Description,infoX,y,infoWidth,descriptionHeight); y=y+descriptionHeight+6
         if needsExpand then rect(ui.Expand.Frame,infoX,y,152,26); y=y+30 end
         local actionHeight=touch and 42 or 34
-        rect(ui.GameActions,infoX,y,infoWidth,actionHeight)
+        local universal=hub:GetSelectedCategory()=='Universal'
+        ui.GameActions.Visible=not universal
+        rect(ui.GameActions,infoX,y,infoWidth,universal and 0 or actionHeight)
         local actionGap=6; local actionWidth=(infoWidth-actionGap*2)/3
         rect(hub.FavoriteButton.Frame,0,0,actionWidth,actionHeight)
         rect(hub.TeleportButton.Frame,actionWidth+actionGap,0,actionWidth,actionHeight)
         rect(ui.Retry.Frame,(actionWidth+actionGap)*2,0,actionWidth,actionHeight)
-        y=y+actionHeight+8
-        local teleportText=hub.TeleportStatus:GetValue()
+        if not universal then y=y+actionHeight+8 end
+        local teleportText=not universal and hub.TeleportStatus:GetValue() or ''
         ui.TeleportMessage.Visible=teleportText~=''; ui.TeleportMessage.Text=teleportText
         if teleportText~='' then
             local teleportHeight=textHeight(teleportText,11,infoWidth,80*ts)
@@ -439,8 +457,13 @@ function Hub:_installLauncher(options)
     end
     function launcher:Refresh()
         if not alive() or self._refreshing then return end; self._refreshing=true
-        local record=hub:GetSelectedGame(); local spec=hub:GetSelectedScript()
-        local entries=hub:GetGames(); local scripts,running=0,0
+        local record=hub:_selectedCatalog(); local spec=hub:GetSelectedScript()
+        local entries=hub:GetGames(); local universal=hub:GetSelectedCategory()=='Universal'
+        local universals=hub:GetUniversalScripts(); local scripts,running=#universals,0
+        for _,item in ipairs(universals) do
+            local status=hub:GetUniversalScriptStatus(item.Id)
+            if status and (status.Status=='Running' or status.Status=='Queued' or status.Status=='Cancelling') then running=running+1 end
+        end
         for _,entry in ipairs(entries) do scripts=scripts+#entry.Scripts
             for _,script in ipairs(entry.Scripts) do
                 local status=hub:GetScriptStatus(entry.Id,script.Id)
@@ -456,21 +479,29 @@ function Hub:_installLauncher(options)
             syncCaption(entry[1])
             if entry[1]._titleIcon then entry[1]._titleIcon:SetRole(selected and 'AccentText' or 'Text') end
         end
+        ui.Universal.Button.Text=tr('Scripts universais','Universal scripts')..' · '..#universals
+        bind(ui.Universal.Button,{BackgroundColor3=universal and 'Accent' or 'Surface',TextColor3=universal and 'AccentText' or 'Text',BorderColor3='Accent'})
+        ui.Universal.Button.BorderSizePixel=1
+        if ui.Universal._titleIcon then ui.Universal._titleIcon:SetRole(universal and 'AccentText' or 'Text') end
+        ui.HeroEyebrow.Text=universal and tr('CATÁLOGO UNIVERSAL','UNIVERSAL CATALOG') or tr('JOGO SELECIONADO','SELECTED GAME')
+        ui.ScriptHeading.Text=universal and tr('SCRIPTS UNIVERSAIS','UNIVERSAL SCRIPTS') or tr('SCRIPTS DISPONÍVEIS','AVAILABLE SCRIPTS')
+        hub.ScriptSearch.Input.PlaceholderText=universal and tr('Buscar scripts universais…','Search universal scripts…') or tr('Buscar scripts deste jogo…','Search scripts in this game…')
         ui.GameTitle.Text=displayName(record)
         ui.GameContext.Text=record and ((hub:IsCurrentGame(record.Id) and tr('JOGO ATUAL  ·  ','CURRENT GAME  ·  ') or '')..#record.Scripts..(#record.Scripts==1 and tr(' script cadastrado no hub',' script in this hub') or tr(' scripts cadastrados no hub',' scripts in this hub'))) or tr('Explore a biblioteca à esquerda.','Explore the game library.')
-        local metadata=record and hub:GetGameMetadataStatus(record.Id) or {State='Idle'}
+        if universal then ui.GameContext.Text=#universals..tr(' scripts · SEM VÍNCULO COM UM JOGO',' scripts · NO GAME ASSOCIATION') end
+        local metadata=not universal and record and hub:GetGameMetadataStatus(record.Id) or {State='Idle'}
         local source=record and hub:_game(record.Id) or {}
         local manual=source._metadataManual and (source._metadataManual.Name or source._metadataManual.Description)
         local loading=metadata.State=='Queued' or metadata.State=='Loading'
         local errorState=metadata.State=='Unavailable'
-        ui.Source.Text=manual and tr('PERSONALIZADO','CUSTOMIZED') or loading and tr('CONSULTANDO ROBLOX','FETCHING ROBLOX DATA') or errorState and tr('DADOS INDISPONÍVEIS','DATA UNAVAILABLE') or metadata.State=='Partial' and tr('DADOS PARCIAIS','PARTIAL DATA') or metadata.Source=='Provider' and tr('DADOS DO PROVEDOR','PROVIDER DATA') or record and tr('DADOS DO ROBLOX','ROBLOX DATA') or tr('SEM SELEÇÃO','NO SELECTION')
+        ui.Source.Text=universal and tr('UNIVERSAL','UNIVERSAL') or manual and tr('PERSONALIZADO','CUSTOMIZED') or loading and tr('CONSULTANDO ROBLOX','FETCHING ROBLOX DATA') or errorState and tr('DADOS INDISPONÍVEIS','DATA UNAVAILABLE') or metadata.State=='Partial' and tr('DADOS PARCIAIS','PARTIAL DATA') or metadata.Source=='Provider' and tr('DADOS DO PROVEDOR','PROVIDER DATA') or record and tr('DADOS DO ROBLOX','ROBLOX DATA') or tr('SEM SELEÇÃO','NO SELECTION')
         bind(ui.Source,{TextColor3=errorState and 'Danger' or loading and 'Muted' or 'Accent'})
         ui.Description.Text=record and record.Description~='' and record.Description or loading and tr('Carregando a descrição do jogo…','Loading game description…')
             or errorState and tr('O Roblox não retornou as informações. Tente atualizar; os scripts continuam disponíveis.','Roblox did not return game details. Try refreshing; scripts are still available.') or tr('Este jogo não possui uma descrição disponível.','This game has no description available.')
         local long=#ui.Description.Text>180 or ui.Description.Text:find('\n',1,true)~=nil
         ui.Expand.Frame.Visible=long; ui.Expand.Button.Text=self.Expanded and tr('Recolher descrição','Collapse description') or tr('Ler descrição','Read description')
         ui.Description.TextTruncate=self.Expanded and Enum.TextTruncate.None or Enum.TextTruncate.AtEnd
-        ui.Retry:SetDisabled(not record or loading)
+        ui.Retry:SetDisabled(universal or not record or loading)
         ui.ScriptCount.Text=record and tostring(#record.Scripts) or '0'
         local status=record and spec and hub:GetScriptStatus(record.Id,spec.Id) or {Status='Unavailable'}
         local busy=status.Status=='Running' or status.Status=='Queued' or status.Status=='Cancelling'
@@ -494,6 +525,15 @@ function Hub:_installLauncher(options)
     end
     -- Subscriptions are disposable resources; no polling loop is needed.
     scope:Add(window:GetFlagState(filter.Id):Subscribe(function() launcher:ApplyFilter() end),'Disconnect')
+    scope:Add(window:GetFlagState(category.Id):Subscribe(function(value)
+        if not alive() or hub._selecting then return end
+        if value=='Universal' then hub:SelectUniversalScripts()
+        elseif hub:GetSelectedCategory()=='Universal' then
+            hub._selectedScripts[UNIVERSAL_KEY]=hub.ScriptList:GetValue()
+            hub.SelectedCategory='Games';hub.SelectedGameId=hub._lastSelectedGameId
+            if hub.SelectedGameId and hub:_game(hub.SelectedGameId) then hub:SelectGame(hub.SelectedGameId) else hub:_afterCatalog() end
+        end
+    end),'Disconnect')
     listen(ui.Root.Destroying,function() if alive() then hub:Destroy() end end)
     listen(hub.GameDetails.TitleLabel:GetPropertyChangedSignal('Text'),function() launcher:QueueRefresh() end)
     listen(hub.ExecutionStatus.TitleLabel:GetPropertyChangedSignal('Text'),function() launcher:QueueRefresh() end)
@@ -506,7 +546,7 @@ function Hub:_installLauncher(options)
         launcher.Destroyed=true; launcher._queued=false
         window:_forgetSkin(ui.Root)
         for control in pairs(focusTargets) do control._hubFocusTarget=nil end
-        launcher._nodes={}; launcher.Filter=nil
+        launcher._nodes={}; launcher.Filter=nil;launcher.Category=nil
         if hub.Launcher==launcher then hub.Launcher=nil end
         for _,control in ipairs(captionControls) do control._hubCaption=nil end
         for name in pairs(ui) do ui[name]=nil end

@@ -1,4 +1,4 @@
--- RetroBox UI 2.3.1 | Mano Gustavo | MIT License
+-- RetroBox UI 2.4.0 | Mano Gustavo | MIT License
 -- Standalone GUI library for Roblox client executors.
 -- Load the raw GitHub source with loadstring(game:HttpGet(URL))().
 
@@ -9,7 +9,7 @@ local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
 local TextService = game:GetService("TextService")
 
-local Library = { Version = "2.3.1", Themes = {}, Windows = {} }
+local Library = { Version = "2.4.0", Themes = {}, Windows = {} }
 local Window = {}; Window.__index = Window
 local Tab = {}; Tab.__index = Tab
 local Section = {}; Section.__index = Section
@@ -6701,6 +6701,8 @@ end
 -- This optional mode uses native tabs, recycled lists, flags, scopes and actions.
 do
     local Hub={}; Hub.__index=Hub
+    local UNIVERSAL_KEY="@universal" -- Cannot collide with a valid game Id.
+    local normalizeUniversalScript,normalizeUniversalScripts,newUniversalRecord
     local function key(value,label)
         assert(type(value)=="string" and #value>=1 and #value<=64 and value:match("^[%w_%.%-]+$"),(label or "Id").." must be 1–64 letters, numbers, dots, underscores or hyphens")
         return value
@@ -6774,12 +6776,18 @@ do
         local ok,value=pcall(game.GetService,game,name); return ok and value or nil
     end
     function Hub:_game(id) return self._games[id] end
+    function Hub:_catalog(id) return id==UNIVERSAL_KEY and self._universal or self._games[id] end
+    function Hub:_selectedKey() return self.SelectedCategory=="Universal" and UNIVERSAL_KEY or self.SelectedGameId end
+    function Hub:_catalogRecord(rec)
+        if not rec then return nil end
+        local value=metadata(rec); value.Scripts={}; for _,entry in ipairs(rec.Scripts) do value.Scripts[#value.Scripts+1]=metadata(entry) end; return value
+    end
+    function Hub:_selectedCatalog() return self:_catalogRecord(self:_catalog(self:_selectedKey())) end
     function Hub:_script(gameId,scriptId)
-        local rec=self:_game(gameId); if rec then for _,entry in ipairs(rec.Scripts) do if entry.Id==scriptId then return entry,rec end end end
+        local rec=self:_catalog(gameId); if rec then for _,entry in ipairs(rec.Scripts) do if entry.Id==scriptId then return entry,rec end end end
     end
     function Hub:GetGame(id)
-        local rec=self:_game(id); if not rec then return nil end
-        local value=metadata(rec); value.Scripts={}; for _,entry in ipairs(rec.Scripts) do value.Scripts[#value.Scripts+1]=metadata(entry) end; return value
+        local rec=self._games[id]; return self:_catalogRecord(rec)
     end
     function Hub:GetGames() local out={}; for _,id in ipairs(self._order) do out[#out+1]=self:GetGame(id) end; return out end
     function Hub:GetScript(gameId,scriptId) return metadata(self:_script(gameId,scriptId)) end
@@ -6832,6 +6840,7 @@ do
         if self.Destroyed then return end
         self.GameList:_render()
         local rec=self:_game(self.SelectedGameId); local uri=rec and self:_thumbnailURI(rec,true)
+        if self.ImageFallback then self.ImageFallback:Set(self.SelectedCategory=="Universal" and "code" or "gamepad") end
         local cached=uri and self._thumbs[uri]; local loaded=cached and cached.Status=="Loaded"
         self.GameImage:SetValue(loaded and uri or "",true)
         self.GameImage.Image.Visible=not not loaded
@@ -6889,7 +6898,10 @@ do
         if spec.CurrentGameOnly and not self:IsCurrentGame(gameId) then return false,self.Window:_t17("Disponível somente neste jogo.","Only available in this game.") end
         local enabled=spec.Enabled
         if type(enabled)=="function" then
-            local ok,value=self.Window:_protected(enabled,{Operation=self.Id,Phase="HubAvailability"},self,metadata(rec),metadata(spec)); enabled=ok and value==true
+            local ok,value
+            if rec._universal then ok,value=self.Window:_protected(enabled,{Operation=self.Id,Phase="HubAvailability"},self,metadata(spec))
+            else ok,value=self.Window:_protected(enabled,{Operation=self.Id,Phase="HubAvailability"},self,metadata(rec),metadata(spec)) end
+            enabled=ok and value==true
         end
         if enabled==false then return false,self.Window:_t17("Indisponível","Unavailable") end
         local caps={loadstring=loadstring,readfile=readfile,writefile=writefile,setclipboard=setclipboard}
@@ -6910,7 +6922,7 @@ do
         return {Status=available and "Available" or "Unavailable",Error=reason}
     end
     function Hub:_scriptRows()
-        local out={}; local rec=self:_game(self.SelectedGameId)
+        local out={}; local rec=self:_catalog(self:_selectedKey())
         for _,spec in ipairs(rec and rec.Scripts or {}) do
             local status=self:GetScriptStatus(rec.Id,spec.Id); local author=spec.Author~="" and " · "..spec.Author or ""
             local pt={Available="Disponível",Unavailable="Indisponível",Queued="Na fila",Running="Executando",Cancelling="Cancelando",Completed="Concluído",Failed="Falha",Cancelled="Cancelado"}
@@ -6921,7 +6933,7 @@ do
     end
     function Hub:_refreshScriptDetails()
         if self.Destroyed or not self.ScriptList then return end
-        local spec,rec=self:_script(self.SelectedGameId,self.ScriptList:GetValue())
+        local spec,rec=self:_script(self:_selectedKey(),self.ScriptList:GetValue())
         local available,reason=false,self.Window:_t17("Selecione um script.","Select a script.")
         if spec then available,reason=self:IsScriptAvailable(rec.Id,spec.Id) end
         local handle=spec and self._pendingScripts[rec.Id.."/"..spec.Id]
@@ -6954,10 +6966,11 @@ do
         if self.Destroyed then return self end
         self._refreshingScripts=true
         self.ScriptList:SetItems(self:_scriptRows()); self:_filterScripts()
-        local preferred=self._selectedScripts and self._selectedScripts[self.SelectedGameId]
+        local selectedKey=self:_selectedKey()
+        local preferred=selectedKey and self._selectedScripts and self._selectedScripts[selectedKey]
         if preferred and self.ScriptList._keyIndex[preferred] then self.ScriptList:SetValue(preferred,true) end
         if not self.ScriptList:GetValue() and #self.ScriptList.Items>0 then self.ScriptList:SetValue(self.ScriptList.Items[1].Id,true) end
-        if self.SelectedGameId then self._selectedScripts[self.SelectedGameId]=self.ScriptList:GetValue() end
+        if selectedKey then self._selectedScripts[selectedKey]=self.ScriptList:GetValue() end
         self._refreshingScripts=false; self:_refreshScriptDetails(); return self
     end
     function Hub:_filterScripts()
@@ -6991,9 +7004,11 @@ do
         if self.Destroyed or not self._games[id] then return false,"Game is unavailable" end
         if self._selecting then return true end
         self._selecting=true
-        local previous=self.SelectedGameId
-        if self.SelectedGameId and self.SelectedGameId~=id then self._selectedScripts[self.SelectedGameId]=self.ScriptList:GetValue(); self.ScriptList:SetValue(nil,true) end
-        self.SelectedGameId=id
+        local previous=self:_selectedKey()
+        if previous and previous~=id then self._selectedScripts[previous]=self.ScriptList:GetValue(); self.ScriptList:SetValue(nil,true) end
+        self.SelectedGameId=id; self.SelectedCategory="Games"; self._lastSelectedGameId=id
+        if self.Launcher and self.Launcher.Category then self.Launcher.Category:SetValue("Games",true) end
+        self.FavoriteButton:SetDisabled(false)
         self.GameList:SetValue(id,true)
         local rec=self._games[id]
         self.GameDetails:SetText(rec.Name..(self:IsCurrentGame(id) and self.Window:_t17(" · Jogo atual"," · Current game") or "").."\n"..rec.Description)
@@ -7005,12 +7020,13 @@ do
     end
     function Hub:_afterCatalog()
         self:_refreshGames()
+        if self.SelectedCategory=="Universal" then self:SelectUniversalScripts(); self:_scheduleGameMetadata(); return end
         local selected=self.GameList:GetValue()
         if selected and self._games[selected] then self:SelectGame(selected)
         else
             local target=self.AutoDetectGame and self:DetectCurrentGame() or nil
             target=target or self.GameList.Items[1] and self.GameList.Items[1].Id
-            if target then self:SelectGame(target) else
+            if target then self:SelectGame(target) elseif self._universal and #self._universal.Scripts>0 then self:SelectUniversalScripts() else
                 self.SelectedGameId=nil; self.ScriptList:SetItems({}); self.ImageStatus:SetText(""); self.GameDetails:SetText(self.Window:_t17("Nenhum jogo cadastrado.","No games registered.")); self.GameImage:SetValue("",true)
                 self.PlayButton:SetDisabled(true); self.TeleportButton:SetDisabled(true); self.FavoriteButton:SetDisabled(true); self:_refreshScriptDetails()
             end
@@ -7019,7 +7035,7 @@ do
         self:_scheduleGameMetadata()
     end
     function Hub:_checkCount(replacement)
-        local total=0; for id,rec in pairs(self._games) do total=total+#((replacement and replacement.Id==id and replacement or rec).Scripts) end
+        local total=self._universal and #self._universal.Scripts or 0; for id,rec in pairs(self._games) do total=total+#((replacement and replacement.Id==id and replacement or rec).Scripts) end
         if replacement and not self._games[replacement.Id] then total=total+#replacement.Scripts end
         assert(total<=4096,"Script catalog limit is 4096 entries")
     end
@@ -7088,8 +7104,10 @@ do
             local status=handle:GetStatus().Status
             hub.Window:Notify({Title=spec.Title,Content=status=="Completed" and hub.Window:_text("success") or tostring(handle.Error or status),Kind=status=="Completed" and "success" or status=="Failed" and "error" or "normal"})
         end
-        local handle,err=self.Window:RunAction({Group="hub/"..self.Id.."/"..name,Policy="Reject",Callback=function(ctx)
+        local group=rec._universal and ("hub/"..self.Id.."/universal/"..Library:SHA256(scriptId):sub(1,32)) or ("hub/"..self.Id.."/"..name)
+        local handle,err=self.Window:RunAction({Group=group,Policy="Reject",Callback=function(ctx)
             local ready,why=hub:IsScriptAvailable(gameId,scriptId); if not ready or hub:_script(gameId,scriptId)~=spec then return false,why or "Script was replaced" end
+            if rec._universal then return spec.Callback(ctx,hub,metadata(spec)) end
             return spec.Callback(ctx,hub,metadata(rec),metadata(spec))
         end,OnComplete=complete})
         if not handle then return nil,err end
@@ -7148,7 +7166,7 @@ do
     function Hub:Destroy()
         if self.Destroyed then return end; self.Destroyed=true
         for _,handle in pairs(self._pendingScripts) do handle:Cancel("hub destroyed") end
-        self.Scope:Destroy(); self._thumbQueue={}; cleanup(self)
+        self.Scope:Destroy(); self._thumbQueue={}; self._universal=nil; cleanup(self)
         if self.Window._scriptHubs then self.Window._scriptHubs[self.Id]=nil end
         self.Window._resources:Remove("script-hub:"..self.Id,true)
         if not self.Tab.Destroyed then self.Tab:Destroy() end
@@ -7159,6 +7177,7 @@ do
 -- Embedded inside the Script Hub scope, after its existing catalog methods.
 local gameFields={Id=true,Name=true,PlaceId=true,UniverseId=true,Description=true,Image=true,Order=true,Scripts=true,FallbackName=true,Notes=true}
 local scriptFields={Id=true,Title=true,Description=true,Icon=true,Author=true,Version=true,Status=true,Enabled=true,CurrentGameOnly=true,Requires=true,Confirm=true,Action=true}
+local universalFields={Name=true};for name in pairs(scriptFields) do universalFields[name]=true end
 local function declarative(record,fields,label)
     assert(type(record)=="table",label.." must be a record")
     for field,value in pairs(record) do
@@ -7166,10 +7185,27 @@ local function declarative(record,fields,label)
         assert(type(value)~="function" and type(value)~="thread" and typeof(value)~="Instance","Catalogs cannot contain executable values")
     end
 end
+function Hub:_prepareUniversalCatalog(values)
+    local records,ids={},{}
+    for _,item in ipairs(array(values,128,'UniversalScripts')) do
+        declarative(item,universalFields,'universal script')
+        assert(item.Enabled==nil or type(item.Enabled)=='boolean','Catalog Enabled must be boolean')
+        assert(item.Icon==nil or type(item.Icon)=='string','Catalog Icon must be text')
+        local old=self:_script(UNIVERSAL_KEY,item.Id)
+        local value={};for k,v in pairs(old and old._definition or {}) do value[k]=k=='Requires' and copy(v) or v end
+        for k,v in pairs(item) do if k~='Action' then value[k]=copy(v) end end
+        if item.Title~=nil and item.Name==nil then value.Name=nil end
+        if item.Action then key(item.Action,'Action');value.Callback=self._catalogActions[item.Action];value.URL=nil end
+        local spec=normalizeUniversalScript(value,true)
+        assert(not ids[spec.Id],'Duplicate universal script Id: '..spec.Id)
+        ids[spec.Id]=true;records[#records+1]=spec
+    end
+    return records
+end
 function Hub:_prepareCatalog(document)
     assert(not self.Destroyed,"Hub has been destroyed")
     assert(document.SchemaVersion==1 and document.Kind=="HubCatalog" and document.HubId==self.Id,"Catalog belongs to a different hub or protocol")
-    local fields={SchemaVersion=true,Kind=true,HubId=true,Version=true,Games=true}
+    local fields={SchemaVersion=true,Kind=true,HubId=true,Version=true,Games=true,UniversalScripts=true}
     for name in pairs(document) do assert(fields[name],"Unknown catalog field: "..tostring(name)) end
     UpdateCore.ParseVersion(document.Version)
     local entries={}
@@ -7196,7 +7232,10 @@ function Hub:_prepareCatalog(document)
         end
         entries[index]=rec
     end
-    return normalizeGames(entries)
+    local games=normalizeGames(entries)
+    local universals=document.UniversalScripts~=nil and self:_prepareUniversalCatalog(document.UniversalScripts) or nil
+    self:_checkUniversalCount(universals and #universals or #self._universal.Scripts,games)
+    return games,universals
 end
 function Hub:GetVersion() return self.Version end
 function Hub:GetUpdateStatus()
@@ -7230,21 +7269,28 @@ function Hub:ReloadCatalog(context)
     self._reloadingCatalog=true
     local ok,reason=pcall(function()
         if context then context:ThrowIfCancelled() end
-        self._preparedCatalog=nil
+        self._preparedCatalog=nil;self._preparedUniversals=nil
         local document,report=self._catalogUpdater:Load("json")
         assert(document,report)
         assert(not self.Destroyed,"Hub was destroyed during the update")
         if context then context:ThrowIfCancelled() end
-        local initial=self._preparedCatalog or self:_prepareCatalog(document)
+        local initial,universals=self._preparedCatalog,self._preparedUniversals
+        if not initial then initial,universals=self:_prepareCatalog(document) end
         local games,order={},{}
         for _,rec in ipairs(initial) do games[rec.Id]=rec; order[#order+1]=rec.Id end
         -- Validation is complete. Mutate the catalog once and keep native controls.
         for id in pairs(self._games) do self:_cancelScripts(id) end
-        self._games,self._order=games,order; self._scriptStatus={}; self.CatalogVersion=document.Version
+        local statuses={}
+        if universals~=nil then
+            self:_cancelScripts(UNIVERSAL_KEY);self._universal=newUniversalRecord(self,universals);self._universalConfigured=true
+        else
+            for name,status in pairs(self._scriptStatus) do if name:sub(1,#UNIVERSAL_KEY+1)==UNIVERSAL_KEY..'/' then statuses[name]=status end end
+        end
+        self._games,self._order=games,order; self._scriptStatus=statuses; self.CatalogVersion=document.Version
         self:_afterCatalog()
         return report
     end)
-    self._preparedCatalog=nil; self._reloadingCatalog=false
+    self._preparedCatalog=nil;self._preparedUniversals=nil; self._reloadingCatalog=false
     if not ok then self._catalogUpdater.Report.State="Failed"; self._catalogUpdater.Report.Error=tostring(reason); return false,tostring(reason) end
     return true,reason
 end
@@ -7261,16 +7307,17 @@ function Hub:_setupUpdates(options)
     end
     if options.CatalogUpdate then
         local settings=configured(options.CatalogUpdate,"HubCatalog",self.CatalogVersion)
-        settings.ValidateData=function(document) self._preparedCatalog=self:_prepareCatalog(document); return true end
+        settings.ValidateData=function(document) self._preparedCatalog,self._preparedUniversals=self:_prepareCatalog(document); return true end
         self._catalogUpdater=UpdateCore.New(settings)
     end
     if options.CodeUpdate then self._codeUpdater=UpdateCore.New(configured(options.CodeUpdate,"Hub",self.Version)) end
 end
 function Hub:SelectScript(id)
-    if not self:_script(self.SelectedGameId,id) then return false,"Script is unavailable" end
-    self.ScriptList:SetValue(id); self._selectedScripts[self.SelectedGameId]=id; self:_refreshScriptDetails(); return true
+    local selectedKey=self:_selectedKey()
+    if not self:_script(selectedKey,id) then return false,"Script is unavailable" end
+    self.ScriptList:SetValue(id); self._selectedScripts[selectedKey]=id; self:_refreshScriptDetails(); return true
 end
-function Hub:GetSelectedScript() return self:GetScript(self.SelectedGameId,self.ScriptList:GetValue()) end
+function Hub:GetSelectedScript() return self:GetScript(self:_selectedKey(),self.ScriptList:GetValue()) end
 function Hub:_layoutHub()
     if self.Launcher then self.Launcher:QueueRefresh() end
 end
@@ -7531,11 +7578,133 @@ end
 
 -- END RETRO210 GAME METADATA
 
+-- BEGIN RETRO240 UNIVERSAL SCRIPTS
+-- First-class universal catalog. Embedded in the existing Hub lexical scope.
+normalizeUniversalScript=function(value,allowUnavailable)
+    assert(type(value)=='table','Universal script must be a record')
+    assert(value.PlaceId==nil and value.UniverseId==nil and value.GameId==nil,'Universal scripts do not take Roblox game identifiers')
+    assert(value.CurrentGameOnly==nil or value.CurrentGameOnly==false,'Universal scripts cannot use CurrentGameOnly')
+    assert(value.Name==nil or value.Title==nil or value.Name==value.Title,'Universal Name and Title must agree')
+    local name=text(value.Name or value.Title,128,'Universal script Name',true)
+    local url=value.URL
+    if url==false or url=='' then url=nil end
+    assert(url==nil or type(url)=='string' and #url<=2048 and url:match('^https://[%w%.%-]+[^%s]*$') and not url:find('[%c]'),'Universal URL must be a direct HTTPS source URL')
+    assert(not (url and value.Callback~=nil),'Use URL or Callback for a universal script, not both')
+    assert(allowUnavailable or url or type(value.Callback)=='function','Universal script needs a URL or Callback')
+    local scriptId=value.Id==nil and ('universal-'..UpdateCore.SHA256(name):sub(1,16)) or key(value.Id,'Universal script Id')
+    local definition={Id=scriptId,Name=name,Description=value.Description,Icon=value.Icon,Author=value.Author,Version=value.Version,
+        Status=value.Status,Enabled=value.Enabled,Requires=copy(array(value.Requires or {},16,'Requires')),Confirm=value.Confirm,URL=url,Callback=value.Callback}
+    local prepared={}; for k,v in pairs(definition) do prepared[k]=v end; prepared.Title=name
+    if url then
+        prepared.Requires={};for _,cap in ipairs(definition.Requires) do if not table.find(prepared.Requires,cap) then prepared.Requires[#prepared.Requires+1]=cap end end
+        for _,cap in ipairs({'HttpGet','loadstring'}) do if not table.find(prepared.Requires,cap) then prepared.Requires[#prepared.Requires+1]=cap end end
+        prepared.Callback=function(ctx,activeHub)
+            ctx:ThrowIfCancelled(); ctx:SetProgress(1,10,activeHub.Window:_t17('Baixando script universal…','Downloading universal script…'))
+            local source=game:HttpGet(url)
+            ctx:ThrowIfCancelled()
+            assert(type(source)=='string' and #source>0,'Universal script source is empty')
+            assert(#source<=2097152,'Universal script source exceeds 2 MiB')
+            local chunk,reason=loadstring(source,'@RetroBox-Universal-'..scriptId)
+            assert(chunk,'Universal script compilation failed: '..tostring(reason))
+            ctx:ThrowIfCancelled(); ctx:SetProgress(8,10,activeHub.Window:_t17('Executando script universal…','Running universal script…'))
+            return chunk()
+        end
+    end
+    local result=normalizeScript(prepared)
+    result.Name=name; result.URL=url; result.Universal=true; result.Kind='Universal'; result._definition=definition
+    return result
+end
+normalizeUniversalScripts=function(values,allowUnavailable)
+    local records,ids={},{}
+    for _,value in ipairs(array(values or {},128,'UniversalScripts')) do
+        local spec=normalizeUniversalScript(value,allowUnavailable)
+        assert(not ids[spec.Id],'Duplicate universal script Id: '..spec.Id)
+        ids[spec.Id]=true;records[#records+1]=spec
+    end
+    return records
+end
+newUniversalRecord=function(hub,scripts)
+    return {Id=UNIVERSAL_KEY,Name=hub.Window:_t17('Scripts universais','Universal scripts'),
+        Description=hub.Window:_t17('Scripts cadastrados sem vínculo com um jogo. Escolha um script para ler os detalhes e executar.','Scripts registered independently of a game. Select a script to read its details and run it.'),
+        FallbackName='',Notes='',Scripts=scripts,Universal=true,Kind='Universal',_universal=true,
+        _metadataManual={Name=true,Description=true}}
+end
+function Hub:GetSelectedCategory() return self.SelectedCategory or 'Games' end
+function Hub:GetUniversalScripts()
+    local result={};for _,spec in ipairs(self._universal and self._universal.Scripts or {}) do result[#result+1]=metadata(spec) end;return result
+end
+function Hub:GetUniversalScript(id) return self:GetScript(UNIVERSAL_KEY,id) end
+function Hub:IsUniversalScriptAvailable(id) return self:IsScriptAvailable(UNIVERSAL_KEY,id) end
+function Hub:GetUniversalScriptStatus(id) return self:GetScriptStatus(UNIVERSAL_KEY,id) end
+function Hub:RunUniversalScript(id,options) return self:RunScript(UNIVERSAL_KEY,id,options) end
+function Hub:CancelUniversalScript(id)
+    local handle=self._pendingScripts[UNIVERSAL_KEY..'/'..tostring(id)]
+    if not handle then return false end
+    return handle:Cancel('user cancelled')
+end
+function Hub:SelectUniversalScripts()
+    if self.Destroyed then return false,'Hub has been destroyed' end
+    if self._selecting then return true end
+    self._selecting=true
+    local previous=self:_selectedKey()
+    if previous and previous~=UNIVERSAL_KEY then self._selectedScripts[previous]=self.ScriptList:GetValue();self.ScriptList:SetValue(nil,true) end
+    self.SelectedCategory='Universal';self.SelectedGameId=nil;self._universalConfigured=true
+    self.GameList:SetValue(nil,true)
+    if self.Launcher and self.Launcher.Category then self.Launcher.Category:SetValue('Universal',true) end
+    self.FavoriteButton:SetDisabled(true);self.TeleportButton:SetDisabled(true)
+    self.GameDetails:SetText(self._universal.Name..'\n'..self._universal.Description)
+    self:_refreshImages();self:RefreshScripts();self._selecting=false
+    if self.Launcher then self.Launcher:SelectionChanged(previous,UNIVERSAL_KEY) end
+    return true
+end
+function Hub:SelectUniversalScript(id)
+    if not self:_script(UNIVERSAL_KEY,id) then return false,'Script is unavailable' end
+    local ok,reason=self:SelectUniversalScripts();if not ok then return ok,reason end
+    return self:SelectScript(id)
+end
+function Hub:AddUniversalScript(value)
+    assert(not self.Destroyed,'Hub has been destroyed')
+    local spec=normalizeUniversalScript(value)
+    assert(not self:_script(UNIVERSAL_KEY,spec.Id),'Duplicate universal script Id')
+    assert(#self._universal.Scripts<128,'Universal script catalog limit is 128')
+    self:_checkUniversalCount(#self._universal.Scripts+1)
+    self._universal.Scripts[#self._universal.Scripts+1]=spec;self._universalConfigured=true
+    self:_afterCatalog();return spec.Id
+end
+function Hub:UpdateUniversalScript(id,patch)
+    assert(not self.Destroyed,'Hub has been destroyed')
+    local old=assert(self:_script(UNIVERSAL_KEY,id),'Unknown universal script')
+    assert(type(patch)=='table','Universal script patch must be a table')
+    local value={};for k,v in pairs(old._definition) do value[k]=k=='Requires' and copy(v) or v end
+    for k,v in pairs(patch) do value[k]=v end
+    if patch.Title~=nil and patch.Name==nil then value.Name=nil end
+    assert(value.Id==id,'Universal script Id cannot be renamed')
+    local spec=normalizeUniversalScript(value)
+    self:_cancelScripts(UNIVERSAL_KEY,id)
+    for index,item in ipairs(self._universal.Scripts) do if item.Id==id then self._universal.Scripts[index]=spec;break end end
+    self._scriptStatus[UNIVERSAL_KEY..'/'..id]=nil;self:_afterCatalog();return self
+end
+function Hub:RemoveUniversalScript(id)
+    assert(not self.Destroyed,'Hub has been destroyed')
+    for index,item in ipairs(self._universal.Scripts) do if item.Id==id then
+        self:_cancelScripts(UNIVERSAL_KEY,id);table.remove(self._universal.Scripts,index)
+        self._scriptStatus[UNIVERSAL_KEY..'/'..id]=nil;self:_afterCatalog();return true
+    end end
+    return false
+end
+function Hub:_checkUniversalCount(count,games)
+    local total=count;for _,rec in pairs(games or self._games) do total=total+#rec.Scripts end
+    assert(total<=4096,'Script catalog limit is 4096 entries')
+end
+
+-- END RETRO240 UNIVERSAL SCRIPTS
+
 -- BEGIN RETRO230 HUB LAUNCHER
 -- Native Script Hub launcher. Embedded inside the existing Hub lexical scope.
 -- Catalogs, runtime, callbacks and control identities remain owned by Hub.
 function Hub:_displayGameName(record)
     if not record then return self.Window:_t17('Escolha um jogo','Choose a game') end
+    if record.Universal then return record.Name end
     local native=self:_game(record.Id)
     local status=self:GetGameMetadataStatus(record.Id)
     if native and native._metadataManual.Name or status and status.Fields and status.Fields.Name then return record.Name end
@@ -7677,9 +7846,13 @@ function Hub:_installLauncher(options)
     end
     local filter=extra:AddDropdown({Id='hub/'..hub.Id..'/catalog-filter',Title=tr('Filtro do catálogo','Catalog filter'),Options={'All','Favorites','Current'},Default='All',Visible=false})
     launcher.Filter=filter
-    ui.All=extraButton('all',tr('Todos','All'),false,function() filter:SetValue('All') end)
-    ui.Favorites=extraButton('favorites',tr('Favoritos','Favorites'),'star',function() filter:SetValue('Favorites') end)
-    ui.Current=extraButton('current',tr('Atual','Current'),'gamepad',function() filter:SetValue('Current') end)
+    local category=extra:AddDropdown({Id='hub/'..hub.Id..'/catalog-category',Title=tr('Categoria','Category'),Options={'Games','Universal'},Default='Games',Visible=false})
+    launcher.Category=category
+    local function gamesCategory() if hub:GetSelectedCategory()=='Universal' then category:SetValue('Games') end end
+    ui.All=extraButton('all',tr('Todos','All'),false,function() gamesCategory(); filter:SetValue('All') end)
+    ui.Favorites=extraButton('favorites',tr('Favoritos','Favorites'),'star',function() gamesCategory(); filter:SetValue('Favorites') end)
+    ui.Current=extraButton('current',tr('Atual','Current'),'gamepad',function() gamesCategory(); filter:SetValue('Current') end)
+    ui.Universal=extraButton('universals',tr('Scripts universais','Universal scripts'),'code',function() hub:SelectUniversalScripts() end)
     ui.Expand=extraButton('description',tr('Ler descrição','Read description'),'info',function() launcher.Expanded=not launcher.Expanded; launcher:Refresh() end)
     ui.Retry=extraButton('refresh',tr('Atualizar','Refresh'),'refresh',function()
         local selected=hub:GetSelectedGame()
@@ -7689,7 +7862,7 @@ function Hub:_installLauncher(options)
         return accepted,reason
     end)
     ui.More=extraButton('details','Info','info',function()
-        local record=hub:GetSelectedGame(); local spec=hub:GetSelectedScript()
+        local record=hub:_selectedCatalog(); local spec=hub:GetSelectedScript()
         local status=record and spec and hub:GetScriptStatus(record.Id,spec.Id)
         local source=record
         local parts={record and displayName(record) or tr('Nenhum jogo selecionado','No game selected')}
@@ -7700,7 +7873,7 @@ function Hub:_installLauncher(options)
         window:Dialog({Title=tr('Detalhes','Details'),Content=cut(table.concat(parts,'\n\n'),7800),Icon='info'})
     end)
     local moved={hub.GameSearch,hub.Sort,hub.GameList,hub.GameImage,hub.FavoriteButton,hub.TeleportButton,hub.ScriptSearch,hub.ScriptList,
-        hub.PlayButton,hub.CancelButton,ui.All,ui.Favorites,ui.Current,ui.Expand,ui.Retry,ui.More}
+        hub.PlayButton,hub.CancelButton,ui.All,ui.Favorites,ui.Current,ui.Universal,ui.Expand,ui.Retry,ui.More}
     for _,control in ipairs(moved) do
         if control~=hub.Sort then
         function control:_layoutDescription()
@@ -7712,7 +7885,7 @@ function Hub:_installLauncher(options)
         control.Frame.AutomaticSize=Enum.AutomaticSize.None
         control.DescriptionLabel.Visible=false
     end
-    for _,control in ipairs({ui.All,ui.Favorites,ui.Current,ui.Expand,ui.Retry,ui.More}) do
+    for _,control in ipairs({ui.All,ui.Favorites,ui.Current,ui.Universal,ui.Expand,ui.Retry,ui.More}) do
         control.TitleLabel.Visible=false; control.Frame.BackgroundTransparency=1
         control.Button.Position=U2(0,0); control.Button.Size=UDim2.fromScale(1,1)
         if control._titleIcon and control._titleIcon.Frame then
@@ -7728,6 +7901,7 @@ function Hub:_installLauncher(options)
     move(hub.ScriptSearch,ui.Details); move(hub.ScriptList,ui.Details)
     move(hub.PlayButton,ui.Dock); move(hub.CancelButton,ui.Dock)
     move(ui.All,ui.Filters); move(ui.Favorites,ui.Filters); move(ui.Current,ui.Filters)
+    move(ui.Universal,ui.Navigation)
     move(ui.Expand,ui.Details); move(ui.Retry,ui.GameActions); move(ui.More,ui.Dock)
     tab.Container.Visible=false
     hub.GameSearch.Input.PlaceholderText=tr('Buscar jogos…','Search games…')
@@ -7742,7 +7916,7 @@ function Hub:_installLauncher(options)
 
     -- Keep native TextButton semantics/focus, with a separate padded caption so
     -- pixel icons never overlap a centered caption at narrow/mobile widths.
-    local captionControls={ui.All,ui.Favorites,ui.Current,ui.Expand,ui.Retry,ui.More,hub.FavoriteButton,hub.TeleportButton,hub.PlayButton,hub.CancelButton}
+    local captionControls={ui.All,ui.Favorites,ui.Current,ui.Universal,ui.Expand,ui.Retry,ui.More,hub.FavoriteButton,hub.TeleportButton,hub.PlayButton,hub.CancelButton}
     local function syncCaption(control)
         local caption=control._hubCaption
         if not alive() or not caption or not caption.Parent or not control.Frame.Parent then return end
@@ -7801,7 +7975,7 @@ function Hub:_installLauncher(options)
     end
     local states={Available='Disponível',Unavailable=tr('Indisponível','Unavailable'),Queued='Na fila',Running='Executando',Cancelling='Cancelando',Completed='Concluído',Failed='Falha',Cancelled='Cancelado'}
     function hub.ScriptList:_renderNode(row,index)
-        local record=hub:GetSelectedGame(); local item=self.Items[index]
+        local record=hub:_selectedCatalog(); local item=self.Items[index]
         local spec=record and hub:GetScript(record.Id,item.Id); if not spec then return end
         local status=hub:GetScriptStatus(record.Id,spec.Id) or {Status='Unavailable'}
         local selected=self:GetValue()==spec.Id
@@ -7814,10 +7988,16 @@ function Hub:_installLauncher(options)
             row.LauncherDescription=label(row.Button,'ScriptDescription','',11,'Muted'); row.LauncherDescription.TextWrapped=true; row.LauncherDescription.TextYAlignment=Enum.TextYAlignment.Top
             row.LauncherState=label(row.Button,'ScriptState','',10,'Accent'); row.LauncherState.TextXAlignment=Enum.TextXAlignment.Right
             row.LauncherMark=panel(row.Button,'SelectionMark','Accent')
+            row.UniversalTag=label(row.Button,'UniversalTag','UNIVERSAL',9,'AccentText')
+            row.UniversalTag.TextXAlignment=Enum.TextXAlignment.Center;row.UniversalTag.BackgroundTransparency=0
+            bind(row.UniversalTag,{BackgroundColor3='Accent',TextColor3='AccentText'})
         end
         row.Labels[1].Visible=false
         local width=math.max(100,row.Button.Size.X.Offset); local scale=window.TextScale or 1
-        rect(row.LauncherTitle,44,10,width-56,22*scale)
+        local badgeWidth=record.Universal and math.min(94*scale,(width-64)*.5) or 0
+        row.UniversalTag.Visible=record.Universal==true
+        rect(row.UniversalTag,width-badgeWidth-12,10,badgeWidth,20*scale)
+        rect(row.LauncherTitle,44,10,math.max(20,width-56-(badgeWidth>0 and badgeWidth+8 or 0)),22*scale)
         rect(row.LauncherCredit,44,34*scale,width-56,16*scale)
         rect(row.LauncherDescription,14,55*scale,width-28,32*scale)
         rect(row.LauncherState,width-140,34*scale,126,16*scale)
@@ -7831,7 +8011,7 @@ function Hub:_installLauncher(options)
         local role=status.Status=='Failed' and 'Danger' or (status.Status=='Unavailable' or status.Status=='Cancelled') and 'Muted' or 'Accent'
         bind(row.LauncherState,{TextColor3=role}); bind(row.LauncherTitle,{TextColor3=selected and 'Accent' or 'Text'})
         row.Button.BorderSizePixel=1
-        for _,object in ipairs({row.LauncherTitle,row.LauncherCredit,row.LauncherDescription,row.LauncherState}) do window:_refreshInk(object) end
+        for _,object in ipairs({row.LauncherTitle,row.LauncherCredit,row.LauncherDescription,row.LauncherState,row.UniversalTag}) do window:_refreshInk(object) end
     end
 
     function launcher:LayoutChrome()
@@ -7873,7 +8053,10 @@ function Hub:_installLauncher(options)
         local sortY=8
         local searchY=(touch and 58 or 46)+(hub.Sort.Open and 192 or 0)
         local filtersY=searchY+inputHeight+8
-        local navHeader=filtersY+filterHeight-6
+        local universalVisible=hub._universalConfigured or #hub:GetUniversalScripts()>0
+        ui.Universal.Frame.Visible=universalVisible
+        local universalY=filtersY+filterHeight+8
+        local navHeader=filtersY+filterHeight-6+(universalVisible and filterHeight+10 or 0)
         local rowHeight=math.ceil(60*ts)
         local navHeight=columns and bodyHeight or navHeader+math.min(3,hub.GameListMaxRows,math.max(1,hub.GameList:GetViewStats().Filtered))*rowHeight+38
         navHeight=math.max(navHeader+64,navHeight); self.NavigationHeight=navHeight
@@ -7881,6 +8064,7 @@ function Hub:_installLauncher(options)
         rect(ui.LibraryTitle,14,12,navWidth-140,22); ui.CatalogCount.Visible=false; ui.SortLabel.Visible=false
         rect(hub.GameSearch.Frame,12,searchY,navWidth-24,inputHeight)
         rect(ui.Filters,12,filtersY,navWidth-24,filterHeight)
+        if universalVisible then rect(ui.Universal.Frame,12,universalY,navWidth-24,filterHeight) end
         local segment=(navWidth-28)/3
         for i,control in ipairs({ui.All,ui.Favorites,ui.Current}) do rect(control.Frame,(i-1)*(segment+2),0,segment,filterHeight) end
         rect(hub.Sort.Frame,navWidth-122,sortY,110,inputHeight+(hub.Sort.Open and 192 or 0))
@@ -7914,13 +8098,15 @@ function Hub:_installLauncher(options)
         rect(ui.Description,infoX,y,infoWidth,descriptionHeight); y=y+descriptionHeight+6
         if needsExpand then rect(ui.Expand.Frame,infoX,y,152,26); y=y+30 end
         local actionHeight=touch and 42 or 34
-        rect(ui.GameActions,infoX,y,infoWidth,actionHeight)
+        local universal=hub:GetSelectedCategory()=='Universal'
+        ui.GameActions.Visible=not universal
+        rect(ui.GameActions,infoX,y,infoWidth,universal and 0 or actionHeight)
         local actionGap=6; local actionWidth=(infoWidth-actionGap*2)/3
         rect(hub.FavoriteButton.Frame,0,0,actionWidth,actionHeight)
         rect(hub.TeleportButton.Frame,actionWidth+actionGap,0,actionWidth,actionHeight)
         rect(ui.Retry.Frame,(actionWidth+actionGap)*2,0,actionWidth,actionHeight)
-        y=y+actionHeight+8
-        local teleportText=hub.TeleportStatus:GetValue()
+        if not universal then y=y+actionHeight+8 end
+        local teleportText=not universal and hub.TeleportStatus:GetValue() or ''
         ui.TeleportMessage.Visible=teleportText~=''; ui.TeleportMessage.Text=teleportText
         if teleportText~='' then
             local teleportHeight=textHeight(teleportText,11,infoWidth,80*ts)
@@ -7973,8 +8159,13 @@ function Hub:_installLauncher(options)
     end
     function launcher:Refresh()
         if not alive() or self._refreshing then return end; self._refreshing=true
-        local record=hub:GetSelectedGame(); local spec=hub:GetSelectedScript()
-        local entries=hub:GetGames(); local scripts,running=0,0
+        local record=hub:_selectedCatalog(); local spec=hub:GetSelectedScript()
+        local entries=hub:GetGames(); local universal=hub:GetSelectedCategory()=='Universal'
+        local universals=hub:GetUniversalScripts(); local scripts,running=#universals,0
+        for _,item in ipairs(universals) do
+            local status=hub:GetUniversalScriptStatus(item.Id)
+            if status and (status.Status=='Running' or status.Status=='Queued' or status.Status=='Cancelling') then running=running+1 end
+        end
         for _,entry in ipairs(entries) do scripts=scripts+#entry.Scripts
             for _,script in ipairs(entry.Scripts) do
                 local status=hub:GetScriptStatus(entry.Id,script.Id)
@@ -7990,21 +8181,29 @@ function Hub:_installLauncher(options)
             syncCaption(entry[1])
             if entry[1]._titleIcon then entry[1]._titleIcon:SetRole(selected and 'AccentText' or 'Text') end
         end
+        ui.Universal.Button.Text=tr('Scripts universais','Universal scripts')..' · '..#universals
+        bind(ui.Universal.Button,{BackgroundColor3=universal and 'Accent' or 'Surface',TextColor3=universal and 'AccentText' or 'Text',BorderColor3='Accent'})
+        ui.Universal.Button.BorderSizePixel=1
+        if ui.Universal._titleIcon then ui.Universal._titleIcon:SetRole(universal and 'AccentText' or 'Text') end
+        ui.HeroEyebrow.Text=universal and tr('CATÁLOGO UNIVERSAL','UNIVERSAL CATALOG') or tr('JOGO SELECIONADO','SELECTED GAME')
+        ui.ScriptHeading.Text=universal and tr('SCRIPTS UNIVERSAIS','UNIVERSAL SCRIPTS') or tr('SCRIPTS DISPONÍVEIS','AVAILABLE SCRIPTS')
+        hub.ScriptSearch.Input.PlaceholderText=universal and tr('Buscar scripts universais…','Search universal scripts…') or tr('Buscar scripts deste jogo…','Search scripts in this game…')
         ui.GameTitle.Text=displayName(record)
         ui.GameContext.Text=record and ((hub:IsCurrentGame(record.Id) and tr('JOGO ATUAL  ·  ','CURRENT GAME  ·  ') or '')..#record.Scripts..(#record.Scripts==1 and tr(' script cadastrado no hub',' script in this hub') or tr(' scripts cadastrados no hub',' scripts in this hub'))) or tr('Explore a biblioteca à esquerda.','Explore the game library.')
-        local metadata=record and hub:GetGameMetadataStatus(record.Id) or {State='Idle'}
+        if universal then ui.GameContext.Text=#universals..tr(' scripts · SEM VÍNCULO COM UM JOGO',' scripts · NO GAME ASSOCIATION') end
+        local metadata=not universal and record and hub:GetGameMetadataStatus(record.Id) or {State='Idle'}
         local source=record and hub:_game(record.Id) or {}
         local manual=source._metadataManual and (source._metadataManual.Name or source._metadataManual.Description)
         local loading=metadata.State=='Queued' or metadata.State=='Loading'
         local errorState=metadata.State=='Unavailable'
-        ui.Source.Text=manual and tr('PERSONALIZADO','CUSTOMIZED') or loading and tr('CONSULTANDO ROBLOX','FETCHING ROBLOX DATA') or errorState and tr('DADOS INDISPONÍVEIS','DATA UNAVAILABLE') or metadata.State=='Partial' and tr('DADOS PARCIAIS','PARTIAL DATA') or metadata.Source=='Provider' and tr('DADOS DO PROVEDOR','PROVIDER DATA') or record and tr('DADOS DO ROBLOX','ROBLOX DATA') or tr('SEM SELEÇÃO','NO SELECTION')
+        ui.Source.Text=universal and tr('UNIVERSAL','UNIVERSAL') or manual and tr('PERSONALIZADO','CUSTOMIZED') or loading and tr('CONSULTANDO ROBLOX','FETCHING ROBLOX DATA') or errorState and tr('DADOS INDISPONÍVEIS','DATA UNAVAILABLE') or metadata.State=='Partial' and tr('DADOS PARCIAIS','PARTIAL DATA') or metadata.Source=='Provider' and tr('DADOS DO PROVEDOR','PROVIDER DATA') or record and tr('DADOS DO ROBLOX','ROBLOX DATA') or tr('SEM SELEÇÃO','NO SELECTION')
         bind(ui.Source,{TextColor3=errorState and 'Danger' or loading and 'Muted' or 'Accent'})
         ui.Description.Text=record and record.Description~='' and record.Description or loading and tr('Carregando a descrição do jogo…','Loading game description…')
             or errorState and tr('O Roblox não retornou as informações. Tente atualizar; os scripts continuam disponíveis.','Roblox did not return game details. Try refreshing; scripts are still available.') or tr('Este jogo não possui uma descrição disponível.','This game has no description available.')
         local long=#ui.Description.Text>180 or ui.Description.Text:find('\n',1,true)~=nil
         ui.Expand.Frame.Visible=long; ui.Expand.Button.Text=self.Expanded and tr('Recolher descrição','Collapse description') or tr('Ler descrição','Read description')
         ui.Description.TextTruncate=self.Expanded and Enum.TextTruncate.None or Enum.TextTruncate.AtEnd
-        ui.Retry:SetDisabled(not record or loading)
+        ui.Retry:SetDisabled(universal or not record or loading)
         ui.ScriptCount.Text=record and tostring(#record.Scripts) or '0'
         local status=record and spec and hub:GetScriptStatus(record.Id,spec.Id) or {Status='Unavailable'}
         local busy=status.Status=='Running' or status.Status=='Queued' or status.Status=='Cancelling'
@@ -8028,6 +8227,15 @@ function Hub:_installLauncher(options)
     end
     -- Subscriptions are disposable resources; no polling loop is needed.
     scope:Add(window:GetFlagState(filter.Id):Subscribe(function() launcher:ApplyFilter() end),'Disconnect')
+    scope:Add(window:GetFlagState(category.Id):Subscribe(function(value)
+        if not alive() or hub._selecting then return end
+        if value=='Universal' then hub:SelectUniversalScripts()
+        elseif hub:GetSelectedCategory()=='Universal' then
+            hub._selectedScripts[UNIVERSAL_KEY]=hub.ScriptList:GetValue()
+            hub.SelectedCategory='Games';hub.SelectedGameId=hub._lastSelectedGameId
+            if hub.SelectedGameId and hub:_game(hub.SelectedGameId) then hub:SelectGame(hub.SelectedGameId) else hub:_afterCatalog() end
+        end
+    end),'Disconnect')
     listen(ui.Root.Destroying,function() if alive() then hub:Destroy() end end)
     listen(hub.GameDetails.TitleLabel:GetPropertyChangedSignal('Text'),function() launcher:QueueRefresh() end)
     listen(hub.ExecutionStatus.TitleLabel:GetPropertyChangedSignal('Text'),function() launcher:QueueRefresh() end)
@@ -8040,7 +8248,7 @@ function Hub:_installLauncher(options)
         launcher.Destroyed=true; launcher._queued=false
         window:_forgetSkin(ui.Root)
         for control in pairs(focusTargets) do control._hubFocusTarget=nil end
-        launcher._nodes={}; launcher.Filter=nil
+        launcher._nodes={}; launcher.Filter=nil;launcher.Category=nil
         if hub.Launcher==launcher then hub.Launcher=nil end
         for _,control in ipairs(captionControls) do control._hubCaption=nil end
         for name in pairs(ui) do ui[name]=nil end
@@ -8062,7 +8270,10 @@ end
         assert(options.ConfirmTeleport==nil or type(options.ConfirmTeleport)=="boolean","ConfirmTeleport must be boolean")
         assert(options.Teleporter==nil or type(options.Teleporter)=="function","Teleporter must be a developer callback")
         local initial=normalizeGames(options.Games)
+        local universals=normalizeUniversalScripts(options.UniversalScripts)
+        local total=#universals; for _,rec in ipairs(initial) do total=total+#rec.Scripts end; assert(total<=4096,"Script catalog limit is 4096 entries")
         local hub=setmetatable({Id=id,Window=self,Scope=self:CreateScope(),_selectedScripts={},_connections={},_games={},_order={},_scriptStatus={},_pendingScripts={},_thumbs={},_thumbOrder={},_thumbQueue={},_thumbActive=0,AutoDetectGame=options.AutoDetectGame~=false,ConfirmTeleport=options.ConfirmTeleport~=false,Teleporter=options.Teleporter},Hub)
+        hub._universal=newUniversalRecord(hub,universals); hub._universalConfigured=options.UniversalScripts~=nil
         for _,rec in ipairs(initial) do hub._games[rec.Id]=rec; hub._order[#hub._order+1]=rec.Id end
         self._scriptHubs[id]=hub
         local function opts(name,title,extra)
@@ -8099,15 +8310,16 @@ end
             hub.ScriptDetails=scripts:AddLabel(opts("script-details","",{Height=26,Persist=false}))
             hub.ExecutionStatus=scripts:AddLabel(opts("execution-status","",{Height=22,Persist=false}))
             hub.PlayButton=scripts:AddButton(opts("play",self:_t17("Executar script","Run Script"),{Icon="bolt",Callback=function()
-                local handle,err=hub:RunScript(hub.SelectedGameId,hub.ScriptList:GetValue()); if not handle and err~="confirmation pending" then window:Notify({Content=tostring(err),Kind="error"}) end
+                local handle,err=hub:RunScript(hub:_selectedKey(),hub.ScriptList:GetValue()); if not handle and err~="confirmation pending" then window:Notify({Content=tostring(err),Kind="error"}) end
             end}))
             hub.CancelButton=scripts:AddButton(opts("cancel",self:_t17("Cancelar execução","Cancel run"),{Icon="close",Callback=function()
-                local name=tostring(hub.SelectedGameId).."/"..tostring(hub.ScriptList:GetValue()); local handle=hub._pendingScripts[name]
+                local name=tostring(hub:_selectedKey()).."/"..tostring(hub.ScriptList:GetValue()); local handle=hub._pendingScripts[name]
                 if handle then handle:Cancel("user cancelled") end
             end})); hub.CancelButton:SetVisible(false)
             hub:_installResponsiveLayout(options)
             hub:_installLauncher(options)
             hub.Scope:Add(self:GetFlagState(hub.GameList.Id):Subscribe(function(value)
+                if hub._selecting then return end
                 if value then hub:SelectGame(value)
                 elseif not hub._selectionQueued then
                     hub._selectionQueued=true
@@ -8124,7 +8336,7 @@ end
             hub.Scope:Add(self:GetFlagState(hub.ScriptSearch.Id):Subscribe(function() hub:_filterScripts() end),"Disconnect")
             hub.Scope:Add(self:GetFlagState(hub.ScriptList.Id):Subscribe(function(value)
                 if not hub._selecting and not hub._refreshingScripts then
-                    if hub.SelectedGameId then hub._selectedScripts[hub.SelectedGameId]=value end
+                    local selectedKey=hub:_selectedKey(); if selectedKey then hub._selectedScripts[selectedKey]=value end
                     hub:_refreshScriptDetails()
                 end
             end),"Disconnect")
@@ -8154,7 +8366,8 @@ end
         return hub
     end
     function Library:CreateScriptHub(options)
-        assert(type(options)=="table","Script Hub options must be a table"); normalizeGames(options.Games)
+        assert(type(options)=="table","Script Hub options must be a table"); local initial=normalizeGames(options.Games)
+        local universals=normalizeUniversalScripts(options.UniversalScripts); local count=#universals; for _,rec in ipairs(initial) do count=count+#rec.Scripts end; assert(count<=4096,"Script catalog limit is 4096 entries")
         local settings={}; for name,value in pairs(options) do settings[name]=value end
         settings.Id=options.WindowId or options.Id or "RetroBox-ScriptHub"; settings.Title=options.Title or "Script Hub"
         local window=self:CreateWindow(settings)

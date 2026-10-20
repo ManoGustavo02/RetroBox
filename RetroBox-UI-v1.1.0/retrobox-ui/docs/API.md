@@ -1,4 +1,4 @@
-# RetroBox UI API · 2.3.1
+# RetroBox UI API · 2.4.0
 
 Os nomes públicos são em inglês. `Locale` aceita `"pt-BR"` e `"en-US"`. Textos dos controles pertencem ao seu script.
 
@@ -451,3 +451,12 @@ Consulte [COMPACT-VIEWS.md](COMPACT-VIEWS.md), [PREVIEWS.md](PREVIEWS.md), [STEP
 Os campos novos funcionam em Games/AddGame/UpdateGame/CatalogUpdate. O filtro usa a flag `hub/<HubId>/catalog-filter`. NavigationRatio permanece .3–.55, padrão .31; StackAt 480–1000, padrão 700. ScriptListMaxRows 1–12/padrão 4 e GameListMaxRows 2–16/padrão 7. Controle visual interno não é API de extensão: use catálogo, tema, APIs e controles públicos.
 
 A distribuição local é 2.3.1/API 2, com origem preparada para ManoGustavo02/RetroBox. A origem da distribuição é a conta nova. Veja [RELEASE-2.3.1.md](RELEASE-2.3.1.md).
+
+
+## Adições compatíveis da 2.4.0
+
+CreateScriptHub aceita UniversalScripts ao lado de Games. A definição mínima usa Name, Description e URL HTTPS; Id é opcional e Callback é a alternativa à URL. A categoria Universal tem navegação, descrição e tag próprias, sem PlaceId/teleporte. GetGames contém somente jogos e GetSelectedGame retorna nil na categoria Universal.
+
+APIs: GetUniversalScripts, GetUniversalScript, AddUniversalScript, UpdateUniversalScript, RemoveUniversalScript, IsUniversalScriptAvailable, GetUniversalScriptStatus, RunUniversalScript, CancelUniversalScript, SelectUniversalScripts, SelectUniversalScript e GetSelectedCategory. GetSelectedScript/SelectScript acompanham a categoria atual. URLs em catálogos JSON continuam proibidas.
+
+[Estrutura, argumentos, limites e exemplos](UNIVERSAL-SCRIPTS.md) · [Release 2.4](RELEASE-2.4.md).

@@ -1,5 +1,9 @@
 # RetroBox UI
 
+## 2.4.0
+
+UniversalScripts is a separate native catalog with Name, Description, an HTTPS URL (including Pastefy Raw) or local Callback, optional Id, category navigation and a UNIVERSAL badge. Uses existing actions, cancellation and profiles. API 2 and the GitHub library origin remain compatible. [Universal scripts](docs/UNIVERSAL-SCRIPTS.md) · [Release](docs/RELEASE-2.4.md).
+
 ## 2.3.1
 
 Origin migration to **ManoGustavo02/RetroBox**. The default updater root, bootstrap, examples and local channels now use the new account. API 2 and the historical directory structure are preserved. [Migration and publication status](docs/RELEASE-2.3.1.md). See the publication report for remote verification results.

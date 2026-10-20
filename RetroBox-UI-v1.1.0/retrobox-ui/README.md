@@ -8,6 +8,10 @@ Library de GUI em Luau para desenvolvedores de scripts executados no cliente Rob
 
 *A imagem é um conceito visual, com perfil ilustrativo. A GUI usa objetos nativos do Roblox; a renderização em executor ainda precisa ser conferida.*
 
+## Versão 2.4.0
+
+Scripts universais são uma coleção nativa independente dos jogos, com nome, descrição, URL HTTPS (como Raw do Pastefy), tag própria, pesquisa, execução e cancelamento. Id é opcional. O bootstrap continua no GitHub da ManoGustavo02 e a API 2 permanece compatível. [Guia de universais](docs/UNIVERSAL-SCRIPTS.md) · [Release 2.4](docs/RELEASE-2.4.md).
+
 ## Versão 2.3.1
 
 Migração para **ManoGustavo02/RetroBox**: o bootstrap, a origem padrão, os exemplos e os canais locais usam a conta nova. A API 2 e a estrutura de arquivos foram preservadas. [Migração e estado da publicação](docs/RELEASE-2.3.1.md). Consulte o relatório de publicação para os resultados de acesso remoto.

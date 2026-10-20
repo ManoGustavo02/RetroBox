@@ -2,7 +2,7 @@
 
 # RetroBox UI
 
-<p align="center"><img src="assets/retrobox-badges.svg" alt="RetroBox 2.3.1 · API 2 · 12 temas · 76 pixel icons · MIT" width="795"></p>
+<p align="center"><img src="assets/retrobox-badges.svg" alt="RetroBox 2.4.0 · API 2 · 12 temas · 76 pixel icons · MIT" width="795"></p>
 
 [![Validação](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml)
 
@@ -12,7 +12,7 @@ Biblioteca de GUI em Luau para scripts executados no cliente Roblox por executor
 
 [English](README.en.md) · [Começar](RetroBox-UI-v1.1.0/retrobox-ui/README.md) · [API](RetroBox-UI-v1.1.0/retrobox-ui/docs/API.md) · [Script Hub](RetroBox-UI-v1.1.0/retrobox-ui/docs/SCRIPT-HUB.md) · [Exemplos](RetroBox-UI-v1.1.0/retrobox-ui/examples) · [Segurança](SECURITY.md)
 
-> **RetroBox 2.3.1 · API 2** — distribuição da conta **ManoGustavo02**. **395 testes de lógica e 34 exemplos aprovados localmente**. Os testes de lógica não substituem a conferência visual no executor. [Histórico e validação](RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
+> **RetroBox 2.4.0 · API 2** — distribuição da conta **ManoGustavo02**. 420/420 testes de lógica aprovados e 35 exemplos verificados; scripts universais disponíveis no Hub nativo. Os testes de lógica não substituem a conferência visual no executor. [Histórico e validação](RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
 
 ## O que dá para construir
 
@@ -25,7 +25,7 @@ Biblioteca de GUI em Luau para scripts executados no cliente Roblox por executor
 | Operações acompanháveis | Tarefas, ações, grupos, cancelamento cooperativo, etapas e profiler. |
 | Catálogo de jogos e scripts | Launcher nativo com busca, favoritos, miniaturas, metadados, cards e execução explícita. |
 
-Doze temas, incluindo **Hacker**, Dracula, Nord, Sakura e Retro98, e **76 ícones pixel art embutidos**. Cada consumidor escolhe sua aparência. O launcher é parte de `CreateScriptHub`; seu projeto fornece o catálogo e os callbacks.
+Doze temas, incluindo **Hacker**, Dracula, Nord, Sakura e Retro98, e **76 ícones pixel art embutidos**. Cada consumidor escolhe sua aparência. O launcher é parte de `CreateScriptHub`; seu projeto fornece o catálogo e os callbacks. A categoria **Universal** recebe nome, descrição e URL próprios, incluindo Raw do Pastefy. [Scripts universais](RetroBox-UI-v1.1.0/retrobox-ui/docs/UNIVERSAL-SCRIPTS.md).
 
 ## Finalidade e uso autorizado
 
@@ -42,7 +42,7 @@ Este endereço permanente resolve as próximas atualizações compatíveis da AP
 ```lua
 local RetroBox = loadstring(game:HttpGet(
     "https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua"
-))({Channel = "stable", MinVersion = "2.3.1"})
+))({Channel = "stable", MinVersion = "2.4.0"})
 ```
 
 Monte os componentes na sequência padrão da library:

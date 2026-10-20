@@ -12,7 +12,7 @@ Conta conectada: **ManoGustavo02**, ID público `345044484`. Repositório públi
 | Nome | `RetroBox` |
 | Visibilidade | Público, para distribuição raw sem login |
 | Branch padrão | `main` |
-| Descrição | Biblioteca de interfaces retrô em Luau: 12 temas, 76 ícones pixel art, Mini HUD, previews e Script Hub nativo para projetos autorizados. |
+| Descrição | Biblioteca de interfaces retrô em Luau: 12 temas, 76 ícones pixel art, Mini HUD, previews e Script Hub com jogos e scripts universais para projetos autorizados. |
 | Topics | `luau`, `roblox`, `ui-library`, `gui`, `pixel-art`, `script-hub`, `themes`, `hud` |
 | Licença | MIT existente incluída no pacote; preserve a atribuição |
 | README | A raiz inclui README em português e inglês, banner e badges locais |
@@ -26,11 +26,11 @@ Endereços da distribuição:
 - Repositório: `https://github.com/ManoGustavo02/RetroBox`
 - Bootstrap: `https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua`
 - Stable: `https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/channels/stable/v2.json`
-- Release 2.3.1: `https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/releases/2.3.1/manifest.json`
+- Release 2.4.0: `https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/releases/2.4.0/manifest.json`
 
 ## Finalização
 
-Em restaurações futuras, publique todos os arquivos da pasta `RetroBox/` do ZIP. A publicação deve incluir o artefato 2.3.1 antes dos apontadores de canal ou usar um único commit atômico para todos eles. Preserve o conteúdo dos pins antigos.
+Em restaurações futuras, publique todos os arquivos da pasta `RetroBox/` do ZIP. A publicação deve incluir o artefato 2.4.0 antes dos apontadores de canal ou usar um único commit atômico para todos eles. Preserve o conteúdo dos pins antigos.
 
 Configure a descrição e os topics, confira o README renderizado e acompanhe o workflow de validação. O banner PNG também pode ser usado como social preview quando a interface do GitHub permitir. Só marque CI, raw e auto update como verificados após observar os resultados reais. O pacote não altera autenticação, permissões da conta, proteção de branch ou canais privados de segurança.
 

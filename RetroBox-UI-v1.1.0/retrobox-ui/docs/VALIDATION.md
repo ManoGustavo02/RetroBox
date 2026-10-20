@@ -1,3 +1,32 @@
+# Validação · RetroBox UI 2.4.0
+
+## Scripts universais · 20/10/2026 (UTC)
+
+- **420/420 testes de lógica** e **35 exemplos** distribuídos aprovados. São 25 novas regressões: 20 de estrutura/execução/seleção/lifecycle e 5 de catálogo JSON atômico.
+- **37/37 testes do Mano Gustavo Hub 2.2.0**, com tema Hacker, sete jogos/IDs e suporte a URLs Raw HTTPS do Pastefy para jogos e universais. Downloads simulados ocorrem apenas ao executar.
+- **4/4 exemplos do prompt completo**; três exemplos anteriores preservados byte a byte e novo exemplo universal separado.
+- **2/2 testes Python** de promoção, rollback e imutabilidade; **14 manifestos** e **20 arquivos históricos** verificados. Bootstrap permanente preservado byte a byte.
+- Runtime: **622411 bytes**, SHA-256 **c70d7ea7c17ee76e77d874d183c04d2d0c08cbb8f38921b6d28c3650b3bb7729**.
+
+As regressões cobrem definição mínima e Id automático, validação atômica, namespace separado dos jogos, ausência de PlaceId/teleporte/metadados, badge/categoria, perfis silenciosos, CRUD, capacidade HTTP/loadstring, erro de compilação/execução, progresso, execuções duplicadas, cancelamento e resultados obsoletos. O catálogo JSON não pode injetar URLs ou código; omissão preserva os universais existentes e lista vazia os remove. Temas, escala, PixelIcons, reexecução e destruição de janelas/hubs preservam a limpeza. O double estrito não registrou Parent bloqueado.
+
+Arquivos: src/UniversalScripts.lua, src/HubLauncher.lua, src/HubUpdates.lua, RetroBox.lua, builder, testes, novo exemplo e documentação/distribuição. Veja [RELEASE-2.4.md](RELEASE-2.4.md) e [UNIVERSAL-SCRIPTS.md](UNIVERSAL-SCRIPTS.md).
+
+O [relatório de publicação](../../../docs/PREPARATION-REPORT.md) registra separadamente os resultados públicos observados. HTTP local é simulado, com fontes inofensivas; nenhum script real de gameplay foi executado. Não há renderer Roblox neste ambiente. Aparência, gestos e compatibilidade com o executor precisam de conferência nativa.
+
+## Reprodução
+
+```sh
+python3 tests/run_headless.py
+python3 tests/test_release_pipeline.py
+python3 tools/verify_distribution.py
+python3 tools/verify_origin_migration.py
+```
+
+---
+
+## Histórico da validação 2.3.1
+
 # Validação · RetroBox UI 2.3.1
 
 ## Migração da origem em 20/10/2026 (UTC)

@@ -4,7 +4,7 @@
 
 Relatos relevantes incluem execução inesperada, falha de validação de origem/caminho/manifesto, importação indevida de configurações, vazamento de dados, recursos não liberados e diferenças entre o código publicado e o artefato distribuído.
 
-A versão atual deste pacote é 2.3.1/API 2, distribuída pela conta ManoGustavo02. Artefatos históricos ficam preservados; correções de runtime são entregues em uma versão nova.
+A versão atual deste pacote é 2.4.0/API 2, distribuída pela conta ManoGustavo02. Artefatos históricos ficam preservados; correções de runtime são entregues em uma versão nova.
 
 ## Como reportar
 

@@ -1,4 +1,4 @@
-# Script Hub · RetroBox 2.3.1
+# Script Hub · RetroBox 2.4.0
 
 O hub é opcional. A sequência normal `HTTP → CreateWindow → CreateTab → CreateSection → controles` continua disponível. O modo usa a mesma janela, as listas virtuais, as flags, os perfis, os temas, os scopes e as ações da RetroBox.
 
@@ -117,3 +117,10 @@ A biblioteca tem filtros Todos/Favoritos/Jogo atual, miniaturas, busca e ordena�
 O filtro é persistido em `hub/<HubId>/catalog-filter`. Os IDs anteriores não mudaram. FallbackName/Notes também são aceitos no catálogo JSON declarativo, sem callbacks/URLs executáveis.
 
 [Exemplo nativo](../examples/native-hub-launcher.lua) · [Migração e estado da publicação](RELEASE-2.3.1.md). O exemplo usa o bootstrap da conta nova e MinVersion=2.3.1.
+
+
+## Categoria Universal na 2.4.0
+
+UniversalScripts fica ao lado de Games nas opções do Hub e usa registros com Name, Description e URL HTTPS, ou Callback local. Id é opcional; scripts universais não recebem identificadores de jogo. O launcher os diferencia por categoria e tag UNIVERSAL. A mesma API existe nos hubs independentes e nos anexados a uma janela. Perfis, temas, pesquisa, ações e cancelamento são compartilhados.
+
+[Guia completo de universais](UNIVERSAL-SCRIPTS.md) · [Exemplo executável](../examples/universal-scripts.lua). No Mano Gustavo Hub 2.2.0, preencha CONFIG.UniversalScripts para os universais e os campos URL de CONFIG.Games para os jogos. A library continua no GitHub; esses URLs de scripts podem ser Raw do Pastefy.

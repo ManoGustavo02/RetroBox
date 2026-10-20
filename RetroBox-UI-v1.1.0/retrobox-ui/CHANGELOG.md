@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.4.0 · 2026-10-20
+
+- UniversalScripts nativo e separado de Games, com categoria, tag UNIVERSAL e nome/descrição/URL ou Callback.
+- Id opcional, APIs de cadastro/edição/execução, perfis e ações independentes por categoria.
+- Raw do Pastefy aceito por URL HTTPS; download apenas na execução, com progresso, erros e cancelamento cooperativo.
+- Catálogos JSON continuam sem URL/código e atualizam universais de forma atômica por metadados/Actions locais.
+- Preserva API 2, estrutura histórica, tema/PixelIcons, jogos e artefatos até 2.3.1.
+
 ## 2.3.1 · 2026-10-20 · migração da distribuição para ManoGustavo02
 
 - Origem padrão do updater e bootstrap passam a ManoGustavo02/RetroBox.

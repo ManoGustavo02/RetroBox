@@ -2,7 +2,7 @@
 
 # RetroBox UI
 
-<p align="center"><img src="assets/retrobox-badges.svg" alt="RetroBox 2.3.1 · API 2 · 12 temas · 76 pixel icons · MIT" width="795"></p>
+<p align="center"><img src="assets/retrobox-badges.svg" alt="RetroBox 2.4.0 · API 2 · 12 temas · 76 pixel icons · MIT" width="795"></p>
 
 [![Validation](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml)
 
@@ -12,7 +12,7 @@ A standalone Luau GUI library for scripts running through compatible Roblox clie
 
 [Português](README.md) · [Getting started](RetroBox-UI-v1.1.0/retrobox-ui/README.en.md) · [API](RetroBox-UI-v1.1.0/retrobox-ui/docs/API.md) · [Examples](RetroBox-UI-v1.1.0/retrobox-ui/examples) · [Security](SECURITY.md)
 
-> **RetroBox 2.3.1 · API 2** — distribution maintained by **ManoGustavo02**. **395 logic tests and 34 examples passed locally**. Logic tests do not replace native Roblox rendering checks. [Validation](RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
+> **RetroBox 2.4.0 · API 2** — distribution maintained by **ManoGustavo02**. 420/420 logic tests passed and 35 shipped examples checked; universal scripts are supported by the native Hub. Logic tests do not replace native Roblox rendering checks. [Validation](RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
 
 ## Build with native components
 
@@ -24,7 +24,7 @@ A standalone Luau GUI library for scripts running through compatible Roblox clie
 | Previews and operations | Images/models/animations, scoped renderers, tasks, actions, steps and profiling. |
 | Game/script catalogs | Native launcher with metadata, thumbnails, favorites, cards and explicit execution. |
 
-Twelve themes and 76 embedded pixel icons. `CreateScriptHub` installs the shared launcher; consumers supply their own catalogs, callbacks and chosen theme.
+Twelve themes and 76 embedded pixel icons. `CreateScriptHub` installs the shared launcher; consumers supply their own catalogs, callbacks and chosen theme. Universal scripts have their own category and badge, with Name, Description and an HTTPS URL or local Callback. See [universal scripts](RetroBox-UI-v1.1.0/retrobox-ui/docs/UNIVERSAL-SCRIPTS.md).
 
 ## Purpose and authorized use
 
@@ -39,7 +39,7 @@ This notice explains the project's purpose. It does not grant access to third-pa
 Load the permanent API 2 bootstrap:
 
 ```lua
-local RetroBox = loadstring(game:HttpGet("https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua"))({Channel="stable", MinVersion="2.3.1"})
+local RetroBox = loadstring(game:HttpGet("https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua"))({Channel="stable", MinVersion="2.4.0"})
 ```
 
 Read [distribution](RetroBox-UI-v1.1.0/retrobox-ui/docs/AUTO-UPDATE.md) and the [component guide](RetroBox-UI-v1.1.0/retrobox-ui/README.en.md). For a catalog, start with the [native launcher example](RetroBox-UI-v1.1.0/retrobox-ui/examples/native-hub-launcher.lua).

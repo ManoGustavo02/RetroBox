@@ -1,6 +1,6 @@
 # Publicação da RetroBox
 
-RetroBox 2.3.1/API 2 usa o repositório público **ManoGustavo02/RetroBox**, confirmado pelo proprietário. A integração conectada tem permissão de escrita. Os resultados de conferência remota ficam no relatório de preparação; não se deve confundir testes locais com execução hospedada de CI.
+RetroBox 2.4.0/API 2 usa o repositório público **ManoGustavo02/RetroBox**, confirmado pelo proprietário. A integração conectada tem permissão de escrita. Os resultados de conferência remota ficam no relatório de preparação; não se deve confundir testes locais com execução hospedada de CI.
 
 ## Apresentação
 
@@ -10,7 +10,9 @@ A library oferece interfaces, estado e ciclo de vida em Luau para executor clien
 
 ## Origem e artefatos
 
-O Root padrão, os bootstraps, os guias e os exemplos ativos usam a conta nova. A migração gera a release **2.3.1**, preservando os bytes dos pins 2.0.0, 2.1.0, 2.2.0 e 2.3.0. A pasta `RetroBox-UI-v1.1.0/retrobox-ui/` e `dist/` mantêm seus caminhos. Consulte [RELEASE-2.3.1.md](../RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.3.1.md).
+O Root padrão, os bootstraps, os guias e os exemplos ativos usam a conta nova. A 2.3.1 migrou a origem. A 2.4.0 adiciona scripts universais nativos e preserva os bytes dos pins 2.0.0 a 2.3.1. A pasta `RetroBox-UI-v1.1.0/retrobox-ui/` e `dist/` mantêm seus caminhos. Consulte [RELEASE-2.3.1.md](../RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.3.1.md).
+
+A library recebe updates pelo GitHub. Os scripts de jogos e universais podem usar URLs Raw HTTPS do Pastefy; essas URLs pertencem ao catálogo do consumidor e não alteram a origem do updater. O Hub exportado não foi publicado no Pastefy por esta atualização.
 
 Novas publicações devem incluir todos os arquivos em um commit atômico ou enviar o artefato imutável antes de promover os canais. Confira Stable, Preview e Pinned pelos manifestos publicados, compare tamanho/SHA-256 e carregue o bootstrap sem login.
 
