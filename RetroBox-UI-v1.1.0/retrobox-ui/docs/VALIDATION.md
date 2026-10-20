@@ -11,7 +11,7 @@
 - Runtime 2.3.1: **606526 bytes**, SHA-256 **cdf44090273caed178ba477fcb17abc408d535ee4402dbcf0459a1ead828c424**.
 - A suíte preserva as regressões de PixelIcon: Destroy idempotente, destruição do pai, reexecução, janelas/hubs, substituições de ícone e alternância de temas/PixelIcons, com o double estrito de Parent bloqueado.
 
-Os testes de rede usam HTTP simulado. O relatório de publicação registra separadamente a conferência dos arquivos públicos. Não há renderer Roblox neste ambiente; aparência final, miniaturas reais e compatibilidade com um executor específico precisam de execução nativa.
+A suíte local usa HTTP simulado. Depois da publicação, cinco arquivos públicos foram baixados sem autenticação e comparados por bytes; o bootstrap baixado passou nos três canais com o engine double. O workflow hospedado do commit de distribuição também passou. O [relatório de publicação](../../../docs/PREPARATION-REPORT.md) registra a evidência separadamente. Não há renderer Roblox neste ambiente; aparência final, miniaturas reais e compatibilidade com um executor específico precisam de execução nativa.
 
 ## Reprodução
 

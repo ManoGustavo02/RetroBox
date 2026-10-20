@@ -4,6 +4,8 @@
 
 <p align="center"><img src="assets/retrobox-badges.svg" alt="RetroBox 2.3.1 · API 2 · 12 temas · 76 pixel icons · MIT" width="795"></p>
 
+[![Validação](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml)
+
 **Uma interface retrô. Componentes para construir o seu projeto.**
 
 Biblioteca de GUI em Luau para scripts executados no cliente Roblox por executores compatíveis. Janelas, temas, controles, dados ao vivo e Script Hubs compartilham o mesmo runtime, os perfis e a limpeza de recursos.

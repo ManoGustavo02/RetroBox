@@ -35,3 +35,8 @@ Em restaurações futuras, publique todos os arquivos da pasta `RetroBox/` do ZI
 Configure a descrição e os topics, confira o README renderizado e acompanhe o workflow de validação. O banner PNG também pode ser usado como social preview quando a interface do GitHub permitir. Só marque CI, raw e auto update como verificados após observar os resultados reais. O pacote não altera autenticação, permissões da conta, proteção de branch ou canais privados de segurança.
 
 Para detalhes de confiança do carregador, consulte [SECURITY](../SECURITY.md). O [relatório de migração](../RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.3.1.md) explica a atualização dos consumidores.
+
+
+## Campos laterais ainda pendentes
+
+A seção About e os topics não foram alterados pela conexão de publicação. No GitHub, use a engrenagem ao lado de About para copiar a descrição e os topics da tabela acima. O banner PNG é um asset fornecido; o social preview da interface do GitHub não foi configurado.

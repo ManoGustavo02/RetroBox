@@ -26,4 +26,4 @@ O export separado do Mano Gustavo Hub preserva catálogo, IDs, tema Hacker e as 
 
 O relatório [VALIDATION.md](VALIDATION.md) registra os resultados locais da migração. As regressões usam o bootstrap real, os manifestos reais e o artefato real com HTTP simulado e origem estrita. A suíte anterior cobre temas, substituição de ícones, janelas, hubs, reexecução e a limpeza de PixelIcons. O verificador de origem confere os hashes históricos e limita as diferenças do runtime às três alterações descritas acima.
 
-GitHub Actions, acesso raw sem login e renderização no executor ainda precisam de conferência após a publicação.
+O acesso raw sem login foi conferido por bytes e os três canais foram executados com os arquivos baixados, usando engine simulada. O workflow do commit de publicação concluiu com sucesso. Veja o [relatório remoto](../../../docs/PREPARATION-REPORT.md). A renderização no executor permanece uma verificação nativa separada.
