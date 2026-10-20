@@ -16,7 +16,11 @@ A entrega 2.5.0 foi publicada no commit 8208f5a07e0a5e4957841354b3e5fcc508c7532f
 
 ## Conferência remota 2.5.1
 
-A publicação do patch, os downloads públicos e o workflow serão registrados após observação. Os resultados de 2.5.0 acima são históricos; os checks locais de 2.5.1 são os descritos na seção anterior.
+- Publicação atômica em main: commit a16bc73a094e3c4f4cabe6dc2d1304081231d88a, árvore 0f2c4e8e3971b604e3447bf19dd3576584b32642. Os 301 arquivos correspondem à árvore local testada; a consulta recursiva não foi truncada.
+- Doze arquivos públicos baixados sem login retornaram HTTP 200 e bytes idênticos: bootstrap, canais Stable/Preview, pin/runtime 2.5.1, aliases, HTML, catálogo e guias. Ambos os canais resolvem 2.5.1.
+- O bootstrap baixado passou em três verificações (Stable, Preview, Pinned), criando e destruindo idioma/Form/FlowGraph/Hub com callback local inofensivo. Zero conexões residuais, Parent bloqueado ou escrita em ícone destruído; gameplay e renderer Roblox continuam fora desses testes.
+- Os jobs validate e designer do [workflow 39505267355](https://github.com/ManoGustavo02/RetroBox/actions/runs/39505267355), associado à release 2.5.1, concluíram com sucesso.
+- Este registro de evidência é um commit posterior que preserva os bytes da distribuição.
 
 ## Limites
 
