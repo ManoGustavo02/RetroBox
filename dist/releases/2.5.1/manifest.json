@@ -1,0 +1,13 @@
+{
+  "SchemaVersion": 1,
+  "Kind": "RetroBox",
+  "Version": "2.5.1",
+  "APIVersion": 2,
+  "Build": "retrobox-2.5.1",
+  "Channel": "pinned",
+  "Artifact": {
+    "Path": "dist/releases/2.5.1/RetroBox.lua",
+    "SHA256": "56067844fa497db3934456b1b3e1bdd747fcc3c06d4e9744f1af1a3eb1b68531",
+    "Bytes": 702573
+  }
+}

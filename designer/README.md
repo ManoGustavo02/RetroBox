@@ -14,6 +14,8 @@ Inclui 21 componentes nativos e Row, 22 tipos de bloco, os 12 temas reais e os 7
 
 Ctrl+Z desfaz, Ctrl+Shift+Z refaz e Ctrl+S baixa JSON. O histórico tem limite de 30 versões e 6 MiB. O salvamento automático depende do navegador/origem `file:`; o **JSON baixado é o backup portátil**.
 
+A versão 2.5.1 evita recálculo exponencial de expressões compartilhadas, com cache por leitura e regressões de refresh.
+
 ## Blocos e conexões
 
 | Papel | Blocos |
@@ -29,7 +31,7 @@ O exemplo inicial liga Slider → Format → Binding para atualizar um Label e B
 
 ## Exportação
 
-- **Script completo** usa o bootstrap permanente API 2, com `MinVersion="2.5.0"`. Preencha os `TODO` de `actions` para ligar sua aplicação.
+- **Script completo** usa o bootstrap permanente API 2, com `MinVersion="2.5.1"`. Preencha os `TODO` de `actions` para ligar sua aplicação.
 - **Módulo** retorna `function(Library, actions)`. Passe a library carregada e os handlers. O módulo valida handlers de Call antes de criar a janela.
 - O resultado do Luau expõe `Window`, `Controls`, `States` e `Flow`.
 - **JSON** usa `Kind="RetroBoxDesignerProject"`, `SchemaVersion=1`. Guarda estrutura, IDs, valores iniciais, modelos, traduções, posições e conexões. Use **Abrir JSON** para continuar.

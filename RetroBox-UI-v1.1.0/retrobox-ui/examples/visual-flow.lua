@@ -1,4 +1,4 @@
-local Library=loadstring(game:HttpGet('https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua'))({Channel='stable',MinVersion='2.5.0'})
+local Library=loadstring(game:HttpGet('https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua'))({Channel='stable',MinVersion='2.5.1'})
 local window=Library:CreateWindow({Id='visual-flow',Title='Ligações visuais',Theme='Hacker'})
 local section=window:CreateTab('Principal'):CreateSection('Dados e eventos')
 local controls={

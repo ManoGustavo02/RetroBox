@@ -1,7 +1,7 @@
 {
   "Kind": "RetroBoxDesignerProject",
   "SchemaVersion": 1,
-  "MinVersion": "2.5.0",
+  "MinVersion": "2.5.1",
   "Window": {
     "Id": "reusable-form",
     "Title": "Meu projeto",

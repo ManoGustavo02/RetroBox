@@ -1,1 +1,13 @@
-{"name":"retrobox-designer","version":"2.5.0","private":true,"description":"Development tests for the offline single-file RetroBox Designer","scripts":{"test":"node --test tests/core.test.js","test:browser":"node --test tests/browser.test.js"},"devDependencies":{"playwright":"1.62.1"}}
+{
+  "name": "retrobox-designer",
+  "version": "2.5.1",
+  "private": true,
+  "description": "Development tests for the offline single-file RetroBox Designer",
+  "scripts": {
+    "test": "node --test tests/core.test.js",
+    "test:browser": "node --test tests/browser.test.js"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

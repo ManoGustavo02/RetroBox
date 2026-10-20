@@ -1,4 +1,4 @@
--- Run with RETROBOX_PROMPT_PATH=/absolute/path/Prompt-RetroBox-IA-v2.5.0.md
+-- Run with RETROBOX_PROMPT_PATH=/absolute/path/Prompt-RetroBox-IA-v2.5.1.md
 -- python3 tests/run_headless.py tests/prompt-runtime.lua
 local Mock=dofile('tests/mock_roblox.lua')
 local Library=dofile('RetroBox.lua')
@@ -48,7 +48,7 @@ for _,spec in ipairs({
  {'grade de cards','card-grid'},
  {'ligações visuais','visual-flow'},
 }) do
- code=example('Exemplo funcional de '..spec[1]..' da 2.5.0')
+ code=example('Exemplo funcional de '..spec[1]..' da 2.5.1')
  local created=assert(load(code..'\nreturn window','@prompt-'..spec[2]))();Mock.pump()
  if spec[2]=='localization-forms' then
   local form=created._forms.preferences;form:SetDraft({name='Updated',enabled=true});assert(form:Apply());Mock.pump();assert(form:GetValue().name=='Updated')

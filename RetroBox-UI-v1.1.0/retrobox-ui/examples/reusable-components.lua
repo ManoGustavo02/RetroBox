@@ -1,4 +1,4 @@
-local Library=loadstring(game:HttpGet('https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua'))({Channel='stable',MinVersion='2.5.0'})
+local Library=loadstring(game:HttpGet('https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua'))({Channel='stable',MinVersion='2.5.1'})
 Library:RegisterComponent('balance-panel',function(ctx,props)
     ctx:Add('StatCard',{Id='balance',Title=props.Title or 'Moedas',Default=props.Value or 0,Icon='coins',Format='Compact'})
     ctx:Add('Button',{Id='refresh',Title='Atualizar',Icon='refresh',Callback=function()

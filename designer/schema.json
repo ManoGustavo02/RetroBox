@@ -2,7 +2,7 @@
   "Kind": "RetroBoxDesignerCatalog",
   "SchemaVersion": 1,
   "APIVersion": 2,
-  "MinVersion": "2.5.0",
+  "MinVersion": "2.5.1",
   "Limits": {
     "Controls": 256,
     "Tabs": 32,

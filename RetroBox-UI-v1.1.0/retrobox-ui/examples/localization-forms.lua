@@ -1,4 +1,4 @@
-local Library=loadstring(game:HttpGet('https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua'))({Channel='stable',MinVersion='2.5.0'})
+local Library=loadstring(game:HttpGet('https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua'))({Channel='stable',MinVersion='2.5.1'})
 local window=Library:CreateWindow({Id='localization-forms',Title='Configurações',Theme='Hacker',Locale='auto',Translations={
     title={Source='Configurações',Values={['en-US']='Settings'}},
     name={Source='Nome',Values={['en-US']='Name'}},

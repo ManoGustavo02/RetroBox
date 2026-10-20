@@ -1,4 +1,4 @@
--- RetroBox Designer 2.5.0 | API 2 | generated Luau
+-- RetroBox Designer 2.5.1 | API 2 | generated Luau
 
 -- Reopen JSON in the Designer. Connect custom actions in the actions table.
 
@@ -6,7 +6,7 @@ return function(Library, actions)
 
 actions = actions or {}
 
-assert(type(Library.GetDesignerCatalog) == "function", "RetroBox 2.5.0 or later is required")
+assert(type(Library.GetDesignerCatalog) == "function", "RetroBox 2.5.1 or later is required")
 
 local window = Library:CreateWindow({
     ["Id"] = "meu-projeto",

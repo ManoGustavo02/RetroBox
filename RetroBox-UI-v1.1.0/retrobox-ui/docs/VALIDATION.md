@@ -1,3 +1,20 @@
+# Validação · RetroBox UI 2.5.1
+
+- **466/466 testes nativos** com **39 exemplos**, incluindo 43 regressões dos novos recursos e três exports Luau reais.
+- **24/24 testes Node** e **8/8 testes Chromium**, incluindo avaliação de DAG compartilhado em tempo linear, refresh sem cache obsoleto e comparação de registros sem depender da ordem das chaves.
+- **37/37 testes do Mano Gustavo Hub**, preservando os sete jogos/IDs, tema Hacker e endereços configurados.
+- **8/8 exemplos do prompt integral**; os quatro anteriores permanecem byte a byte. **2/2 testes Python** da distribuição.
+- **16 manifestos** e **24 arquivos históricos** conferidos. Bootstrap permanente preservado. Stable/Preview 2.5.1.
+- Runtime: **702573 bytes**, SHA-256 **56067844fa497db3934456b1b3e1bdd747fcc3c06d4e9744f1af1a3eb1b68531**.
+
+A reprodução original fez 4.097 leituras para 12 operações compartilhadas; após a correção, fez duas (incluindo a inicialização). Regressões com 28 operações confirmam leituras constantes e valores atualizados após SetValue. Cada leitura de entrada cria seu próprio cache; ele não sobrevive a alterações ou ações.
+
+Publicação e CI hospedado ficam no [relatório do repositório](../../../docs/PREPARATION-REPORT.md). HTTP de gameplay/tradução é simulado nos testes, com fontes inofensivas. A aparência e os gestos no Roblox ainda exigem conferência nativa. O HTML foi inspecionado no Chromium e não reproduz toda a engine.
+
+---
+
+## Histórico da validação 2.5.0
+
 # Validação · RetroBox UI 2.5.0
 
 ## Designer e ferramentas · 20/10/2026 (UTC)

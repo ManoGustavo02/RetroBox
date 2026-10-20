@@ -1,3 +1,31 @@
+# Preparação e publicação · RetroBox 2.5.1
+
+Repositório **ManoGustavo02/RetroBox**, main, API 2. Inclui o Designer completo da família 2.5 e a correção de avaliação de subexpressões compartilhadas.
+
+## Entrega e compatibilidade
+
+HTML autossuficiente em [designer/index.html](../designer/index.html), [guia](../designer/README.md), fontes, catálogo compartilhado, 12 temas reais, 76 ícones, 21 componentes, Row e 22 blocos. Há montagem visual, editor de campos, templates, prévia, PT/EN, integração opcional de tradução e exportação JSON/Luau. A biblioteca fornece idiomas, Form, Component, CardGrid, FlowGraph e diagnóstico nativos. API 2, pasta histórica, bootstrap e IDs do catálogo do usuário preservados.
+
+## Verificação local
+
+466 testes nativos/39 exemplos, 24 testes Node, oito cenários Chromium, 37 testes do Hub, oito exemplos do prompt e dois testes Python. Dezesseis manifestos e 24 arquivos históricos preservados, incluindo a release 2.5.0. Runtime 702573 bytes, SHA-256 56067844fa497db3934456b1b3e1bdd747fcc3c06d4e9744f1af1a3eb1b68531. [Detalhes](../RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
+
+## Publicação anterior conferida
+
+A entrega 2.5.0 foi publicada no commit 8208f5a07e0a5e4957841354b3e5fcc508c7532f, árvore 07be4fdebbddbd32206f8f5d599f56b774c21b8c, com 298 arquivos. Doze arquivos públicos retornaram HTTP 200 e bytes idênticos; o bootstrap público passou nos três canais com idioma, Form, FlowGraph, universal local e limpeza estrita. Os jobs validate e designer do [workflow 39503280842](https://github.com/ManoGustavo02/RetroBox/actions/runs/39503280842) concluíram com sucesso.
+
+## Conferência remota 2.5.1
+
+A publicação do patch, os downloads públicos e o workflow serão registrados após observação. Os resultados de 2.5.0 acima são históricos; os checks locais de 2.5.1 são os descritos na seção anterior.
+
+## Limites
+
+Tradução arbitrária precisa de dicionário ou serviço do desenvolvedor; Locale usa idioma configurado, não nacionalidade. Call exige handlers Luau. Scripts reais de gameplay não foram executados. Renderização Roblox requer conferência no cliente. Pages, About/topics e configurações administrativas não são pressupostos como alterados; o HTML abre após download.
+
+---
+
+## Histórico da documentação 2.5.0
+
 # Preparação e publicação · RetroBox 2.5.0
 
 Repositório: **ManoGustavo02/RetroBox**, main, API **2**. Designer HTML offline com blocos, JSON e exportação Luau; localização, formulários, componentes reutilizáveis, CardGrid, FlowGraph e diagnóstico são recursos nativos para todos os consumidores.

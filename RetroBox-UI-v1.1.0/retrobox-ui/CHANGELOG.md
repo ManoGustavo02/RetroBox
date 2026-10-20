@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.5.1 · 2026-10-20
+
+- Avaliação memoizada por expressão nos grafos nativos e na prévia, evitando recálculo exponencial de subexpressões compartilhadas.
+- Cada leitura de entrada usa um cache novo, preservando mudanças de valores entre bindings e ações.
+- Comparação de registros na prévia independe da ordem das chaves, como no runtime.
+- Regressões com 28 operações compartilhadas e refresh; release 2.5.0 preservada por bytes.
+
 ## 2.5.0 · 2026-10-20
 
 - Designer HTML offline com 21 componentes, Row, 22 blocos tipados, prévia, PT/EN, JSON e compilador Luau real.

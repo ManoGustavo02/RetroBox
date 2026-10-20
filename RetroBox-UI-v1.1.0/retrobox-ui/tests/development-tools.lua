@@ -149,6 +149,15 @@ return function(Mock,Library,test)
  test('localized flow formats refresh when the window language changes',function()
   local w,s=fixture({Translations={value={Source='Valor: {value}',Values={['en-US']='Value: {value}'}}}});s:AddSlider({Id='source',Min=0,Max=100,Default=8});local label=s:AddLabel({Id='result',Title=''});w:CreateFlowGraph(labelGraph('locale-flow','source','result','value'));assert(label:GetValue()=='Valor: 8');w:SetLocale('en-US');assert(label:GetValue()=='Value: 8');finish(w)
  end)
+ test('shared data expressions evaluate once per snapshot and refresh after changes',function()
+  local w,s=fixture();local source=s:AddSlider({Id='source',Min=0,Max=100,Default=1});local target=s:AddStatCard({Id='target',Default=0})
+  local reads=0;local get=source.GetValue;function source:GetValue()reads=reads+1;return get(self)end
+  local nodes={{Id='source',Type='Value',Control='source'}};local edges={};local previous='source'
+  for i=1,28 do local id='double-'..i;nodes[#nodes+1]={Id=id,Type='Math',Operator='+'};edges[#edges+1]=edge(previous,'Value',id,'A');edges[#edges+1]=edge(previous,'Value',id,'B');previous=id end
+  nodes[#nodes+1]={Id='target',Type='Binding',Control='target',Property='Value'};edges[#edges+1]=edge(previous,'Value','target','Value')
+  w:CreateFlowGraph({Id='shared',Nodes=nodes,Edges=edges});assert(reads<=3 and target:GetValue()==2^28)
+  reads=0;source:SetValue(2,true);assert(reads<=4 and target:GetValue()==2^29);finish(w)
+ end)
  test('catalog diagnosis inspects raw URLs without executing their contents',function()
   local w=fixture();_G.__diagnosticExecuted=false;loadstring=load;local hub=w:CreateScriptHub({Id='diagnosis',Games={{Id='game',Name='Game',Scripts={{Id='game-script',Title='Game script',SourceURL='https://pastefy.app/mock-game/raw',Callback=function()end}}}},UniversalScripts={{Id='universal',Name='Universal',URL='https://pastefy.app/mock-universal/raw'}}});local h=assert(hub:DiagnoseCatalog({ValidateSyntax=true,Fetch=function()return '_G.__diagnosticExecuted=true'end}));Mock.pump();assert(h:GetStatus().Status=='Completed' and not _G.__diagnosticExecuted);local report=hub:GetCatalogDiagnosis();assert(#report.Entries==2 and report.Entries[1].Syntax=='Compiled');_G.__diagnosticExecuted=nil;finish(w)
  end)

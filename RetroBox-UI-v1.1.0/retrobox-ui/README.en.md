@@ -1,5 +1,7 @@
 # RetroBox UI
 
+**2.5.1:** efficient shared-expression evaluation in visual flows, with a fresh cache after value changes. [Details](docs/RELEASE-2.5.1.md).
+
 **New in 2.5:** [offline Designer with visual blocks](../../designer/README.md), automatic locale, transactional forms, reusable components, recycled CardGrid, native flow graphs and read-only catalog diagnostics. [APIs](docs/DEVELOPMENT-TOOLS.md).
 
 ## 2.4.0

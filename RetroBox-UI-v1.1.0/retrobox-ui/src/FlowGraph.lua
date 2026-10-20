@@ -185,17 +185,22 @@ do
             local control=assert(not controls[node.Control].Destroyed and controls[node.Control],'Control was destroyed')
             return control:GetValue()
         end
-        local evaluate
-        local function input(node,port)
-            local edge=incoming[node.Id][port];if not edge then return nil end;return evaluate(edge.From,edge.Out)
+        local evaluate,uncached
+        local function input(node,port,cache)
+            local edge=incoming[node.Id][port];if not edge then return nil end;return evaluate(edge.From,edge.Out,cache or {})
         end
-        evaluate=function(name,port)
+        evaluate=function(name,port,cache)
+            local key=name..'/'..port
+            local stored=cache[key];if stored then return stored.Value end
+            local value=uncached(name,port,cache);cache[key]={Value=value};return value
+        end
+        uncached=function(name,port,cache)
             local node=nodes[name];local kind=node.Type
             if kind=='Constant' then return copy(node.Value) end
             if kind=='Value' or kind=='Change' or kind=='Apply' then return readTarget(node) end
-            if kind=='Not' then return not input(node,'Value') end
-            if kind=='Format' then return (window:Translate(node.Text):gsub('{value}',function() return tostring(input(node,'Value')) end)) end
-            local a,b=input(node,'A'),input(node,'B')
+            if kind=='Not' then return not input(node,'Value',cache) end
+            if kind=='Format' then return (window:Translate(node.Text):gsub('{value}',function() return tostring(input(node,'Value',cache)) end)) end
+            local a,b=input(node,'A',cache),input(node,'B',cache)
             if kind=='And' then return a and b elseif kind=='Or' then return a or b end
             if kind=='Compare' then
                 local op=node.Operator

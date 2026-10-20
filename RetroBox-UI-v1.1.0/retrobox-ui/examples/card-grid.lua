@@ -1,4 +1,4 @@
-local Library=loadstring(game:HttpGet('https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua'))({Channel='stable',MinVersion='2.5.0'})
+local Library=loadstring(game:HttpGet('https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua'))({Channel='stable',MinVersion='2.5.1'})
 local window=Library:CreateWindow({Id='card-grid',Title='Catálogo de ferramentas',Theme='Hacker'})
 local section=window:CreateTab({Title='Ferramentas',Icon='grid'}):CreateSection('Escolha uma ferramenta')
 local items={}

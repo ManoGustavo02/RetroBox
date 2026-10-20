@@ -23,7 +23,7 @@ function lua(v,depth=0){
 }
 const edge=(From,Out,To,Input)=>({From,Out,To,Input});
 function newProject(){return {
- Kind:"RetroBoxDesignerProject",SchemaVersion:1,MinVersion:"2.5.0",
+ Kind:"RetroBoxDesignerProject",SchemaVersion:1,MinVersion:"2.5.1",
  Window:{Id:"meu-projeto",Title:"Meu projeto",Subtitle:"Monte, conecte e exporte",Theme:"Hacker",Locale:"auto",SourceLocale:"pt-BR",Size:{X:790,Y:570}},
  Tabs:[{Id:"principal",Title:"Principal",Icon:"grid",Columns:1,Sections:[{Id:"geral",Title:"Controles",Icon:"settings",Controls:[
  {Id:"enabled",Type:"Toggle",Options:{Title:"Ativar recurso",Default:true}},
@@ -194,9 +194,9 @@ function collectTranslations(input){
 function syncTextSources(p){function sync(owner,source){for(const [prop,key]of Object.entries(owner?.TextKeys||{})){const e=p.Translations?.[key],v=source?.[prop];if(e&&typeof v==="string"&&e.Source!==v){e.Source=v;e.Values={};}}}sync(p.Window,p.Window);walk(p,n=>{sync(n,n?.Options||n);if(n?.Type==="Form")for(const f of n.Options?.Fields||[])sync(f,f);});for(const t of p.Templates||[])for(const child of t.Controls||[])sync(child,child.Options);return p;}
 function compile(input,catalog,mode="standalone"){
  const checked=validateProject(input,catalog);if(!checked.ok)throw Error([...checked.errors,...checked.graphErrors].map(e=>e.path+": "+e.message).join("\n"));
- const p=collectTranslations(checked.project),lines=["-- RetroBox Designer 2.5.0 | API 2 | generated Luau","-- Reopen JSON in the Designer. Connect custom actions in the actions table."],used=[...new Set(p.Flow.Nodes.filter(n=>n.Type==="Call").map(n=>n.Action))];
- if(mode==="module")lines.push("return function(Library, actions)","actions = actions or {}",'assert(type(Library.GetDesignerCatalog) == "function", "RetroBox 2.5.0 or later is required")');
- else {lines.push('local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua"))({Channel="stable", MinVersion="2.5.0"})',"local actions = {}");for(const name of used)lines.push("actions["+luaString(name)+"] = function(ctx, value, flow)","    -- TODO: connect your application logic here.",'    return false, "Action is not connected: '+name+'"',"end");}
+ const p=collectTranslations(checked.project),lines=["-- RetroBox Designer 2.5.1 | API 2 | generated Luau","-- Reopen JSON in the Designer. Connect custom actions in the actions table."],used=[...new Set(p.Flow.Nodes.filter(n=>n.Type==="Call").map(n=>n.Action))];
+ if(mode==="module")lines.push("return function(Library, actions)","actions = actions or {}",'assert(type(Library.GetDesignerCatalog) == "function", "RetroBox 2.5.1 or later is required")');
+ else {lines.push('local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua"))({Channel="stable", MinVersion="2.5.1"})',"local actions = {}");for(const name of used)lines.push("actions["+luaString(name)+"] = function(ctx, value, flow)","    -- TODO: connect your application logic here.",'    return false, "Action is not connected: '+name+'"',"end");}
  for(const name of used)lines.push('assert(type(actions['+luaString(name)+']) == "function", '+luaString("Connect action before creating the interface: "+name)+')');
  const w=clone(p.Window);delete w.TextKeys;delete w.Size;w.Translations=p.Translations;let literal=lua(w);if(p.Window.Size)literal=literal.slice(0,-1)+',\n    ["Size"] = Vector2.new('+p.Window.Size.X+", "+p.Window.Size.Y+")\n}";
  lines.push("local window = Library:CreateWindow("+literal+")","local controls, states = {}, {}");

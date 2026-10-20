@@ -13,13 +13,17 @@ return class Simulator {
  }
  available(id){let key=id;while(key){const v=this.views[key];if(v&&(v.Disabled||!v.Visible))return false;const i=key.lastIndexOf("/");if(i<0)break;key=key.slice(0,i);}return !!this.controls[id];}
  log(kind,message){this.logs.push({kind,message,time:new Date().toLocaleTimeString()});if(this.logs.length>200)this.logs.shift();}
- input(n,port){const e=this.inputs.get(n.Id)[port];return e?this.evaluate(e.From):undefined;}
+ input(n,port,cache){const e=this.inputs.get(n.Id)[port];return e?this.evaluate(e.From,cache):undefined;}
  read(n){return C.clone(n.State?this.states[n.State]:this.values[n.Control]);}
- evaluate(id){
+ evaluate(id,cache=new Map()){
+  if(cache.has(id))return cache.get(id);
+  const value=this.evaluateUncached(id,cache);cache.set(id,value);return value;
+ }
+ evaluateUncached(id,cache){
   const n=this.nodes.get(id),type=n.Type;if(type==="Constant")return C.clone(n.Value);if(["Value","Change","Apply"].includes(type))return this.read(n);
-  if(type==="Not")return !this.input(n,"Value");if(type==="Format")return C.translation(this.project,n.Text,this.locale,{value:this.input(n,"Value")});
-  const a=this.input(n,"A"),b=this.input(n,"B");if(type==="And")return a&&b;if(type==="Or")return a||b;
-  if(type==="Compare"){const same=JSON.stringify(a)===JSON.stringify(b);return {"==":()=>same,"~=":()=>!same,">":()=>a>b,">=":()=>a>=b,"<":()=>a<b,"<=":()=>a<=b}[n.Operator]();}
+  if(type==="Not")return !this.input(n,"Value",cache);if(type==="Format")return C.translation(this.project,n.Text,this.locale,{value:this.input(n,"Value",cache)});
+  const a=this.input(n,"A",cache),b=this.input(n,"B",cache);if(type==="And")return a&&b;if(type==="Or")return a||b;
+  if(type==="Compare"){const same=C.lua(a)===C.lua(b);return {"==":()=>same,"~=":()=>!same,">":()=>a>b,">=":()=>a>=b,"<":()=>a<b,"<=":()=>a<=b}[n.Operator]();}
   if(type!=="Math"||![a,b].every(Number.isFinite))throw Error("Math precisa de números.");if(n.Operator==="/"&&b===0)throw Error("Divisão por zero.");
   const result={"+":()=>a+b,"-":()=>a-b,"*":()=>a*b,"/":()=>a/b,min:()=>Math.min(a,b),max:()=>Math.max(a,b)}[n.Operator]();if(!Number.isFinite(result))throw Error("Resultado numérico inválido.");return result;
  }
