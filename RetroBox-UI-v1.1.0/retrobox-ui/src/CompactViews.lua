@@ -346,35 +346,23 @@ do
         assert(not self.Destroyed and compatible[self.Type],'This control cannot offer pinning')
         if options==false then
             self._resources:Remove('pin-button')
-            self:_syncHelpBadge(); return self
+            self:_layoutDescription(); return self
         end
         assert(options==true or type(options)=='table','Pinnable must be boolean or options')
         self._pinOptions=type(options)=='table' and options or {}
         if not self.PinButton then
             local pinOwner=setmetatable({_connections={}},{__index=function(_,key) return self[key] end})
-            self.TitleLabel.Size=UDim2.new(self.TitleLabel.Size.X.Scale,self.TitleLabel.Size.X.Offset-62,self.TitleLabel.Size.Y.Scale,self.TitleLabel.Size.Y.Offset)
             self.PinButton=button(self._window,pinOwner,self.Frame,'',{Size=U2(60,21),TextSize=10,ZIndex=self.TitleLabel.ZIndex+3},function()
                 if next(self._hudPins or {}) then self:UnpinFromHUD() else self:PinToHUD(self._pinOptions.HUD,self._pinOptions) end
             end)
+            connect(pinOwner,self.PinButton:GetPropertyChangedSignal('Text'),function() self:_layoutDescription() end)
             self:Manage(function()
                 pinOwner.Destroyed=true; cleanup(pinOwner)
                 local object=self.PinButton; self.PinButton=nil
-                if self.TitleLabel and self.TitleLabel.Parent then
-                    local size=self.TitleLabel.Size; self.TitleLabel.Size=UDim2.new(size.X.Scale,size.X.Offset+62,size.Y.Scale,size.Y.Offset)
-                end
                 if object then self._window:_forgetSkin(object); if object.Parent then object:Destroy() end end
             end,nil,'pin-button')
         end
-        self:_syncPinButton(); self:_syncHelpBadge(); return self
-    end
-    local syncHelp=Control._syncHelpBadge
-    function Control:_syncHelpBadge()
-        syncHelp(self)
-        if self.PinButton and self.PinButton.Parent then
-            local p,s=self.TitleLabel.Position,self.TitleLabel.Size
-            self.PinButton.Position=UDim2.new(p.X.Scale+s.X.Scale,p.X.Offset+s.X.Offset+2,0,1)
-            if self.InfoButton and self.InfoButton.Parent then self.InfoButton.Position=UDim2.new(p.X.Scale+s.X.Scale,p.X.Offset+s.X.Offset+64,0,1) end
-        end
+        self:_syncPinButton(); self:_layoutDescription(); return self
     end
     local setIcon=Control.SetIcon
     function Control:SetIcon(value)

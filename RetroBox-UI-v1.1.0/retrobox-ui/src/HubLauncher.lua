@@ -159,7 +159,7 @@ function Hub:_installLauncher(options)
         hub:RetryThumbnail(selected.Id); launcher:QueueRefresh()
         return accepted,reason
     end)
-    ui.More=extraButton('details','Info','info',function()
+    ui.More=extraButton('details',tr('Informações','Information'),'info',function()
         local record=hub:_selectedCatalog(); local spec=hub:GetSelectedScript()
         local status=record and spec and hub:GetScriptStatus(record.Id,spec.Id)
         local source=record
@@ -229,9 +229,40 @@ function Hub:_installLauncher(options)
     for _,control in ipairs(captionControls) do
         local caption=label(control.Button,'LauncherCaption',control.Button.Text,control==hub.PlayButton and 13 or 11,'Text')
         caption.ZIndex=control.Button.ZIndex+2;control._hubCaption=caption
-        listen(control.Button:GetPropertyChangedSignal('Text'),function() syncCaption(control) end)
+        listen(control.Button:GetPropertyChangedSignal('Text'),function() syncCaption(control); launcher:QueueRefresh() end)
         listen(control.Button:GetPropertyChangedSignal('TextTransparency'),function() syncCaption(control) end)
+        if control._titleIcon and control._titleIcon.Frame then
+            listen(control._titleIcon.Frame:GetPropertyChangedSignal('Visible'),function() syncCaption(control); launcher:QueueRefresh() end)
+        end
         syncCaption(control)
+    end
+    local function captionWidth(control)
+        local caption=control._hubCaption; local icon=control._titleIcon and control._titleIcon.Frame
+        local left=icon and icon.Parent and icon.Visible and 30 or 10
+        local measured=textService:GetTextSize(control.Button.Text,caption.TextSize,caption.Font,Vector2.new(100000,100000))
+        return math.ceil(measured.X)+left+10
+    end
+    local function buttonRows(controls,width)
+        local rows={}; local row={Items={},Width=0}
+        for _,control in ipairs(controls) do
+            local wanted=math.min(width,math.max(56,captionWidth(control)))
+            local nextWidth=row.Width+(#row.Items>0 and 6 or 0)+wanted
+            if #row.Items>0 and nextWidth>width then rows[#rows+1]=row; row={Items={},Width=0}; nextWidth=wanted end
+            row.Items[#row.Items+1]={Control=control,Width=wanted}; row.Width=nextWidth
+        end
+        if #row.Items>0 then rows[#rows+1]=row end
+        return rows
+    end
+    local function placeButtons(rows,x,y,width,height,fill)
+        for _,row in ipairs(rows) do
+            local extra=fill and math.max(0,width-row.Width)/#row.Items or 0
+            local left=x+(fill and 0 or math.max(0,width-row.Width))
+            for _,item in ipairs(row.Items) do
+                local wanted=item.Width+extra
+                rect(item.Control.Frame,left,y,wanted,height); left=left+wanted+6
+            end
+            y=y+height+6
+        end
     end
     function launcher:ApplyFilter() hub:_filterGames() end
     function launcher:SelectionChanged(previous,id)
@@ -319,7 +350,12 @@ function Hub:_installLauncher(options)
         window.Nav.Position=U2(12,mobile and 76 or 78); window.Nav.Size=UDim2.new(1,-24,0,36)
         window.NavLayout.FillDirection=Enum.FillDirection.Horizontal
         window.Nav.AutomaticCanvasSize=Enum.AutomaticSize.X; window.Nav.ScrollingDirection=Enum.ScrollingDirection.X
-        for _,page in ipairs(window.Tabs) do page.Button.Size=U2(mobile and 132 or 148,34) end
+        for _,page in ipairs(window.Tabs) do
+            local measured=textService:GetTextSize(page.Label.Text,page.Label.TextSize,page.Label.Font,Vector2.new(100000,100000))
+            local padding=page.Label.Position.X.Offset+10
+            local wanted=math.max(mobile and 132 or 148,math.ceil(measured.X)+padding)
+            page.Button.Size=U2(math.min(math.max(132,size.X-24),wanted),34)
+        end
         window.SearchContainer.Position=UDim2.new(1,-272,0,43); window.SearchContainer.Size=U2(258,28)
         window.SearchContainer.Visible=not mobile and not window.Minimized
         window.Search.PlaceholderText=tr('Buscar funções e ferramentas…','Search controls and tools…')
@@ -340,32 +376,43 @@ function Hub:_installLauncher(options)
         self:LayoutChrome()
         local scale=math.max(.01,window._actualScale or 1); local ts=window.TextScale or 1
         local size=tab.Frame.AbsoluteSize; local width,height=math.max(240,size.X/scale),math.max(1,size.Y/scale)
-        local gap=12; local dockHeight=math.min(height,math.ceil((width<620 and 128 or 104)*math.max(1,ts)))
+        local gap=12; local touch=inputService.TouchEnabled
+        local buttonHeight=math.max(touch and 42 or 38,math.ceil(13*ts+20))
+        local actions={hub.PlayButton}; if hub.CancelButton.Frame.Visible then actions[#actions+1]=hub.CancelButton end; actions[#actions+1]=ui.More
+        local dockRows=buttonRows(actions,width-24)
+        local sideBySide=#dockRows==1 and width>=620 and width-dockRows[1].Width-48>=180*math.max(1,ts)
+        local actionsHeight=#dockRows*buttonHeight+(#dockRows-1)*6
+        local titleHeight,statusHeight=math.ceil(22*ts),math.ceil(26*ts)
+        local dockWanted=sideBySide and math.ceil(104*math.max(1,ts)) or 10+titleHeight+4+statusHeight+10+actionsHeight+12
+        local dockHeight=math.min(height,dockWanted)
         local bodyHeight=math.max(0,height-dockHeight-gap)
         rect(ui.Root,0,0,width,height); rect(ui.Background,0,0,width,height); rect(ui.Body,0,0,width,bodyHeight)
         ui.Body.Visible=bodyHeight>0
         local columns=width>=hub.StackAt*math.max(1,ts) and bodyHeight>=240*math.max(1,ts); self.LayoutMode=columns and 'columns' or 'stacked'; hub.LayoutMode=self.LayoutMode
         local navWidth=columns and math.max(238,math.floor(width*hub.NavigationRatio)) or width
-        local touch=inputService.TouchEnabled
-        local inputHeight=touch and 42 or 34; local filterHeight=touch and 42 or 30
-        local sortY=8
-        local searchY=(touch and 58 or 46)+(hub.Sort.Open and 192 or 0)
+        local inputHeight=math.max(touch and 42 or 34,math.ceil(20*ts+10)); local filterHeight=math.max(touch and 42 or 30,math.ceil(11*ts+14))
+        local sortWidth=math.min(navWidth-24,math.max(110,math.ceil(textService:GetTextSize(hub.Sort.Button.Text,hub.Sort.Button.TextSize,window.Font,Vector2.new(100000,100000)).X)+40))
+        local libraryWidth=textService:GetTextSize(ui.LibraryTitle.Text,ui.LibraryTitle.TextSize,window.Font,Vector2.new(100000,100000)).X
+        local headerStacked=libraryWidth+sortWidth+40>navWidth
+        local sortY=headerStacked and 12+math.ceil(22*ts)+6 or 8
+        local searchY=sortY+inputHeight+8
         local filtersY=searchY+inputHeight+8
+        local filterRows=buttonRows({ui.All,ui.Favorites,ui.Current},navWidth-24)
+        local filtersHeight=#filterRows*filterHeight+(#filterRows-1)*6
         local universalVisible=hub._universalConfigured or #hub:GetUniversalScripts()>0
         ui.Universal.Frame.Visible=universalVisible
-        local universalY=filtersY+filterHeight+8
-        local navHeader=filtersY+filterHeight-6+(universalVisible and filterHeight+10 or 0)
+        local universalY=filtersY+filtersHeight+8
+        local navHeader=filtersY+filtersHeight-6+(universalVisible and filterHeight+10 or 0)
         local rowHeight=math.ceil(60*ts)
         local navHeight=columns and bodyHeight or navHeader+math.min(3,hub.GameListMaxRows,math.max(1,hub.GameList:GetViewStats().Filtered))*rowHeight+38
         navHeight=math.max(navHeader+64,navHeight); self.NavigationHeight=navHeight
         rect(ui.Navigation,0,0,navWidth,navHeight)
-        rect(ui.LibraryTitle,14,12,navWidth-140,22); ui.CatalogCount.Visible=false; ui.SortLabel.Visible=false
+        rect(ui.LibraryTitle,14,12,headerStacked and navWidth-28 or navWidth-sortWidth-34,math.ceil(22*ts)); ui.CatalogCount.Visible=false; ui.SortLabel.Visible=false
         rect(hub.GameSearch.Frame,12,searchY,navWidth-24,inputHeight)
-        rect(ui.Filters,12,filtersY,navWidth-24,filterHeight)
+        rect(ui.Filters,12,filtersY,navWidth-24,filtersHeight)
         if universalVisible then rect(ui.Universal.Frame,12,universalY,navWidth-24,filterHeight) end
-        local segment=(navWidth-28)/3
-        for i,control in ipairs({ui.All,ui.Favorites,ui.Current}) do rect(control.Frame,(i-1)*(segment+2),0,segment,filterHeight) end
-        rect(hub.Sort.Frame,navWidth-122,sortY,110,inputHeight+(hub.Sort.Open and 192 or 0))
+        placeButtons(filterRows,0,0,navWidth-24,filterHeight,true)
+        rect(hub.Sort.Frame,navWidth-sortWidth-12,sortY,sortWidth,inputHeight)
         hub.Sort.Button.Size=UDim2.new(1,0,0,inputHeight)
         for _,child in ipairs(hub.Sort.Frame:GetChildren()) do
             if child.ClassName=='Frame' and child.Size.Y.Offset==184 then child.Position=U2(0,inputHeight+4) end
@@ -394,16 +441,15 @@ function Hub:_installLauncher(options)
         ui.Expand.Frame.Visible=needsExpand
         local descriptionHeight=self.Expanded and fullDescriptionHeight or math.min(fullDescriptionHeight,36*ts)
         rect(ui.Description,infoX,y,infoWidth,descriptionHeight); y=y+descriptionHeight+6
-        if needsExpand then rect(ui.Expand.Frame,infoX,y,152,26); y=y+30 end
+        if needsExpand then rect(ui.Expand.Frame,infoX,y,math.min(infoWidth,math.max(152,captionWidth(ui.Expand))),math.max(26,math.ceil(11*ts+12))); y=y+ui.Expand.Frame.Size.Y.Offset+4 end
         local actionHeight=touch and 42 or 34
         local universal=hub:GetSelectedCategory()=='Universal'
         ui.GameActions.Visible=not universal
-        rect(ui.GameActions,infoX,y,infoWidth,universal and 0 or actionHeight)
-        local actionGap=6; local actionWidth=(infoWidth-actionGap*2)/3
-        rect(hub.FavoriteButton.Frame,0,0,actionWidth,actionHeight)
-        rect(hub.TeleportButton.Frame,actionWidth+actionGap,0,actionWidth,actionHeight)
-        rect(ui.Retry.Frame,(actionWidth+actionGap)*2,0,actionWidth,actionHeight)
-        if not universal then y=y+actionHeight+8 end
+        local gameActionRows=buttonRows({hub.FavoriteButton,hub.TeleportButton,ui.Retry},infoWidth)
+        local gameActionsHeight=#gameActionRows*actionHeight+(#gameActionRows-1)*6
+        rect(ui.GameActions,infoX,y,infoWidth,universal and 0 or gameActionsHeight)
+        placeButtons(gameActionRows,0,0,infoWidth,actionHeight,true)
+        if not universal then y=y+gameActionsHeight+8 end
         local teleportText=not universal and hub.TeleportStatus:GetValue() or ''
         ui.TeleportMessage.Visible=teleportText~=''; ui.TeleportMessage.Text=teleportText
         if teleportText~='' then
@@ -432,25 +478,20 @@ function Hub:_installLauncher(options)
         ui.Body.ScrollingEnabled=not columns; ui.Body.ScrollBarThickness=columns and 0 or 4
         if columns then ui.Body.CanvasPosition=Vector2.new(0,0) end
         rect(ui.Dock,0,height-dockHeight,width,dockHeight); rect(ui.DockAccent,0,0,width,2)
-        local compact=width<620 or dockHeight<104*math.max(1,ts); local buttonHeight=inputService.TouchEnabled and 42 or 38
-        ui.Activity.Visible=not compact or dockHeight>=128*math.max(1,ts)
-        if compact then
-            local yButton=dockHeight-buttonHeight-12
-            rect(ui.SelectedScript,12,8,width-24,22*ts)
-            rect(ui.Status,12,32*ts,width-24,math.max(0,math.min(30*ts,yButton-32*ts-4)))
-            rect(ui.Activity,12,62*ts,width-24,14*ts)
-            local cancelWidth=hub.CancelButton.Frame.Visible and 76 or 0
-            rect(hub.PlayButton.Frame,12,yButton,width-24-64-(cancelWidth>0 and cancelWidth+6 or 0),buttonHeight)
-            rect(ui.More.Frame,width-70,yButton,58,buttonHeight)
-            if cancelWidth>0 then rect(hub.CancelButton.Frame,width-76-76,yButton,cancelWidth,buttonHeight) end
+        ui.Activity.Visible=sideBySide; ui.Status.Visible=true
+        if not sideBySide then
+            local yButton=math.max(0,dockHeight-actionsHeight-12)
+            rect(ui.SelectedScript,12,8,width-24,math.min(titleHeight,math.max(0,yButton-12)))
+            local statusY=12+titleHeight
+            rect(ui.Status,12,statusY,width-24,math.max(0,math.min(statusHeight,yButton-statusY-6)))
+            ui.Status.Visible=ui.Status.Size.Y.Offset>0
+            placeButtons(dockRows,12,yButton,width-24,buttonHeight,true)
         else
-            local right=hub.CancelButton.Frame.Visible and 306 or 224
-            rect(ui.SelectedScript,16,12,width-right-30,24*ts)
-            rect(ui.Status,16,40*ts,width-right-30,30*ts)
-            rect(ui.Activity,16,dockHeight-22,width-right-30,14)
-            rect(ui.More.Frame,width-76,16,60,buttonHeight)
-            rect(hub.PlayButton.Frame,width-right,16,right-88-(hub.CancelButton.Frame.Visible and 80 or 0),buttonHeight)
-            if hub.CancelButton.Frame.Visible then rect(hub.CancelButton.Frame,width-160,16,76,buttonHeight) end
+            local right=dockRows[1].Width
+            rect(ui.SelectedScript,16,12,width-right-48,24*ts)
+            rect(ui.Status,16,40*ts,width-right-48,30*ts)
+            rect(ui.Activity,16,dockHeight-22,width-right-48,14)
+            placeButtons(dockRows,width-right-16,16,right,buttonHeight,false)
         end
         rect(ui.ProgressTrack,12,dockHeight-5,width-24,3)
         self._layingOut=false

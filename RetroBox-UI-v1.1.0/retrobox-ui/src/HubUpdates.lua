@@ -196,7 +196,7 @@ function Hub:_installResponsiveLayout(options)
         local height=UserInputService.TouchEnabled and 42 or math.ceil(34*(window.TextScale or 1))
         self.Button.Size=UDim2.new(1,0,0,height)
         if sortPanel then sortPanel.Position=U2(0,height+4) end
-        self.Frame.Size=UDim2.new(self.Frame.Size.X.Scale,self.Frame.Size.X.Offset,0,height+(self.Open and 192 or 0))
+        self.Frame.Size=UDim2.new(self.Frame.Size.X.Scale,self.Frame.Size.X.Offset,0,height)
     end
     function self.Sort:_render()
         sortRender(self)
@@ -205,13 +205,53 @@ function Hub:_installResponsiveLayout(options)
         for name,item in pairs(self._rows or {}) do item.Text=(self.Value==name and "[X] " or "[ ] ")..(labels[name] or name) end
     end
     self.Sort:_layoutDescription(); self.Sort:_render()
-    local sortOpen=self.Sort.SetOpen
     function self.Sort:SetOpen(value)
-        local previous=self.Frame.Size; sortOpen(self,value)
-        window:_cancelTrack(self.Frame,"expand",false); self:_layoutDescription()
-        local target=self.Frame.Size; self.Frame.Size=previous
-        window:_animate(self.Frame,{Size=target},.12,"expand",self)
+        if self.Destroyed then return self end
+        local open=value==true and not self.Disabled
+        if not open then
+            if self._sortPopup then self._sortPopup:Close('closed') end
+            self.Open=false; if sortPanel then sortPanel.Visible=false end
+            return self
+        end
+        if self._sortPopup and not self._sortPopup.Destroyed then return self end
+        local entries={}; local width=math.max(150,self.Button.AbsoluteSize.X)
+        local labels={Order=window:_t17('Cadastro','Registration order'),Alphabetical=window:_t17('Nome','Name'),Favorites=window:_t17('Favoritos','Favorites')}
+        for _,name in ipairs(self.Options) do
+            local choice=name; local text=(self.Value==choice and '[X] ' or '[ ] ')..(labels[choice] or choice)
+            local measured=TextService:GetTextSize(text,14*(window.TextScale or 1),window.Font,Vector2.new(100000,100000))
+            width=math.max(width,measured.X+40)
+            entries[#entries+1]={Text=text,Callback=function() if not self.Destroyed then self:SetValue(choice) end end}
+        end
+        local owner=window:ContextMenu({Items=entries,Width=math.min(420,width)},self.Button)
+        if not owner then return self end
+        self._sortPopup=owner; self.Open=true
+        owner.Scope:Add(function()
+            if self._sortPopup==owner then self._sortPopup=nil; self.Open=false end
+        end)
+        -- ContextMenu owns stacking, focus, outside click and disposal. Constrain
+        -- this anchored popup to the visible window, not its clipped catalog.
+        local origin=window.Root.AbsolutePosition; local view=window.Root.AbsoluteSize
+        local p,size=window.Main.AbsolutePosition,window.Main.AbsoluteSize
+        local left,top=math.max(8,p.X-origin.X+8),math.max(8,p.Y-origin.Y+8)
+        local right,bottom=math.min(view.X-8,p.X-origin.X+size.X-8),math.min(view.Y-8,p.Y-origin.Y+size.Y-8)
+        local panel=owner.Panels[1].Frame
+        local anchor=self.Button.AbsolutePosition-origin; local anchorHeight=self.Button.AbsoluteSize.Y
+        local menuWidth=math.max(1,math.min(panel.Size.X.Offset,right-left))
+        local below,above=math.max(0,bottom-anchor.Y-anchorHeight-4),math.max(0,anchor.Y-top-4)
+        local height=math.max(1,math.min(panel.Size.Y.Offset,math.max(below,above)))
+        local y=below>=height and anchor.Y+anchorHeight+4 or anchor.Y-height-4
+        panel.Size=U2(menuWidth,height)
+        panel.Position=U2(clamp(anchor.X,left,math.max(left,right-menuWidth)),clamp(y,top,math.max(top,bottom-height)))
         return self
+    end
+    local sortDestroy=self.Sort.Destroy
+    function self.Sort:Destroy() self:SetOpen(false); return sortDestroy(self) end
+    for _,object in ipairs({self.Sort.Button,window.Main}) do
+        for _,property in ipairs({'AbsolutePosition','AbsoluteSize'}) do
+            self.Scope:Add(object:GetPropertyChangedSignal(property):Connect(function()
+                if hub.Sort and hub.Sort._sortPopup then hub.Sort:SetOpen(false) end
+            end),'Disconnect')
+        end
     end
     self.GameImage.Title=""; self.GameImage.TitleLabel.Text=""
     window:_bind(self.GameImage.Frame,{BackgroundColor3="Inset",BorderColor3="Border"}); self.GameImage.Frame.BackgroundTransparency=0; self.GameImage.Frame.BorderSizePixel=1

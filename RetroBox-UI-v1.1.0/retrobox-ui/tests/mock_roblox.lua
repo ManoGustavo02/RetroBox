@@ -382,9 +382,13 @@ local services={
         return tween
     end},
     TextService={GetTextSize=function(_,text,size,_,bounds)
-        local lines=0
-        for line in (text.."\n"):gmatch("(.-)\n") do lines=lines+math.max(1,math.ceil(#line*size*.6/bounds.X)) end
-        return Vector2.new(bounds.X,lines*(size+2))
+        local lines,width=0,0
+        for line in (text.."\n"):gmatch("(.-)\n") do
+            local length=(utf8.len(line) or #line)*size*.6
+            width=math.max(width,math.min(bounds.X,length))
+            lines=lines+math.max(1,math.ceil(length/math.max(1,bounds.X)))
+        end
+        return Vector2.new(width,lines*(size+2))
     end},
 }
 game={PlaceId=1234,GameId=5678,GetService=function(_,name) return assert(services[name],"Unknown service: "..name) end}
