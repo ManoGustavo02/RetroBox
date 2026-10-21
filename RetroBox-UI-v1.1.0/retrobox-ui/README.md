@@ -1,6 +1,6 @@
 # RetroBox UI
 
-**2.5.1:** avaliação eficiente de expressões compartilhadas nos blocos, sem cache obsoleto entre alterações. [Detalhes](docs/RELEASE-2.5.1.md).
+**2.5.2:** correções no menu de ordenação do Hub, nas larguras dos botões e no alinhamento entre informação e Keybind. [Detalhes](docs/RELEASE-2.5.2.md).
 
 Library de GUI em Luau para desenvolvedores de scripts executados no cliente Roblox por executores. Um arquivo independente, carregado pelo link **raw do GitHub**, com visual retrô e API para conectar componentes às funções do seu script.
 

@@ -1,4 +1,4 @@
--- RetroBox UI 2.5.1 | Mano Gustavo | MIT License
+-- RetroBox UI 2.5.2 | Mano Gustavo | MIT License
 -- Standalone GUI library for Roblox client executors.
 -- Load the raw GitHub source with loadstring(game:HttpGet(URL))().
 
@@ -9,7 +9,7 @@ local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
 local TextService = game:GetService("TextService")
 
-local Library = { Version = "2.5.1", Themes = {}, Windows = {} }
+local Library = { Version = "2.5.2", Themes = {}, Windows = {} }
 local Window = {}; Window.__index = Window
 local Tab = {}; Tab.__index = Tab
 local Section = {}; Section.__index = Section
@@ -1947,8 +1947,8 @@ function Control:SetTooltip(value)
     if self.Tooltip then self:_connectTooltip(); self:_syncHelpBadge()
     elseif self.InfoButton then
         self._window:_forgetSkin(self.InfoButton); self.InfoButton:Destroy(); self.InfoButton=nil
-        self.TitleLabel.Size=UDim2.new(self.TitleLabel.Size.X.Scale,self.TitleLabel.Size.X.Offset+22,self.TitleLabel.Size.Y.Scale,self.TitleLabel.Size.Y.Offset)
     end
+    self:_layoutDescription()
     local window=self._window
     if window._tooltipOwner==self then
         if self.Tooltip then window:_showTooltip(self,window._tooltipAnchor,window._tooltipMode) else window:_hideTooltip() end
@@ -2105,6 +2105,7 @@ function Control:SetIcon(value)
         self.Icon=self._titleIcon.Frame
     else self._titleIcon:Set(value) end
     self._titleIcon:SetOpacity(self.Disabled and .5 or 0)
+    self:_layoutDescription()
     return self
 end
 function Control:SetDescription(text)
@@ -2272,7 +2273,7 @@ function Section:AddToggle(options)
         binding.TitleLabel.Visible=false; binding.DescriptionLabel.Visible=false
         if binding._titleIcon then binding._titleIcon.Frame.Visible=false end
         binding.Button.Position=U2(0,0); binding.Button.Size=U2(112,28)
-        self.TitleLabel.Size=UDim2.new(1,-162-(self._iconInset or 0),0,23); self.DescriptionLabel.Size=UDim2.new(1,-162,0,18)
+        self:_layoutDescription()
         self:SetDisabled(self.Disabled)
         if self._section._isRow then self._section:_layout() end
     end
@@ -5031,6 +5032,76 @@ end
 -- Description layout and help preferences share the existing control lifecycle.
 do
     local compact={Toggle=true,Keybind=true,Button=true,StatCard=true,LineChart=true,BarChart=true,ProgressChart=true,SparklineChart=true,Preview=true,Stepper=true}
+    local function measureHeader(object,text,width)
+        local ok,size=pcall(TextService.GetTextSize,TextService,text or object.Text,object.TextSize,object.Font,Vector2.new(math.max(1,width or 100000),100000))
+        if ok and finite(size.X) and finite(size.Y) then return size end
+        local count=utf8 and utf8.len(text or object.Text) or #(text or object.Text)
+        local estimate=(count or 0)*object.TextSize*.7
+        local lines=1
+        for _ in (text or object.Text):gmatch('\n') do lines=lines+1 end
+        return Vector2.new(math.min(width or 100000,estimate),math.max(lines,math.ceil(estimate/math.max(1,width or 100000)))*(object.TextSize+4))
+    end
+    -- One header reservation for help, pinning, inline bindings and main fields.
+    -- Coordinates remain local to the control; UIScale is applied only by Roblox.
+    function Control:_layoutAccessories()
+        local layout=self._descriptionLayout
+        if not layout or self._inlineParent or self.Destroyed or self.TitleLabel.Visible==false then return end
+        local width=math.max(1,self.Frame.AbsoluteSize.X/math.max(.01,self._window._actualScale or 1))
+        local left=self._iconInset or 0; local gap=8; local items={}; local seen={}
+        local function add(object,minimum,height,text)
+            if not object or not object.Parent or object.Visible==false or seen[object] then return end
+            seen[object]=true
+            local wanted=text and math.ceil(measureHeader(text).X)+20 or minimum
+            items[#items+1]={Object=object,Width=math.min(width,math.max(minimum,wanted or 0)),Height=math.max(height,text and math.ceil(text.TextSize)+10 or 0)}
+        end
+        add(self.PinButton,60,21,self.PinButton)
+        add(self.InfoButton,20,20)
+        if self.Keybind then add(self.Keybind.Frame,112,28,self.Keybind.Button) end
+        if self.Type=='Toggle' then add(self.Button,30,28)
+        elseif self.Type=='Keybind' then add(self.Button,104,28,self.Button)
+        elseif self.Type=='Slider' then add(self.Input,78,25,self.Input) end
+        for _,entry in ipairs(layout.HeaderFields) do
+            local object=entry.Object
+            local textual=object:IsA('TextLabel') or object:IsA('TextBox') or object:IsA('TextButton')
+            add(object,entry.Width,entry.Height,textual and object or nil)
+        end
+        local reserved=0
+        for _,item in ipairs(items) do reserved=reserved+item.Width+gap end
+        local titleWidth=math.max(1,width-left-reserved)
+        local minimum=math.min(120*(self._window.TextScale or 1),math.max(40,measureHeader(self.TitleLabel).X))
+        local stacked=#items>0 and titleWidth<minimum and self.Type~='Label'
+        if stacked then titleWidth=math.max(1,width-left) end
+        local wrapped=layout.TitleWrapped or stacked
+        self.TitleLabel.TextWrapped=wrapped
+        local titleHeight=math.max(layout.TitleHeight,math.ceil(self.TitleLabel.TextSize)+4)
+        if wrapped and self.Type~='Label' then titleHeight=math.max(titleHeight,measureHeader(self.TitleLabel,nil,titleWidth).Y+3) end
+        self.TitleLabel.Position=U2(left,0)
+        self.TitleLabel.Size=UDim2.new(1,titleWidth-width,0,self.Type=='Label' and self.TitleLabel.Size.Y.Offset or titleHeight)
+        local bottom=titleHeight
+        local rows={}; local row={Items={},Width=0,Height=0}
+        for _,item in ipairs(items) do
+            local nextWidth=row.Width+(#row.Items>0 and gap or 0)+item.Width
+            if #row.Items>0 and nextWidth>width then rows[#rows+1]=row; row={Items={},Width=0,Height=0}; nextWidth=item.Width end
+            row.Items[#row.Items+1]=item; row.Width=nextWidth; row.Height=math.max(row.Height,item.Height)
+        end
+        if #row.Items>0 then rows[#rows+1]=row end
+        local y=stacked and titleHeight+6 or 0
+        for _,group in ipairs(rows) do
+            local x=width-group.Width
+            for _,item in ipairs(group.Items) do
+                item.Object.Position=U2(x,y+math.floor((group.Height-item.Height)/2)); item.Object.Size=U2(item.Width,item.Height)
+                x=x+item.Width+gap
+                if self.Keybind and item.Object==self.Keybind.Frame then
+                    self.Keybind.Button.Position=U2(0,0); self.Keybind.Button.Size=UDim2.fromScale(1,1)
+                end
+            end
+            bottom=math.max(bottom,y+group.Height); y=y+group.Height+6
+        end
+        local baseline=(self.Type=='Toggle' or self.Type=='Keybind') and 28 or self.Type=='Slider' and 25 or layout.TitleHeight
+        self._headerGrowth=math.max(0,bottom-baseline)
+        self._headerBottom=bottom
+        self._headerStacked=stacked
+    end
     function Control:_captureDescriptionLayout()
         if self._descriptionLayout or self._inlineParent then return end
         local reserve
@@ -5039,33 +5110,49 @@ do
         elseif compact[self.Type] then reserve=#self.Description>0 and 20 or 0
         elseif self.Type=="Console" or self.Type=="Image" then reserve=18
         else reserve=20 end
-        local layout={Reserve=reserve,Height=self.Frame.Size.Y.Offset,Children={}}
+        local layout={Reserve=reserve,Height=self.Frame.Size.Y.Offset,Children={},HeaderFields={},TitleHeight=self.TitleLabel.Size.Y.Offset,
+            TitleWrapped=self.TitleLabel.TextWrapped,DescriptionPosition=self.DescriptionLabel.Position}
         for _,child in ipairs(self.Frame:GetChildren()) do
             if child:IsA("GuiObject") and child~=self.TitleLabel and child~=self.DescriptionLabel and child~=self.Icon and child~=self.InfoButton then
                 layout.Children[child]={Position=child.Position,Size=child.Size}
+                if child.Position.Y.Scale==0 and child.Position.Y.Offset<22 and child.Position.X.Scale>0 and child.Size.X.Scale==0 and child.Size.Y.Scale==0 and child.Size.X.Offset>0 then
+                    layout.HeaderFields[#layout.HeaderFields+1]={Object=child,Width=child.Size.X.Offset,Height=child.Size.Y.Offset,Order=child.Position.X.Offset}
+                    if child:IsA('TextLabel') or child:IsA('TextButton') or child:IsA('TextBox') then
+                        connect(self,child:GetPropertyChangedSignal('Text'),function() (self._inlineParent or self):_layoutDescription() end)
+                    end
+                end
             end
         end
         self._descriptionLayout=layout
+        table.sort(layout.HeaderFields,function(a,b) return a.Order<b.Order end)
         self.DescriptionLabel.TextWrapped=true; self.DescriptionLabel.TextTruncate=Enum.TextTruncate.None; self.DescriptionLabel.TextYAlignment=Enum.TextYAlignment.Top
         connect(self,self.Frame:GetPropertyChangedSignal("AbsoluteSize"),function() self:_layoutDescription() end)
+        connect(self,self.TitleLabel:GetPropertyChangedSignal('Text'),function() self:_layoutDescription() end)
         self:_layoutDescription()
     end
     function Control:_layoutDescription()
         local layout=self._descriptionLayout
         if not layout or self.Destroyed or self._describing or self.Type=="Separator" or self._inlineParent then return end
         self._describing=true
-        if self.Type=="Label" then self:_syncHelpBadge() end
+        self:_syncHelpBadge()
         local allowed=self._descriptionEnabled~=false and self._window.ShowDescriptions~=false and #self.Description>0
         local width=self.Frame.AbsoluteSize.X/math.max(.01,self._window._actualScale or 1)
-        width=math.max(60,width+self.DescriptionLabel.Size.X.Offset)
+        width=math.max(1,width)
         local height=0
         if allowed then
             local ok,size=pcall(TextService.GetTextSize,TextService,self.Description,12*(self._window.TextScale or 1),self._window.Font,Vector2.new(width,100000))
             height=ok and size.Y or 18; height=math.max(18,finite(height) and height+3 or 18)
         end
         local reserve=allowed and height+4 or 0; local delta=reserve-layout.Reserve
-        self.DescriptionLabel.Visible=allowed; self.DescriptionLabel.Size=UDim2.new(1,self.DescriptionLabel.Size.X.Offset,0,height)
-        local total=layout.Height+delta
+        self.DescriptionLabel.Visible=allowed; self.DescriptionLabel.Size=UDim2.new(1,0,0,height)
+        local growth=self._headerGrowth or 0
+        local descriptionY=layout.DescriptionPosition.Y.Offset+growth
+        if allowed and (self.Type=='Toggle' or self.Type=='Keybind' or self.Type=='Slider') then
+            local extra=math.max(0,(self._headerBottom or 0)+4-descriptionY)
+            growth=growth+extra; descriptionY=descriptionY+extra
+        end
+        self.DescriptionLabel.Position=UDim2.new(layout.DescriptionPosition.X.Scale,layout.DescriptionPosition.X.Offset,layout.DescriptionPosition.Y.Scale,descriptionY)
+        local total=layout.Height+delta+growth
         if self.Type=="Label" then
             -- SetText may contain several lines (hub descriptions and status).
             -- Height is a minimum; the text rectangle must grow with its content.
@@ -5085,26 +5172,25 @@ do
             local minimum=self._explicitHeight and layout.Height or allowed and 30 or math.min(layout.Height,42)
             total=math.max(minimum,titleHeight+(allowed and height+5 or 0))
         end
-        if self.Type=="Dropdown" then total=(self.Open and 272 or 80)+delta end
-        if self.Type=="ColorPicker" then total=(self.Open and 334 or 80)+delta end
+        if self.Type=="Dropdown" then total=(self.Open and 272 or 80)+delta+growth end
+        if self.Type=="ColorPicker" then total=(self.Open and 334 or 80)+delta+growth end
         for object,data in pairs(layout.Children) do
             if object.Parent and data.Position.Y.Offset>=22 then
-                object.Position=UDim2.new(data.Position.X.Scale,data.Position.X.Offset,data.Position.Y.Scale,data.Position.Y.Offset+delta)
-                if data.Size.Y.Scale~=0 then object.Size=UDim2.new(data.Size.X.Scale,data.Size.X.Offset,data.Size.Y.Scale,data.Size.Y.Offset-data.Size.Y.Scale*delta) end
+                object.Position=UDim2.new(data.Position.X.Scale,data.Position.X.Offset,data.Position.Y.Scale,data.Position.Y.Offset+delta+growth)
+                if data.Size.Y.Scale~=0 then object.Size=UDim2.new(data.Size.X.Scale,data.Size.X.Offset,data.Size.Y.Scale,data.Size.Y.Offset-data.Size.Y.Scale*(delta+growth)) end
             end
         end
-        self._descriptionDelta=delta
+        self._descriptionDelta=delta+growth
         self.Frame.Size=UDim2.new(self.Frame.Size.X.Scale,self.Frame.Size.X.Offset,0,math.max(28,total))
-        self:_syncHelpBadge(); self._describing=false
+        self._describing=false
     end
     function Control:SetDescriptionVisible(value)
         assert(type(value)=="boolean","Description visibility must be boolean")
         self._descriptionEnabled=value; self:_layoutDescription(); return self
     end
     function Control:_syncHelpBadge()
-        if not self.Tooltip or self._inlineParent then return end
-        if not self.InfoButton then
-            self.TitleLabel.Size=UDim2.new(self.TitleLabel.Size.X.Scale,self.TitleLabel.Size.X.Offset-22,self.TitleLabel.Size.Y.Scale,self.TitleLabel.Size.Y.Offset)
+        if self._inlineParent or self.Destroyed then return end
+        if self.Tooltip and not self.InfoButton then
             self.InfoButton=pixelButton(self._window,self,self.Frame,"?","info",{Size=U2(20,20),ZIndex=self.TitleLabel.ZIndex+2},function()
                 self._touchWasLongPress=true
                 if self._window._tooltipOwner==self then self:HideTooltip() else self:ShowTooltip() end
@@ -5113,9 +5199,8 @@ do
                 if state==Enum.UserInputState.Begin and positions[1] then self._touchWasLongPress=true; self._window:_showTooltip(self,positions[1],"touch") end
             end)
         end
-        self.InfoButton.Visible=self._window.TooltipsEnabled~=false
-        local p,s=self.TitleLabel.Position,self.TitleLabel.Size
-        self.InfoButton.Position=UDim2.new(p.X.Scale+s.X.Scale,p.X.Offset+s.X.Offset+2,0,1)
+        if self.InfoButton then self.InfoButton.Visible=self._window.TooltipsEnabled~=false end
+        self:_layoutAccessories()
     end
     function Window:SetDescriptions(value)
         assert(type(value)=="boolean","ShowDescriptions must be boolean")
@@ -5130,7 +5215,7 @@ do
         assert(finite(delay) and delay>=0 and delay<=3 and finite(width) and width>=160 and width<=640,"Invalid tooltip preferences")
         if enabled~=nil then self.TooltipsEnabled=enabled end
         self.TooltipDelay=delay; self.TooltipMaxWidth=width; self:_hideTooltip()
-        for _,control in pairs(self.Controls) do control:_syncHelpBadge() end
+        for _,control in pairs(self.Controls) do control:_layoutDescription() end
         self:_syncSettings(); self:_scheduleSave(); return self
     end
     function Window:SetTextScale(value)
@@ -7379,7 +7464,7 @@ function Hub:_installResponsiveLayout(options)
         local height=UserInputService.TouchEnabled and 42 or math.ceil(34*(window.TextScale or 1))
         self.Button.Size=UDim2.new(1,0,0,height)
         if sortPanel then sortPanel.Position=U2(0,height+4) end
-        self.Frame.Size=UDim2.new(self.Frame.Size.X.Scale,self.Frame.Size.X.Offset,0,height+(self.Open and 192 or 0))
+        self.Frame.Size=UDim2.new(self.Frame.Size.X.Scale,self.Frame.Size.X.Offset,0,height)
     end
     function self.Sort:_render()
         sortRender(self)
@@ -7388,13 +7473,53 @@ function Hub:_installResponsiveLayout(options)
         for name,item in pairs(self._rows or {}) do item.Text=(self.Value==name and "[X] " or "[ ] ")..(labels[name] or name) end
     end
     self.Sort:_layoutDescription(); self.Sort:_render()
-    local sortOpen=self.Sort.SetOpen
     function self.Sort:SetOpen(value)
-        local previous=self.Frame.Size; sortOpen(self,value)
-        window:_cancelTrack(self.Frame,"expand",false); self:_layoutDescription()
-        local target=self.Frame.Size; self.Frame.Size=previous
-        window:_animate(self.Frame,{Size=target},.12,"expand",self)
+        if self.Destroyed then return self end
+        local open=value==true and not self.Disabled
+        if not open then
+            if self._sortPopup then self._sortPopup:Close('closed') end
+            self.Open=false; if sortPanel then sortPanel.Visible=false end
+            return self
+        end
+        if self._sortPopup and not self._sortPopup.Destroyed then return self end
+        local entries={}; local width=math.max(150,self.Button.AbsoluteSize.X)
+        local labels={Order=window:_t17('Cadastro','Registration order'),Alphabetical=window:_t17('Nome','Name'),Favorites=window:_t17('Favoritos','Favorites')}
+        for _,name in ipairs(self.Options) do
+            local choice=name; local text=(self.Value==choice and '[X] ' or '[ ] ')..(labels[choice] or choice)
+            local measured=TextService:GetTextSize(text,14*(window.TextScale or 1),window.Font,Vector2.new(100000,100000))
+            width=math.max(width,measured.X+40)
+            entries[#entries+1]={Text=text,Callback=function() if not self.Destroyed then self:SetValue(choice) end end}
+        end
+        local owner=window:ContextMenu({Items=entries,Width=math.min(420,width)},self.Button)
+        if not owner then return self end
+        self._sortPopup=owner; self.Open=true
+        owner.Scope:Add(function()
+            if self._sortPopup==owner then self._sortPopup=nil; self.Open=false end
+        end)
+        -- ContextMenu owns stacking, focus, outside click and disposal. Constrain
+        -- this anchored popup to the visible window, not its clipped catalog.
+        local origin=window.Root.AbsolutePosition; local view=window.Root.AbsoluteSize
+        local p,size=window.Main.AbsolutePosition,window.Main.AbsoluteSize
+        local left,top=math.max(8,p.X-origin.X+8),math.max(8,p.Y-origin.Y+8)
+        local right,bottom=math.min(view.X-8,p.X-origin.X+size.X-8),math.min(view.Y-8,p.Y-origin.Y+size.Y-8)
+        local panel=owner.Panels[1].Frame
+        local anchor=self.Button.AbsolutePosition-origin; local anchorHeight=self.Button.AbsoluteSize.Y
+        local menuWidth=math.max(1,math.min(panel.Size.X.Offset,right-left))
+        local below,above=math.max(0,bottom-anchor.Y-anchorHeight-4),math.max(0,anchor.Y-top-4)
+        local height=math.max(1,math.min(panel.Size.Y.Offset,math.max(below,above)))
+        local y=below>=height and anchor.Y+anchorHeight+4 or anchor.Y-height-4
+        panel.Size=U2(menuWidth,height)
+        panel.Position=U2(clamp(anchor.X,left,math.max(left,right-menuWidth)),clamp(y,top,math.max(top,bottom-height)))
         return self
+    end
+    local sortDestroy=self.Sort.Destroy
+    function self.Sort:Destroy() self:SetOpen(false); return sortDestroy(self) end
+    for _,object in ipairs({self.Sort.Button,window.Main}) do
+        for _,property in ipairs({'AbsolutePosition','AbsoluteSize'}) do
+            self.Scope:Add(object:GetPropertyChangedSignal(property):Connect(function()
+                if hub.Sort and hub.Sort._sortPopup then hub.Sort:SetOpen(false) end
+            end),'Disconnect')
+        end
     end
     self.GameImage.Title=""; self.GameImage.TitleLabel.Text=""
     window:_bind(self.GameImage.Frame,{BackgroundColor3="Inset",BorderColor3="Border"}); self.GameImage.Frame.BackgroundTransparency=0; self.GameImage.Frame.BorderSizePixel=1
@@ -7868,7 +7993,7 @@ function Hub:_installLauncher(options)
         hub:RetryThumbnail(selected.Id); launcher:QueueRefresh()
         return accepted,reason
     end)
-    ui.More=extraButton('details','Info','info',function()
+    ui.More=extraButton('details',tr('Informações','Information'),'info',function()
         local record=hub:_selectedCatalog(); local spec=hub:GetSelectedScript()
         local status=record and spec and hub:GetScriptStatus(record.Id,spec.Id)
         local source=record
@@ -7938,9 +8063,40 @@ function Hub:_installLauncher(options)
     for _,control in ipairs(captionControls) do
         local caption=label(control.Button,'LauncherCaption',control.Button.Text,control==hub.PlayButton and 13 or 11,'Text')
         caption.ZIndex=control.Button.ZIndex+2;control._hubCaption=caption
-        listen(control.Button:GetPropertyChangedSignal('Text'),function() syncCaption(control) end)
+        listen(control.Button:GetPropertyChangedSignal('Text'),function() syncCaption(control); launcher:QueueRefresh() end)
         listen(control.Button:GetPropertyChangedSignal('TextTransparency'),function() syncCaption(control) end)
+        if control._titleIcon and control._titleIcon.Frame then
+            listen(control._titleIcon.Frame:GetPropertyChangedSignal('Visible'),function() syncCaption(control); launcher:QueueRefresh() end)
+        end
         syncCaption(control)
+    end
+    local function captionWidth(control)
+        local caption=control._hubCaption; local icon=control._titleIcon and control._titleIcon.Frame
+        local left=icon and icon.Parent and icon.Visible and 30 or 10
+        local measured=textService:GetTextSize(control.Button.Text,caption.TextSize,caption.Font,Vector2.new(100000,100000))
+        return math.ceil(measured.X)+left+10
+    end
+    local function buttonRows(controls,width)
+        local rows={}; local row={Items={},Width=0}
+        for _,control in ipairs(controls) do
+            local wanted=math.min(width,math.max(56,captionWidth(control)))
+            local nextWidth=row.Width+(#row.Items>0 and 6 or 0)+wanted
+            if #row.Items>0 and nextWidth>width then rows[#rows+1]=row; row={Items={},Width=0}; nextWidth=wanted end
+            row.Items[#row.Items+1]={Control=control,Width=wanted}; row.Width=nextWidth
+        end
+        if #row.Items>0 then rows[#rows+1]=row end
+        return rows
+    end
+    local function placeButtons(rows,x,y,width,height,fill)
+        for _,row in ipairs(rows) do
+            local extra=fill and math.max(0,width-row.Width)/#row.Items or 0
+            local left=x+(fill and 0 or math.max(0,width-row.Width))
+            for _,item in ipairs(row.Items) do
+                local wanted=item.Width+extra
+                rect(item.Control.Frame,left,y,wanted,height); left=left+wanted+6
+            end
+            y=y+height+6
+        end
     end
     function launcher:ApplyFilter() hub:_filterGames() end
     function launcher:SelectionChanged(previous,id)
@@ -8028,7 +8184,12 @@ function Hub:_installLauncher(options)
         window.Nav.Position=U2(12,mobile and 76 or 78); window.Nav.Size=UDim2.new(1,-24,0,36)
         window.NavLayout.FillDirection=Enum.FillDirection.Horizontal
         window.Nav.AutomaticCanvasSize=Enum.AutomaticSize.X; window.Nav.ScrollingDirection=Enum.ScrollingDirection.X
-        for _,page in ipairs(window.Tabs) do page.Button.Size=U2(mobile and 132 or 148,34) end
+        for _,page in ipairs(window.Tabs) do
+            local measured=textService:GetTextSize(page.Label.Text,page.Label.TextSize,page.Label.Font,Vector2.new(100000,100000))
+            local padding=page.Label.Position.X.Offset+10
+            local wanted=math.max(mobile and 132 or 148,math.ceil(measured.X)+padding)
+            page.Button.Size=U2(math.min(math.max(132,size.X-24),wanted),34)
+        end
         window.SearchContainer.Position=UDim2.new(1,-272,0,43); window.SearchContainer.Size=U2(258,28)
         window.SearchContainer.Visible=not mobile and not window.Minimized
         window.Search.PlaceholderText=tr('Buscar funções e ferramentas…','Search controls and tools…')
@@ -8049,32 +8210,43 @@ function Hub:_installLauncher(options)
         self:LayoutChrome()
         local scale=math.max(.01,window._actualScale or 1); local ts=window.TextScale or 1
         local size=tab.Frame.AbsoluteSize; local width,height=math.max(240,size.X/scale),math.max(1,size.Y/scale)
-        local gap=12; local dockHeight=math.min(height,math.ceil((width<620 and 128 or 104)*math.max(1,ts)))
+        local gap=12; local touch=inputService.TouchEnabled
+        local buttonHeight=math.max(touch and 42 or 38,math.ceil(13*ts+20))
+        local actions={hub.PlayButton}; if hub.CancelButton.Frame.Visible then actions[#actions+1]=hub.CancelButton end; actions[#actions+1]=ui.More
+        local dockRows=buttonRows(actions,width-24)
+        local sideBySide=#dockRows==1 and width>=620 and width-dockRows[1].Width-48>=180*math.max(1,ts)
+        local actionsHeight=#dockRows*buttonHeight+(#dockRows-1)*6
+        local titleHeight,statusHeight=math.ceil(22*ts),math.ceil(26*ts)
+        local dockWanted=sideBySide and math.ceil(104*math.max(1,ts)) or 10+titleHeight+4+statusHeight+10+actionsHeight+12
+        local dockHeight=math.min(height,dockWanted)
         local bodyHeight=math.max(0,height-dockHeight-gap)
         rect(ui.Root,0,0,width,height); rect(ui.Background,0,0,width,height); rect(ui.Body,0,0,width,bodyHeight)
         ui.Body.Visible=bodyHeight>0
         local columns=width>=hub.StackAt*math.max(1,ts) and bodyHeight>=240*math.max(1,ts); self.LayoutMode=columns and 'columns' or 'stacked'; hub.LayoutMode=self.LayoutMode
         local navWidth=columns and math.max(238,math.floor(width*hub.NavigationRatio)) or width
-        local touch=inputService.TouchEnabled
-        local inputHeight=touch and 42 or 34; local filterHeight=touch and 42 or 30
-        local sortY=8
-        local searchY=(touch and 58 or 46)+(hub.Sort.Open and 192 or 0)
+        local inputHeight=math.max(touch and 42 or 34,math.ceil(20*ts+10)); local filterHeight=math.max(touch and 42 or 30,math.ceil(11*ts+14))
+        local sortWidth=math.min(navWidth-24,math.max(110,math.ceil(textService:GetTextSize(hub.Sort.Button.Text,hub.Sort.Button.TextSize,window.Font,Vector2.new(100000,100000)).X)+40))
+        local libraryWidth=textService:GetTextSize(ui.LibraryTitle.Text,ui.LibraryTitle.TextSize,window.Font,Vector2.new(100000,100000)).X
+        local headerStacked=libraryWidth+sortWidth+40>navWidth
+        local sortY=headerStacked and 12+math.ceil(22*ts)+6 or 8
+        local searchY=sortY+inputHeight+8
         local filtersY=searchY+inputHeight+8
+        local filterRows=buttonRows({ui.All,ui.Favorites,ui.Current},navWidth-24)
+        local filtersHeight=#filterRows*filterHeight+(#filterRows-1)*6
         local universalVisible=hub._universalConfigured or #hub:GetUniversalScripts()>0
         ui.Universal.Frame.Visible=universalVisible
-        local universalY=filtersY+filterHeight+8
-        local navHeader=filtersY+filterHeight-6+(universalVisible and filterHeight+10 or 0)
+        local universalY=filtersY+filtersHeight+8
+        local navHeader=filtersY+filtersHeight-6+(universalVisible and filterHeight+10 or 0)
         local rowHeight=math.ceil(60*ts)
         local navHeight=columns and bodyHeight or navHeader+math.min(3,hub.GameListMaxRows,math.max(1,hub.GameList:GetViewStats().Filtered))*rowHeight+38
         navHeight=math.max(navHeader+64,navHeight); self.NavigationHeight=navHeight
         rect(ui.Navigation,0,0,navWidth,navHeight)
-        rect(ui.LibraryTitle,14,12,navWidth-140,22); ui.CatalogCount.Visible=false; ui.SortLabel.Visible=false
+        rect(ui.LibraryTitle,14,12,headerStacked and navWidth-28 or navWidth-sortWidth-34,math.ceil(22*ts)); ui.CatalogCount.Visible=false; ui.SortLabel.Visible=false
         rect(hub.GameSearch.Frame,12,searchY,navWidth-24,inputHeight)
-        rect(ui.Filters,12,filtersY,navWidth-24,filterHeight)
+        rect(ui.Filters,12,filtersY,navWidth-24,filtersHeight)
         if universalVisible then rect(ui.Universal.Frame,12,universalY,navWidth-24,filterHeight) end
-        local segment=(navWidth-28)/3
-        for i,control in ipairs({ui.All,ui.Favorites,ui.Current}) do rect(control.Frame,(i-1)*(segment+2),0,segment,filterHeight) end
-        rect(hub.Sort.Frame,navWidth-122,sortY,110,inputHeight+(hub.Sort.Open and 192 or 0))
+        placeButtons(filterRows,0,0,navWidth-24,filterHeight,true)
+        rect(hub.Sort.Frame,navWidth-sortWidth-12,sortY,sortWidth,inputHeight)
         hub.Sort.Button.Size=UDim2.new(1,0,0,inputHeight)
         for _,child in ipairs(hub.Sort.Frame:GetChildren()) do
             if child.ClassName=='Frame' and child.Size.Y.Offset==184 then child.Position=U2(0,inputHeight+4) end
@@ -8103,16 +8275,15 @@ function Hub:_installLauncher(options)
         ui.Expand.Frame.Visible=needsExpand
         local descriptionHeight=self.Expanded and fullDescriptionHeight or math.min(fullDescriptionHeight,36*ts)
         rect(ui.Description,infoX,y,infoWidth,descriptionHeight); y=y+descriptionHeight+6
-        if needsExpand then rect(ui.Expand.Frame,infoX,y,152,26); y=y+30 end
+        if needsExpand then rect(ui.Expand.Frame,infoX,y,math.min(infoWidth,math.max(152,captionWidth(ui.Expand))),math.max(26,math.ceil(11*ts+12))); y=y+ui.Expand.Frame.Size.Y.Offset+4 end
         local actionHeight=touch and 42 or 34
         local universal=hub:GetSelectedCategory()=='Universal'
         ui.GameActions.Visible=not universal
-        rect(ui.GameActions,infoX,y,infoWidth,universal and 0 or actionHeight)
-        local actionGap=6; local actionWidth=(infoWidth-actionGap*2)/3
-        rect(hub.FavoriteButton.Frame,0,0,actionWidth,actionHeight)
-        rect(hub.TeleportButton.Frame,actionWidth+actionGap,0,actionWidth,actionHeight)
-        rect(ui.Retry.Frame,(actionWidth+actionGap)*2,0,actionWidth,actionHeight)
-        if not universal then y=y+actionHeight+8 end
+        local gameActionRows=buttonRows({hub.FavoriteButton,hub.TeleportButton,ui.Retry},infoWidth)
+        local gameActionsHeight=#gameActionRows*actionHeight+(#gameActionRows-1)*6
+        rect(ui.GameActions,infoX,y,infoWidth,universal and 0 or gameActionsHeight)
+        placeButtons(gameActionRows,0,0,infoWidth,actionHeight,true)
+        if not universal then y=y+gameActionsHeight+8 end
         local teleportText=not universal and hub.TeleportStatus:GetValue() or ''
         ui.TeleportMessage.Visible=teleportText~=''; ui.TeleportMessage.Text=teleportText
         if teleportText~='' then
@@ -8141,25 +8312,20 @@ function Hub:_installLauncher(options)
         ui.Body.ScrollingEnabled=not columns; ui.Body.ScrollBarThickness=columns and 0 or 4
         if columns then ui.Body.CanvasPosition=Vector2.new(0,0) end
         rect(ui.Dock,0,height-dockHeight,width,dockHeight); rect(ui.DockAccent,0,0,width,2)
-        local compact=width<620 or dockHeight<104*math.max(1,ts); local buttonHeight=inputService.TouchEnabled and 42 or 38
-        ui.Activity.Visible=not compact or dockHeight>=128*math.max(1,ts)
-        if compact then
-            local yButton=dockHeight-buttonHeight-12
-            rect(ui.SelectedScript,12,8,width-24,22*ts)
-            rect(ui.Status,12,32*ts,width-24,math.max(0,math.min(30*ts,yButton-32*ts-4)))
-            rect(ui.Activity,12,62*ts,width-24,14*ts)
-            local cancelWidth=hub.CancelButton.Frame.Visible and 76 or 0
-            rect(hub.PlayButton.Frame,12,yButton,width-24-64-(cancelWidth>0 and cancelWidth+6 or 0),buttonHeight)
-            rect(ui.More.Frame,width-70,yButton,58,buttonHeight)
-            if cancelWidth>0 then rect(hub.CancelButton.Frame,width-76-76,yButton,cancelWidth,buttonHeight) end
+        ui.Activity.Visible=sideBySide; ui.Status.Visible=true
+        if not sideBySide then
+            local yButton=math.max(0,dockHeight-actionsHeight-12)
+            rect(ui.SelectedScript,12,8,width-24,math.min(titleHeight,math.max(0,yButton-12)))
+            local statusY=12+titleHeight
+            rect(ui.Status,12,statusY,width-24,math.max(0,math.min(statusHeight,yButton-statusY-6)))
+            ui.Status.Visible=ui.Status.Size.Y.Offset>0
+            placeButtons(dockRows,12,yButton,width-24,buttonHeight,true)
         else
-            local right=hub.CancelButton.Frame.Visible and 306 or 224
-            rect(ui.SelectedScript,16,12,width-right-30,24*ts)
-            rect(ui.Status,16,40*ts,width-right-30,30*ts)
-            rect(ui.Activity,16,dockHeight-22,width-right-30,14)
-            rect(ui.More.Frame,width-76,16,60,buttonHeight)
-            rect(hub.PlayButton.Frame,width-right,16,right-88-(hub.CancelButton.Frame.Visible and 80 or 0),buttonHeight)
-            if hub.CancelButton.Frame.Visible then rect(hub.CancelButton.Frame,width-160,16,76,buttonHeight) end
+            local right=dockRows[1].Width
+            rect(ui.SelectedScript,16,12,width-right-48,24*ts)
+            rect(ui.Status,16,40*ts,width-right-48,30*ts)
+            rect(ui.Activity,16,dockHeight-22,width-right-48,14)
+            placeButtons(dockRows,width-right-16,16,right,buttonHeight,false)
         end
         rect(ui.ProgressTrack,12,dockHeight-5,width-24,3)
         self._layingOut=false
@@ -8833,35 +8999,23 @@ do
         assert(not self.Destroyed and compatible[self.Type],'This control cannot offer pinning')
         if options==false then
             self._resources:Remove('pin-button')
-            self:_syncHelpBadge(); return self
+            self:_layoutDescription(); return self
         end
         assert(options==true or type(options)=='table','Pinnable must be boolean or options')
         self._pinOptions=type(options)=='table' and options or {}
         if not self.PinButton then
             local pinOwner=setmetatable({_connections={}},{__index=function(_,key) return self[key] end})
-            self.TitleLabel.Size=UDim2.new(self.TitleLabel.Size.X.Scale,self.TitleLabel.Size.X.Offset-62,self.TitleLabel.Size.Y.Scale,self.TitleLabel.Size.Y.Offset)
             self.PinButton=button(self._window,pinOwner,self.Frame,'',{Size=U2(60,21),TextSize=10,ZIndex=self.TitleLabel.ZIndex+3},function()
                 if next(self._hudPins or {}) then self:UnpinFromHUD() else self:PinToHUD(self._pinOptions.HUD,self._pinOptions) end
             end)
+            connect(pinOwner,self.PinButton:GetPropertyChangedSignal('Text'),function() self:_layoutDescription() end)
             self:Manage(function()
                 pinOwner.Destroyed=true; cleanup(pinOwner)
                 local object=self.PinButton; self.PinButton=nil
-                if self.TitleLabel and self.TitleLabel.Parent then
-                    local size=self.TitleLabel.Size; self.TitleLabel.Size=UDim2.new(size.X.Scale,size.X.Offset+62,size.Y.Scale,size.Y.Offset)
-                end
                 if object then self._window:_forgetSkin(object); if object.Parent then object:Destroy() end end
             end,nil,'pin-button')
         end
-        self:_syncPinButton(); self:_syncHelpBadge(); return self
-    end
-    local syncHelp=Control._syncHelpBadge
-    function Control:_syncHelpBadge()
-        syncHelp(self)
-        if self.PinButton and self.PinButton.Parent then
-            local p,s=self.TitleLabel.Position,self.TitleLabel.Size
-            self.PinButton.Position=UDim2.new(p.X.Scale+s.X.Scale,p.X.Offset+s.X.Offset+2,0,1)
-            if self.InfoButton and self.InfoButton.Parent then self.InfoButton.Position=UDim2.new(p.X.Scale+s.X.Scale,p.X.Offset+s.X.Offset+64,0,1) end
-        end
+        self:_syncPinButton(); self:_layoutDescription(); return self
     end
     local setIcon=Control.SetIcon
     function Control:SetIcon(value)

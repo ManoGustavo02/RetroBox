@@ -32,6 +32,10 @@
     {
       "Version": "2.5.1",
       "Manifest": "dist/releases/2.5.1/manifest.json"
+    },
+    {
+      "Version": "2.5.2",
+      "Manifest": "dist/releases/2.5.2/manifest.json"
     }
   ]
 }

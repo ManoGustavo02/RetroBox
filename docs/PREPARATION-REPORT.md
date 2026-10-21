@@ -1,3 +1,21 @@
+# Preparação e publicação · RetroBox 2.5.2
+
+Correção compartilhada do launcher e dos controles tradicionais, sem ajustes nos scripts consumidores. Veja o [relatório das causas e arquivos](../RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.5.2.md) e os [resultados locais](../RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
+
+## Integridade e compatibilidade
+
+API 2, estrutura histórica, perfis/favoritos e bootstrap permanente preservados. A árvore publicada contém a release imutável `dist/releases/2.5.2`, seus manifests e aliases Stable/Preview. A promoção para `main` é feita após o CI da pull request; o [histórico do workflow](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml) mantém os resultados hospedados.
+
+Runtime: 712884 bytes; SHA-256 `d92198fadfeea99b8af366968de6acdf09265475edbc677768deb47aa9b231f5`. Os 17 manifests são conferidos com hashlib; bootstrap/Designer e releases anteriores não foram modificados. O consumidor anexado preserva SHA-256 `e56b77521c5f159923fcdd0f66eb235b8900299c7fcca4a05c3136f72913655b`, sete jogos/IDs e os endereços Pastefy configurados pelo usuário.
+
+## Limites de verificação
+
+482 testes de lógica, 37 de compatibilidade do consumidor, 24 Node e dois Python passaram localmente. O CI inclui os oito testes Chromium. O Chromium local não estava instalado e não houve inspeção visual dentro do Roblox. As capturas fornecidas e os cálculos de geometria fundamentam os defeitos investigados; não são apresentados como renderização da versão corrigida.
+
+---
+
+## Histórico da publicação 2.5.1
+
 # Preparação e publicação · RetroBox 2.5.1
 
 Repositório **ManoGustavo02/RetroBox**, main, API 2. Inclui o Designer completo da família 2.5 e a correção de avaliação de subexpressões compartilhadas.

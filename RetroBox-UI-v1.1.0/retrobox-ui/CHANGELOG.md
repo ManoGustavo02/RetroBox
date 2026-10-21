@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.5.2 · 2026-10-21
+
+- Ordenação do Hub usa a camada de ContextMenu já existente, fora de ancestrais com recorte; respeita a janela e abre para cima quando necessário.
+- Botões do launcher reservam espaço pelo texto, fonte, escala e ícone reais; ações e filtros quebram em linhas quando necessário.
+- Cabeçalhos tradicionais compartilham o cálculo de informação, fixação, Keybind integrado e controle principal, com altura responsiva.
+- Remoção/recriação de ajuda e fixação não acumula deslocamentos; callbacks, captura de teclas, preferências e IDs preservados.
+- Regressões de geometria/interação e compatibilidade com o Hub anexado. Sem redesign, mudança de API ou modificação dos consumidores.
+
 ## 2.5.1 · 2026-10-20
 
 - Avaliação memoizada por expressão nos grafos nativos e na prévia, evitando recálculo exponencial de subexpressões compartilhadas.

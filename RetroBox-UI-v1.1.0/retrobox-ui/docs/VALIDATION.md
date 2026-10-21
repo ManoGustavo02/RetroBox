@@ -1,3 +1,20 @@
+# Validação · RetroBox UI 2.5.2
+
+- **482/482 testes de lógica nativa**, com os **39 exemplos** existentes. Incluem **16 regressões novas** de retângulos, cliques, seleção, ajuda, teclas, perfis e limpeza.
+- Matriz do Hub: PT/EN × Hacker/Retro98/Paper/Midnight × Scale .75/1/1.5 × TextScale .8/1/1.4. Também há controles tradicionais estreitos, acessórios em várias linhas e modo touch com viewport 390×844.
+- **37/37 testes do Mano Gustavo Hub anexado**, com seus sete jogos, IDs e URLs do Pastefy. O consumidor foi mantido byte a byte; o harness atualizou as expectativas das URLs enviadas e do novo popup, em vez da altura do painel antigo. Fontes remotas de execução são inofensivas e simuladas.
+- **24/24 testes Node** do Designer, **2/2 testes Python** de promoção/rollback/imutabilidade e **17 manifestos** verificados. O verificador de migração confirma seus 24 arquivos históricos; nenhuma release anterior foi alterada.
+- Designer HTML, fontes do Designer e bootstrap permanente preservados por bytes. O build offline continua com 21 componentes e 22 blocos.
+- Runtime: **712884 bytes**, SHA-256 **d92198fadfeea99b8af366968de6acdf09265475edbc677768deb47aa9b231f5**. Os canais gerados Stable/Preview apontam para 2.5.2; pins anteriores permanecem disponíveis.
+
+A suíte Chromium possui oito testes e é executada pelo job `designer` do GitHub Actions antes da promoção desta correção para `main`. A tentativa local não iniciou o navegador porque o binário Chromium não está instalado neste ambiente; isso não é apresentado como oito testes aprovados localmente. Consulte os checks da pull request e o [histórico do CI](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml) para o resultado hospedado.
+
+As três imagens fornecidas foram abertas e inspecionadas. Não há cliente/renderer Roblox disponível aqui: os 482 testes são de lógica e geometria simulada, não uma conferência visual nativa. O preview do Designer também não é usado como substituto do renderer Roblox. [Causas, arquivos e correções](RELEASE-2.5.2.md).
+
+---
+
+## Histórico da validação 2.5.1
+
 # Validação · RetroBox UI 2.5.1
 
 - **466/466 testes nativos** com **39 exemplos**, incluindo 43 regressões dos novos recursos e três exports Luau reais.

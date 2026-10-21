@@ -1,6 +1,6 @@
 # RetroBox UI
 
-**2.5.1:** efficient shared-expression evaluation in visual flows, with a fresh cache after value changes. [Details](docs/RELEASE-2.5.1.md).
+**2.5.2:** fixes for the Hub sort popup, action button widths and help/keybind alignment. [Details](docs/RELEASE-2.5.2.md).
 
 **New in 2.5:** [offline Designer with visual blocks](../../designer/README.md), automatic locale, transactional forms, reusable components, recycled CardGrid, native flow graphs and read-only catalog diagnostics. [APIs](docs/DEVELOPMENT-TOOLS.md).
 
