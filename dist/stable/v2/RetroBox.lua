@@ -1,4 +1,4 @@
--- RetroBox UI 2.5.2 | Mano Gustavo | MIT License
+-- RetroBox UI 2.6.0 | Mano Gustavo | MIT License
 -- Standalone GUI library for Roblox client executors.
 -- Load the raw GitHub source with loadstring(game:HttpGet(URL))().
 
@@ -9,7 +9,7 @@ local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
 local TextService = game:GetService("TextService")
 
-local Library = { Version = "2.5.2", Themes = {}, Windows = {} }
+local Library = { Version = "2.6.0", Themes = {}, Windows = {} }
 local Window = {}; Window.__index = Window
 local Tab = {}; Tab.__index = Tab
 local Section = {}; Section.__index = Section
@@ -446,6 +446,7 @@ do
         end
     end
     function Window:_forgetSkin(root)
+        if self._cancelAnimations then self:_cancelAnimations(root,false) end
         local objects={root}; for _,object in ipairs(root:GetDescendants()) do objects[#objects+1]=object end
         for _,object in ipairs(objects) do
             self._skin[object]=nil
@@ -521,10 +522,10 @@ local function button(window, owner, parent, text, props, pressed)
                 if bound and bound.TextColor3 then child.TextColor3=window:_ink(bound.TextColor3,child,4.5,background) end
             end
         end
-        connect(owner,object.MouseEnter,function() tone("Highlight") end)
-        connect(owner,object.MouseLeave,function() tone("Surface") end)
-        connect(owner,object.InputBegan,function(input) if pointer(input) then tone("Inset") end end)
-        connect(owner,object.InputEnded,function(input) if pointer(input) then tone("Surface") end end)
+        connect(owner,object.MouseEnter,function() tone("Highlight");window:_buttonFeedback(object,owner,'enter') end)
+        connect(owner,object.MouseLeave,function() tone("Surface");window:_buttonFeedback(object,owner,'leave') end)
+        connect(owner,object.InputBegan,function(input) if pointer(input) then tone("Inset");window:_buttonFeedback(object,owner,'down') end end)
+        connect(owner,object.InputEnded,function(input) if pointer(input) then tone("Surface");window:_buttonFeedback(object,owner,'up') end end)
     end
     if pressed then
         local function activate(...)
@@ -534,7 +535,7 @@ local function button(window, owner, parent, text, props, pressed)
             if section and (section._collapsed or not section._visible) then blocked=true end
             if window._dialog and owner~=window._dialog then blocked=true end
             if window._interactionAllowed and not window:_interactionAllowed(object) then blocked=true end
-            if not window.Destroyed and not owner.Destroyed and not owner.Disabled and not blocked then pressed(...) end
+            if not window.Destroyed and not owner.Destroyed and not owner.Disabled and not blocked then window:_buttonFeedback(object,owner,'activate');pressed(...) end
         end
         connect(owner,object.Activated,activate)
         if window._registerFocus then window:_registerFocus(object,function() activate() end) end
@@ -558,6 +559,7 @@ local function textbox(window, parent, text, props)
     for k, v in pairs(props or {}) do properties[k] = v end
     local object = ui(window, "TextBox", properties, { BackgroundColor3="Inset", TextColor3="Text", BorderColor3="Border", PlaceholderColor3="Muted" })
     ui(window, "UIPadding", { Name="TextPadding",Parent=object, PaddingLeft=UDim.new(0,FIELD_PADDING), PaddingRight=UDim.new(0,FIELD_PADDING) })
+    if window._watchField then window:_watchField(object) end
     if window._registerFocus then window:_registerFocus(object,function() object:CaptureFocus() end) end
     return object
 end
@@ -757,7 +759,7 @@ do
         self:_cancelTrack(self.Main,"window",false)
         if self._shown~=false then self.Main.BackgroundTransparency=0 end
         center=self:_clampCenter(center); self._position=center
-        if self.SmoothDragging and not self.ReducedMotion and not direct then
+        if self.SmoothDragging and not self.ReducedMotion and self.Animations.Enabled and self.Animations.Intensity~='Off' and not direct then
             self._dragRender={Target=center}; self:_refreshRuntime()
         else self._dragRender=nil; self.Main.Position=U2(center.X,center.Y); self:_refreshRuntime() end
     end
@@ -1620,6 +1622,17 @@ do
         return result
     end
     Library._animationSettings=settings
+    function Window:_motionAllowed(object)
+        if self.Destroyed or self._closing or self._applyingTheme or self.ReducedMotion or not self.Animations.Enabled or self.Animations.Intensity=='Off' then return false end
+        local ancestor=object
+        while ancestor and ancestor~=self.Gui do
+            if ancestor:GetAttribute('RetroBoxMotion')==false then return false end
+            if ancestor==self.Main and self._shown==false then return false end
+            if ancestor:IsA('GuiObject') and ancestor.Visible==false then return false end
+            ancestor=ancestor.Parent
+        end
+        return not object or object.Parent~=nil
+    end
     local function within(object,root)
         if not root then return true end
         local parent=object
@@ -1658,7 +1671,17 @@ do
             if overlap then conflicts[#conflicts+1]=name end
         end
         for _,name in ipairs(conflicts) do self:_cancelTrack(object,name,false) end
-        local motion=self.Animations.Enabled and not self.ReducedMotion and self.Animations.Intensity~="Off"
+        local unchanged=true
+        for key,value in pairs(goals) do if not same(object[key],value) then unchanged=false;break end end
+        -- Completion callbacks may define a modal/exit timing contract even
+        -- when the property already equals its destination.
+        if unchanged and not complete then return end
+        local motion=self.Animations.Enabled and not self.ReducedMotion and not self._applyingTheme and self.Animations.Intensity~="Off" and not (owner and owner._motionDisabled)
+        local ancestor=object
+        while motion and ancestor and ancestor~=self.Gui do
+            if ancestor:GetAttribute('RetroBoxMotion')==false then motion=false end
+            ancestor=ancestor.Parent
+        end
         if not motion or duration==0 then
             for key,value in pairs(goals) do object[key]=value end
             if complete then complete() end
@@ -1678,10 +1701,78 @@ do
         end)
         tween:Play(); return tween
     end
+    function Window:_motion(object,goals,duration,channel,owner,complete)
+        if not object or not object.Parent or self.Destroyed or self._closing or owner and owner.Destroyed then return end
+        return self:_animate(object,goals,self:_motionAllowed(object) and duration or 0,channel,owner,complete)
+    end
+    function Window:_revealText(object,owner,channel)
+        if not object or not object.Parent or self.Destroyed or self._closing then return end
+        local property=object:IsA('ImageLabel') and 'ImageTransparency' or 'TextTransparency'
+        local target=owner and owner.Disabled and .15 or 0
+        if self:_motionAllowed(object) then object[property]=self.Animations.Intensity=='Subtle' and .35 or .75 end
+        return self:_motion(object,{[property]=target},.16,channel or 'reveal',owner)
+    end
+    function Window:_buttonFeedback(object,owner,phase)
+        if self.Destroyed or self._closing or not object.Parent or owner.Destroyed then return end
+        local line=object:FindFirstChild('MotionAccent')
+        if phase=='reset' or owner.Disabled or not self:_motionAllowed(object) then
+            if line then self:_cancelAnimations(line,false);line.Size=UDim2.new(0,0,0,2);line.BackgroundTransparency=1;line:SetAttribute('Hover',false) end
+            return
+        end
+        if not line then
+            line=frame(self,object,{Name='MotionAccent',Position=UDim2.new(0,2,1,-3),Size=UDim2.new(0,0,0,2),BackgroundTransparency=1,Active=false,ZIndex=object.ZIndex+3},'Accent')
+        end
+        local role=(self._skin[object] or {}).BackgroundColor3=='Accent' and 'AccentText' or 'Accent'
+        self:_bind(line,{BackgroundColor3=role})
+        if phase=='enter' then line:SetAttribute('Hover',true) elseif phase=='leave' then line:SetAttribute('Hover',false) end
+        local visible=line:GetAttribute('Hover')==true or phase=='down' or phase=='activate'
+        local goals={Size=UDim2.new(visible and 1 or 0,visible and -4 or 0,0,2),BackgroundTransparency=visible and (phase=='down' and 0 or .25) or 1}
+        if phase=='activate' then
+            goals.BackgroundTransparency=0
+            self:_motion(line,goals,.06,'feedback',owner,function()
+                if owner.Destroyed or not line.Parent then return end
+                self:_buttonFeedback(object,owner,line:GetAttribute('Hover') and 'up' or 'leave')
+            end)
+        else self:_motion(line,goals,phase=='down' and .06 or .14,'feedback',owner) end
+    end
+    function Window:_watchField(object)
+        local scope=self:CreateScope()
+        local function focus(active)
+            if self.Destroyed or not object.Parent then return end
+            local roles=self._skin[object];if not roles then return end
+            roles.BorderColor3=active and 'Accent' or 'Border'
+            self:_motion(object,{BorderColor3=self.Palette[active and 'Accent' or 'Border']},.12,'field-focus',self)
+        end
+        scope:Add(object.Focused:Connect(function() focus(true) end),'Disconnect')
+        scope:Add(object.FocusLost:Connect(function() focus(false) end),'Disconnect')
+        scope:Add(object.Destroying:Connect(function() self:_cancelAnimations(object,false);scope:Destroy() end),'Disconnect')
+    end
+    function Window:_resetMotionAccents()
+        for _,object in ipairs(self.Gui:GetDescendants()) do
+            if object.Name=='MotionAccent' then self:_cancelAnimations(object,false);object.Size=UDim2.new(0,0,0,2);object.BackgroundTransparency=1;object:SetAttribute('Hover',false) end
+        end
+    end
+    function Window:_selectionMotion(mark,selected,size,hidden,owner)
+        mark:SetAttribute('Selected',selected)
+        if selected then mark.Visible=true end
+        self:_motion(mark,{Size=selected and size or hidden,BackgroundTransparency=selected and 0 or 1},.18,'selection',owner,function()
+            if mark.Parent and not mark:GetAttribute('Selected') then mark.Visible=false end
+        end)
+    end
+    function Window:_selectionMark(parent,selected,owner)
+        local mark=parent:FindFirstChild('SelectionMotion')
+        if not mark and not selected then return end
+        if not mark then mark=frame(self,parent,{Name='SelectionMotion',Position=UDim2.new(0,6,1,-3),Size=UDim2.new(0,0,0,2),Visible=true,ZIndex=parent.ZIndex+3},'Accent') end
+        self:_bind(mark,{BackgroundColor3=(self._skin[parent] or {}).BackgroundColor3=='Accent' and 'AccentText' or 'Accent'})
+        self:_selectionMotion(mark,selected,UDim2.new(1,-12,0,2),UDim2.new(0,0,0,2),owner)
+    end
     function Window:SetAnimations(options)
         local nextOptions=settings(options,self.Animations)
         self.Animations=nextOptions
-        if not nextOptions.Enabled or nextOptions.Intensity=="Off" or self.ReducedMotion then self:_cancelAnimations(nil,true) end
+        if not nextOptions.Enabled or nextOptions.Intensity=="Off" or self.ReducedMotion then
+            self:_cancelAnimations(nil,true);self:_resetMotionAccents()
+            if self._dragRender then self:_moveWindow(self._dragRender.Target,true) end
+        end
         self:_syncSettings(); self:_scheduleSave(); return self
     end
     function Window:GetAnimations() return copy(self.Animations) end
@@ -1827,7 +1918,7 @@ end
 function Window:_hideTooltip()
     self._tooltipToken=(self._tooltipToken or 0)+1
     self._pendingTooltip=nil; self._tooltipOwner=nil; self._tooltipAnchor=nil; self._tooltipMode=nil
-    if self.TooltipFrame then self.TooltipFrame.Visible=false end
+    if self.TooltipFrame then self:_cancelAnimations(self.TooltipFrame,true);self.TooltipFrame.Visible=false end
 end
 function Window:_tooltipEligible(control,position)
     if self._shown==false or self.TooltipsEnabled==false or UserInputService:GetFocusedTextBox() then return false end
@@ -1877,6 +1968,7 @@ function Window:_showTooltip(control,anchor,mode)
     if not self:_tooltipEligible(control,checkPoint) then self:_hideTooltip(); return false end
     local view=self.Root.AbsoluteSize
     if view.X<64 or view.Y<80 then self:_hideTooltip(); return false end
+    local entering=not self.TooltipFrame or not self.TooltipFrame.Visible or self._tooltipOwner~=control
     self:_createTooltip()
     self._tooltipToken=(self._tooltipToken or 0)+1; self._pendingTooltip=nil
     self._tooltipOwner=control; self._tooltipAnchor=anchor; self._tooltipMode=mode
@@ -1894,6 +1986,7 @@ function Window:_showTooltip(control,anchor,mode)
     self._tooltipBody.Position=U2(12,12+headerHeight)
     self._tooltipBody.Size=UDim2.new(1,-24,0,math.max(0,height-headerHeight-24))
     self:_positionTooltip(anchor); self.TooltipFrame.Visible=true
+    if entering then self:_revealText(self._tooltipTitle,control,'tooltip-enter');self:_revealText(self._tooltipBody,control,'tooltip-enter') end
     return true
 end
 function Window:_queueTooltip(control,anchor)
@@ -2071,6 +2164,7 @@ function Control:SetDisabled(disabled)
     if disabled == true and self.Type == "Keybind" and self.Mode == "Hold" and self.Active then self:Trigger(false) end
     if disabled == true and self._window._binding == self then self._window._binding = nil end
     self.Disabled = disabled == true
+    if self.Disabled and self.Button then self._window:_buttonFeedback(self.Button,self,'reset') end
     self.TitleLabel.TextTransparency = self.Disabled and .15 or 0
     if self._titleIcon then self._titleIcon:SetOpacity(self.Disabled and .5 or 0) end
     if self._render then self:_render() end
@@ -2158,6 +2252,7 @@ end
 local function base(section, kind, options, height)
     options = options or {}
     assert(not section.Destroyed and not section._window.Destroyed, "Section has been destroyed")
+    assert(options.Animated==nil or type(options.Animated)=='boolean','Animated must be a boolean')
     local window = section._window
     resolveIcon(options.Icon)
     assert(options.Floating==nil or type(options.Floating)=="boolean" or type(options.Floating)=="table","Floating must be a boolean or options table")
@@ -2168,7 +2263,7 @@ local function base(section, kind, options, height)
     if tip==nil then tip=options.Tip end
     local tooltip=tooltipValue(tip)
     local self = setmetatable({ Type=kind, Title=tostring(options.Title or kind), Description=tostring(options.Description or ""),_explicitHeight=options.Height~=nil,
-        Tooltip=tooltip,_descriptionEnabled=options.ShowDescription~=false,_window=window, _section=section, _connections={},_callbackEpoch=0, _visible=options.Visible ~= false, Disabled=options.Disabled == true }, Control)
+        Tooltip=tooltip,_motionDisabled=options.Animated==false,_descriptionEnabled=options.ShowDescription~=false,_window=window, _section=section, _connections={},_callbackEpoch=0, _visible=options.Visible ~= false, Disabled=options.Disabled == true }, Control)
     window:_register(self, options)
     self._resources=window:CreateScope(); self._resources._owner=self
     section._count = section._count + 1
@@ -2176,6 +2271,7 @@ local function base(section, kind, options, height)
         Name=self.Id, LayoutOrder=section._count, Size=UDim2.new(1,0,0,height or 76),
         BackgroundTransparency=1,
     })
+    self.Frame:SetAttribute('RetroBoxMotion',options.Animated~=false)
     self.TitleLabel = label(window, self.Frame, self.Title, { Position=U2(0,0), Size=UDim2.new(1,0,0,21), TextTruncate=Enum.TextTruncate.AtEnd })
     self.DescriptionLabel = label(window, self.Frame, self.Description, {
         Position=U2(0,22), Size=UDim2.new(1,0,0,18), TextSize=12, TextTruncate=Enum.TextTruncate.AtEnd,
@@ -2301,7 +2397,9 @@ function Section:AddSlider(options)
     end
     function self:_render()
         local ratio = (self.Value-self.Min)/(self.Max-self.Min)
-        fill.Size = UDim2.new(ratio,0,1,0)
+        local fillTarget=UDim2.new(ratio,0,1,0)
+        if self._hasDefault and not (self._window._drag and self._window._drag.Owner==self) then self._window:_motion(fill,{Size=fillTarget},.09,'slider-fill',self)
+        else self._window:_cancelTrack(fill,'slider-fill',false);fill.Size=fillTarget end
         local target=UDim2.new(ratio,0,.5,0)
         if self._hasDefault and not (self._window._drag and self._window._drag.Owner==self) then self._window:_animate(thumb,{Position=target},.07,"slider",self)
         else self._window:_cancelTrack(thumb,"slider",false); thumb.Position=target end
@@ -2813,7 +2911,8 @@ function Section:AddProgress(options)
     function self:_normalize(value) assert(finite(value),"Progress must be finite"); return clamp(value,self.Min,self.Max) end
     function self:_render()
         local ratio=(self.Value-self.Min)/(self.Max-self.Min)
-        fill.Size=UDim2.new(ratio,0,1,0); valueLabel.Text=string.format("%.0f%%",ratio*100)
+        self._window:_motion(fill,{Size=UDim2.new(ratio,0,1,0)},options.Animated==false and 0 or .2,'progress-fill',self)
+        valueLabel.Text=string.format("%.0f%%",ratio*100)
     end
     return init(self,options,self.Min)
 end
@@ -2900,21 +2999,24 @@ do
     end
     local function lineNode(window,parent,pool,index,color)
         local node=pool[index]
+        local entered=not node or node.Visible==false
         if not node then
             node=frame(window,parent,{Name="ChartElement",AnchorPoint=Vector2.new(.5,.5),Visible=false},"Accent")
             pool[index]=node
         end
         node.BackgroundColor3=window:_ink(color or "Accent",node,3,window:_surfaceColor(parent))
-        node.Visible=true; return node
+        node.Visible=true;node:SetAttribute('MotionEntry',entered);return node
     end
-    local function hideExtra(pool,wanted)
-        for index=wanted+1,#pool do pool[index].Visible=false end
+    local function hideExtra(window,pool,wanted)
+        for index=wanted+1,#pool do window:_cancelAnimations(pool[index],false);pool[index].Visible=false end
     end
     local function lineGeometry(window,node,x1,y1,x2,y2,thickness,animated,owner)
         local dx,dy=x2-x1,y2-y1
-        local goals={Position=U2((x1+x2)/2,(y1+y2)/2),Size=U2(math.max(1,math.sqrt(dx*dx+dy*dy)),thickness),Rotation=math.deg(math.atan2(dy,dx))}
-        if animated and window._animate then window:_animate(node,goals,.08,"chart",owner)
-        else for key,value in pairs(goals) do node[key]=value end end
+        local goals={Position=U2((x1+x2)/2,(y1+y2)/2),Size=U2(math.max(1,math.sqrt(dx*dx+dy*dy)),thickness),Rotation=math.deg(math.atan2(dy,dx)),BackgroundTransparency=0}
+        if node:GetAttribute('MotionEntry') and animated and window:_motionAllowed(node) then
+            node.Position=goals.Position;node.Rotation=goals.Rotation;node.Size=U2(0,thickness);node.BackgroundTransparency=.55
+        end
+        window:_motion(node,goals,animated and .2 or 0,'chart',owner)
     end
     function Section:AddStatCard(options)
         options=options or {}
@@ -2928,6 +3030,8 @@ do
         self.Unit=tostring(options.Unit or ""); self.Subtitle=tostring(options.Subtitle or ""); self.Format=options.Format or "Raw"
         self.Precision=options.Precision or 1; self.Loading=options.Loading==true; self.Unavailable=options.Unavailable==true
         self.Trend=trend; self.TrendText=options.TrendText; self._history={}; self.MaxPoints=limit
+        local counter=Instance.new('NumberValue');counter.Name='StatMotionValue';counter.Parent=self.Frame
+        self._counter=counter
         local top=#self.Description>0 and 44 or 24
         local body=frame(self._window,self.Frame,{Position=U2(0,top),Size=UDim2.new(1,0,1,-top),BorderSizePixel=1},"Inset")
         self._window:_bind(body,{BackgroundColor3="Inset",BorderColor3="Border"}); bevel(self._window,body,true)
@@ -2944,19 +3048,25 @@ do
             return value
         end
         function self:_draw()
-            local content=self.Loading and self._window:_text("loading") or self.Unavailable and (self.UnavailableText or self._window:_text("unavailable")) or format(self.Value,self.Format,self.Precision)
+            local numeric=finite(self.Value) and not self.Loading and not self.Unavailable and type(self.Format)~='function'
+            if numeric then
+                if not self._hasDefault or not self._counterReady then self._window:_cancelTrack(counter,'stat-count',false);counter.Value=self.Value
+                else self._window:_motion(counter,{Value=self.Value},options.Animated==false and 0 or .24,'stat-count',self) end
+                self._counterReady=true
+            else self._window:_cancelTrack(counter,'stat-count',false);self._counterReady=false end
+            local content=self.Loading and self._window:_text("loading") or self.Unavailable and (self.UnavailableText or self._window:_text("unavailable")) or format(numeric and counter.Value or self.Value,self.Format,self.Precision)
             self.ValueLabel.Text=content; self.SubtitleLabel.Text=self.Subtitle; self.UnitLabel.Text=self.Unit
             self.ValueLabel.Size=UDim2.new(1,self.Unit~="" and -108 or -20,0,34)
             self.TrendLabel.Text=self.TrendText or (self.Trend~=0 and (self.Trend>0 and "+" or "")..format(self.Trend,self.Format,self.Precision) or "")
             self._window:_bind(self.TrendLabel,{TextColor3=self.Trend>0 and "Success" or self.Trend<0 and "Danger" or "Muted"})
             self._window:_bind(self.ValueLabel,{TextColor3=(self.Loading or self.Unavailable) and "Muted" or "Text"})
-            if options.Animated and self._window._animate and finite(self.Value) and finite(self._lastValue) and self.Value~=self._lastValue then
+            if options.Animated~=false and self._window:_motionAllowed(self.ValueLabel) and finite(self.Value) and finite(self._lastValue) and self.Value~=self._lastValue then
                 self.ValueLabel.TextColor3=self._window:_ink(self.Value>self._lastValue and "Success" or "Danger",self.ValueLabel)
                 self._window:_animate(self.ValueLabel,{TextColor3=self._window:_ink("Text",self.ValueLabel)},.25,"stat",self)
             end
             self._lastValue=self.Value
             if self._spark then
-                local size=self._spark.AbsoluteSize; local min,max=math.huge,-math.huge
+                local size=self._spark.AbsoluteSize/math.max(.01,self._window._actualScale or 1); local min,max=math.huge,-math.huge
                 for _,p in ipairs(self._history) do min=math.min(min,p.Value); max=math.max(max,p.Value) end
                 if min==max then min=min-1; max=max+1 end
                 local count=#self._history
@@ -2964,11 +3074,14 @@ do
                     local a,b=self._history[i-1].Value,self._history[i].Value
                     lineGeometry(self._window,lineNode(self._window,self._spark,self._sparkPool,i-1),
                         (i-2)/math.max(1,count-1)*size.X,(1-(a-min)/(max-min))*size.Y,
-                        (i-1)/math.max(1,count-1)*size.X,(1-(b-min)/(max-min))*size.Y,2,false,self)
+                        (i-1)/math.max(1,count-1)*size.X,(1-(b-min)/(max-min))*size.Y,2,options.Animated~=false and i<=97,self)
                 end
-                hideExtra(self._sparkPool,math.max(0,count-1))
+                hideExtra(self._window,self._sparkPool,math.max(0,count-1))
             end
         end
+        connect(self,counter:GetPropertyChangedSignal('Value'),function()
+            if not self.Destroyed and not self.Loading and not self.Unavailable and finite(self.Value) and type(self.Format)~='function' then self.ValueLabel.Text=format(counter.Value,self.Format,self.Precision) end
+        end)
         function self:_render() self._window:_requestVisual(self,function() self:_draw() end,20) end
         function self:SetSubtitle(value) self.Subtitle=tostring(value or ""); self:_render(); return self end
         function self:SetUnit(value) self.Unit=tostring(value or ""); self:_render(); return self end
@@ -3035,7 +3148,7 @@ do
         end
         function self:_draw()
             local min,max=self:_bounds(); self.Bounds={Min=min,Max=max}
-            local size=self.Plot.AbsoluteSize; local width,height=math.max(1,size.X-2),math.max(1,size.Y-2)
+            local size=self.Plot.AbsoluteSize/math.max(.01,self._window._actualScale or 1); local width,height=math.max(1,size.X-2),math.max(1,size.Y-2)
             local function y(value) return 1+(1-clamp((value-min)/(max-min),0,1))*height end
             for _,node in ipairs(self._grid) do node.Visible=self.ShowGrid end
             self.MinLabel.Text=format(min,options.Format or "Compact",options.Precision)
@@ -3043,13 +3156,15 @@ do
             if self.ChartType=="Progress" then
                 local ratio=(self.Value-min)/(max-min); local node=lineNode(self._window,self.Plot,self._pool,1,self.Color)
                 node.AnchorPoint=Vector2.new(0,0); node.Position=U2(0,0); node.Rotation=0
-                local goals={Size=UDim2.new(ratio,0,1,0)}
-                if options.Animated and self._window._animate then self._window:_animate(node,goals,.12,"chart",self) else node.Size=goals.Size end
+                local duration=options.Animated==false and 0 or .22
+                if node:GetAttribute('MotionEntry') and duration>0 and self._window:_motionAllowed(node) then node.Size=UDim2.fromScale(0,1) end
+                self._window:_motion(node,{Size=UDim2.new(ratio,0,1,0)},duration,'chart',self)
                 local logicalWidth=self.Plot.AbsoluteSize.X/math.max(.01,self._window._actualScale or 1)
-                self._progressInkLeft.Size=UDim2.new(ratio,0,1,0)
-                self._progressInkRight.Position=UDim2.new(ratio,0,0,0); self._progressInkRight.Size=UDim2.new(1-ratio,0,1,0)
+                self._window:_motion(self._progressInkLeft,{Size=UDim2.new(ratio,0,1,0)},duration,'progress-ink',self)
+                self._window:_motion(self._progressInkRight,{Position=UDim2.new(ratio,0,0,0),Size=UDim2.new(1-ratio,0,1,0)},duration,'progress-ink',self)
                 self.ProgressFillLabel.Size=UDim2.new(0,logicalWidth,1,0)
-                self.ProgressLabel.Size=UDim2.new(0,logicalWidth,1,0); self.ProgressLabel.Position=U2(-ratio*logicalWidth,0)
+                self.ProgressLabel.Size=UDim2.new(0,logicalWidth,1,0)
+                self._window:_motion(self.ProgressLabel,{Position=U2(-ratio*logicalWidth,0)},duration,'progress-ink',self)
                 self._window._inkSurfaces[self.ProgressFillLabel]=node.BackgroundColor3
                 self._window:_refreshInk(self.ProgressFillLabel); self._window:_refreshInk(self.ProgressLabel)
                 self.ProgressLabel.Text=format(ratio*100,"Percent",options.Precision); self.ProgressFillLabel.Text=self.ProgressLabel.Text; self.EmptyLabel.Visible=false
@@ -3065,19 +3180,21 @@ do
                     wanted=index; local node=lineNode(self._window,self.Plot,self._pool,index,self.Color)
                     local topY=y(p.Value); node.AnchorPoint=Vector2.new(0,0); node.Rotation=0
                     local goals={Position=U2(1+(index-1)*stride+2,math.min(zero,topY)),Size=U2(math.max(1,stride-4),math.max(1,math.abs(zero-topY)))}
-                    if options.Animated and self._window._animate then self._window:_animate(node,goals,.08,"chart",self) else for key,value in pairs(goals) do node[key]=value end end
+                    if node:GetAttribute('MotionEntry') and options.Animated~=false and self._window:_motionAllowed(node) then node.Position=U2(goals.Position.X.Offset,zero);node.Size=U2(goals.Size.X.Offset,0) end
+                    self._window:_motion(node,goals,(options.Animated==false or index>96) and 0 or .22,'chart',self)
                 end
             else
                 if n==1 then
-                    wanted=1; local node=lineNode(self._window,self.Plot,self._pool,1,self.Color); node.Position=U2(width/2,y(self.Value[1].Value)); node.Size=U2(3,3); node.Rotation=0
+                    wanted=1; local node=lineNode(self._window,self.Plot,self._pool,1,self.Color)
+                    self._window:_motion(node,{Position=U2(width/2,y(self.Value[1].Value)),Size=U2(3,3),Rotation=0,BackgroundTransparency=0},options.Animated==false and 0 or .18,'chart',self)
                 end
                 for index=2,n do
                     wanted=index-1
                     lineGeometry(self._window,lineNode(self._window,self.Plot,self._pool,index-1,self.Color),
-                        1+(index-2)/(n-1)*width,y(self.Value[index-1].Value),1+(index-1)/(n-1)*width,y(self.Value[index].Value),options.Thickness or 2,options.Animated,self)
+                        1+(index-2)/(n-1)*width,y(self.Value[index-1].Value),1+(index-1)/(n-1)*width,y(self.Value[index].Value),options.Thickness or 2,options.Animated~=false and index<=97,self)
                 end
             end
-            hideExtra(self._pool,wanted)
+            hideExtra(self._window,self._pool,wanted)
         end
         function self:_render() self._window:_requestVisual(self,function() self:_draw() end,self.RefreshRate) end
         function self:SetData(data,silent) return self:SetValue(data,silent) end
@@ -3147,6 +3264,7 @@ function Window:GetThemeNames()
     table.sort(result); return result
 end
 function Window:_applyTheme()
+    self._applyingTheme=true
     if self._cancelAnimations then self:_cancelAnimations(nil,true) end
     local colors=self._themeOverrides[self.Theme] or Library.Themes[self.Theme]
     self.Palette=copy(colors)
@@ -3167,6 +3285,7 @@ function Window:_applyTheme()
     for _,tab in ipairs(self.Tabs) do tab:_renderSelection() end
     self:_syncSettings()
     self:_syncFloating()
+    self._applyingTheme=false
 end
 function Window:SetTheme(name,keepAccent)
     assert(self._themeOverrides[name] or Library.Themes[name],"Unknown theme: " .. tostring(name))
@@ -3188,7 +3307,7 @@ end
 function Window:SetReducedMotion(value)
     self.ReducedMotion=value == true
     if self.ReducedMotion and self._dragRender then self:_moveWindow(self._dragRender.Target) end
-    if self.ReducedMotion and self._cancelAnimations then self:_cancelAnimations(nil,true) end
+    if self.ReducedMotion and self._cancelAnimations then self:_cancelAnimations(nil,true);self:_resetMotionAccents() end
     self:_syncSettings(); self:_scheduleSave(); return self
 end
 function Window:SetScanlines(value)
@@ -3247,6 +3366,7 @@ function Window:OnDestroy(callback)
 end
 function Window:Show()
     if self.Destroyed then return self end
+    if self._refreshProfile then self._refreshProfile(true) end
     local changed=self._shown==false; self._shown=true; self.Launcher.Visible=false
     if changed then self:_animateWindow(true) else self.Main.Visible=true end
     self:_layoutFloating(); return self
@@ -3426,10 +3546,16 @@ end
 function Tab:_renderSelection()
     if not self.Button then return end
     local active=self._window.ActiveTab==self
+    local changed=self._motionSelected~=nil and self._motionSelected~=active
+    self._motionSelected=active
     self.Button.BackgroundColor3=self._window.Palette[active and "Accent" or "Surface"]
     self.Button.TextColor3=self._window.Palette[active and "AccentText" or "Text"]
     if self.Label then self.Label.TextColor3=self.Button.TextColor3 end
     if self._titleIcon then self._titleIcon:SetRole(active and "AccentText" or "Text") end
+    if not self._motionMark then
+        self._motionMark=frame(self._window,self.Button,{Name='TabSelection',Position=UDim2.new(0,4,1,-3),Size=UDim2.new(active and 1 or 0,active and -8 or 0,0,2),BackgroundTransparency=active and 0 or 1,ZIndex=self.Button.ZIndex+3},'AccentText')
+    end
+    self._window:_motion(self._motionMark,{Size=UDim2.new(active and 1 or 0,active and -8 or 0,0,2),BackgroundTransparency=active and 0 or 1},changed and .18 or 0,'tab-selection',self)
 end
 function Tab:SetIcon(value)
     assert(not self.Destroyed,"Tab has been destroyed")
@@ -3446,18 +3572,19 @@ function Tab:Select()
     assert(not self.Destroyed,"Tab has been destroyed")
     if self.Hidden then return self end
     local window=self._window
+    local entering=window.ActiveTab~=self or self.Frame.Visible==false
     window:_hideTooltip()
     window:_hideSearchResults()
     if self._settingsConfig then window:_releaseBindings() end
     window._settingsOpen=self._settingsConfig==true
     if not self._settingsConfig then window._lastContentTab=self end
     window.ActiveTab=self
-    if self.Frame.Visible==false then
-        self.Container.Position=U2(0,4)
-        window:_animate(self.Container,{Position=U2(0,0)},.1,"tab",self)
-    end
     if window._openDropdown then window._openDropdown:SetOpen(false) end
     for _,tab in ipairs(window.Tabs) do if not tab.Hidden then tab.Frame.Visible=tab==self end; tab:_renderSelection() end
+    if entering then
+        if window:_motionAllowed(self.Container) then self.Container.Position=U2(0,window.Animations.Intensity=='Subtle' and 2 or 6) end
+        window:_motion(self.Container,{Position=U2(0,0)},.18,'tab',self)
+    end
     window.Status.Text=self.Title.."  |  v"..Library.Version
     if self._settingsConfig then window:_syncSettings(); window:_refreshProfiles() end
     window:_layoutFloating()
@@ -4609,37 +4736,96 @@ function Window:_profile(player)
     local avatar=ui(self,"ImageLabel",{
         Parent=self.Profile,Position=U2(0,5),Size=U2(34,34),Image="",BackgroundTransparency=1,BorderSizePixel=1,
     },{ BorderColor3="Border" })
-    local display=label(self,self.Profile,"Player",{
+    local display=label(self,self.Profile,self:_t17('Carregando perfil…','Loading profile…'),{
         Position=U2(44,4),Size=U2(134,20),TextSize=13,TextTruncate=Enum.TextTruncate.AtEnd,
     })
-    local username=label(self,self.Profile,"@player",{
-        Position=U2(44,24),Size=U2(134,18),TextSize=11,TextTruncate=Enum.TextTruncate.AtEnd,
+    local username=label(self,self.Profile,"",{
+        Position=U2(44,24),Size=U2(134,18),TextSize=11,TextTruncate=Enum.TextTruncate.AtEnd,Visible=false,
     },"Muted")
     self.Avatar=avatar; self.DisplayNameLabel=display; self.UsernameLabel=username
-    if not player then return end
-    local function update()
-        display.Text=player.DisplayName; username.Text="@"..player.Name
-        local name=player.DisplayName
-        local nextCharacter=utf8.offset(name,2)
-        fallback.Text=name:sub(1,(nextCharacter or #name+1)-1):upper()
+    -- Names are identity data, not translatable interface messages.
+    if self.SetTextTranslation then
+        self:SetTextTranslation(display,false);self:SetTextTranslation(username,false);self:SetTextTranslation(fallback,false)
     end
-    update()
-    connect(self,player:GetPropertyChangedSignal("DisplayName"),update)
+    local scope=self:CreateScope()
+    local state={Alive=true,Window=self,Avatar=avatar,Fallback=fallback,Display=display,Username=username,Generation=0}
+    self._profileState=state
     Library._thumbnails=Library._thumbnails or {}
-    task.spawn(function()
-        local cached=Library._thumbnails[player.UserId]
-        if cached then if not self.Destroyed then avatar.Image=cached; fallback.Visible=false end; return end
-        for attempt=1,3 do
-            if self.Destroyed then return end
-            local ok,content,ready=pcall(Players.GetUserThumbnailAsync,Players,player.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size150x150)
-            if self.Destroyed then return end
-            if ok and ready and type(content)=="string" and #content>0 then
-                Library._thumbnails[player.UserId]=content
-                avatar.Image=content; fallback.Visible=false; return
-            end
-            if attempt<3 then task.wait(.3*attempt) end
+    local function stopThumbnail()
+        state.Generation=state.Generation+1
+        local request=state.Request;state.Request=nil
+        if request then
+            request.Active=false
+            -- A platform request may be yielding inside Roblox. Invalidate that
+            -- response; cancel only our own queued/waiting coroutine.
+            if not request.InRequest and request.Thread and request.Thread~=coroutine.running() and coroutine.status(request.Thread)=='suspended' then task.cancel(request.Thread) end
         end
+    end
+    local function thumbnail(id,force)
+        if not finite(id) or id<=0 or id%1~=0 then return end
+        if state.RequestedId==id and (state.Request or not force or state.Avatar.Image~='') then return end
+        stopThumbnail();state.RequestedId=id
+        local generation=state.Generation
+        local cached=Library._thumbnails[id]
+        if cached then state.Avatar.Image=cached;state.Avatar.ImageTransparency=0;state.Fallback.Visible=false;return end
+        local request={Active=true};state.Request=request
+        request.Thread=task.spawn(function()
+            local function current() return request.Active and state.Alive and state.Generation==generation end
+            for attempt=1,3 do
+                if not current() then return end
+                request.InRequest=true
+                local ok,content,ready=pcall(Players.GetUserThumbnailAsync,Players,id,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size150x150)
+                request.InRequest=false
+                if not current() then return end
+                if ok and ready and type(content)=='string' and #content>0 then
+                    Library._thumbnails[id]=content
+                    local owner=state.Window
+                    state.Avatar.Image=content;state.Avatar.ImageTransparency=1;state.Fallback.Visible=false
+                    owner:_animate(state.Avatar,{ImageTransparency=0},.18,'profile-avatar',owner)
+                    state.Request=nil;return
+                end
+                if attempt<3 then task.wait(.3*attempt) end
+            end
+            if state.Request==request then state.Request=nil end
+        end)
+    end
+    local function text(value) return type(value)=='string' and value:find('%S') and value or nil end
+    local function update(force)
+        if not state.Alive then return end
+        local owner=state.Window;local active=state.Player
+        local name=active and text(active.Name);local nickname=active and text(active.DisplayName)
+        state.Display.Text=nickname or name or owner:_t17('Carregando perfil…','Loading profile…')
+        state.Username.Text=name and '@'..name or '';state.Username.Visible=name~=nil
+        local initial=nickname or name
+        if initial then
+            local nextCharacter=utf8.len(initial) and utf8.offset(initial,2)
+            state.Fallback.Text=initial:sub(1,(nextCharacter or 2)-1):upper()
+        else state.Fallback.Text='?' end
+        if active then thumbnail(active.UserId,force) end
+    end
+    local function refresh(force)
+        if not state.Alive then return end
+        local current=Players.LocalPlayer
+        if current~=state.Player then
+            scope:Remove('player');stopThumbnail();state.Player=current;state.RequestedId=nil
+            state.Avatar.Image='';state.Avatar.ImageTransparency=0;state.Fallback.Visible=true
+            if current then
+                local binding=scope:Child();scope:Add(binding,'Destroy','player')
+                for _,property in ipairs({'Name','DisplayName','UserId'}) do binding:Add(current:GetPropertyChangedSignal(property):Connect(function() update(false) end),'Disconnect') end
+            end
+        end
+        update(force)
+    end
+    self._refreshProfile=refresh
+    scope:Add(Players:GetPropertyChangedSignal('LocalPlayer'):Connect(function() refresh(false) end),'Disconnect')
+    scope:Add(Players.PlayerAdded:Connect(function() refresh(false) end),'Disconnect')
+    scope:Add(self.Profile.Destroying:Connect(function() scope:Destroy() end),'Disconnect')
+    scope:Add(function()
+        state.Alive=false;stopThumbnail()
+        state.Player=nil;state.Window=nil;state.Avatar=nil;state.Fallback=nil;state.Display=nil;state.Username=nil
+        self._profileState=nil;self._refreshProfile=nil
     end)
+    refresh(false)
 end
 
 function Window:_releaseBindings()
@@ -4786,7 +4972,7 @@ function Library:CreateWindow(options)
         Font=font,UserScale=userScale,ToggleKey=toggle,MaxConfigBytes=maxBytes,TooltipDelay=tooltipDelay,TooltipMaxWidth=tooltipWidth,
         ReducedMotion=options.ReducedMotion == true,Scanlines=options.Scanlines == true,
         PixelIcons=options.PixelIcons~=false,PixelDecorations=options.PixelDecorations~=false,
-        SmoothDragging=options.SmoothDragging==true,DragResponsiveness=options.DragResponsiveness or 24,
+        SmoothDragging=options.SmoothDragging~=false,DragResponsiveness=options.DragResponsiveness or 24,
         Debug=options.Debug==true,CallbackExecutor=options.CallbackExecutor,
         _diagnostics={},_errorListeners={},Tasks={},_actions={},_groups={},_visualQueue={},_flagStates={},_actionHistory={},_nextAction=0,
         _tweens={},Animations=Library._animationSettings(options.Animations),_shown=true,_visibilityToken=0,
@@ -4938,7 +5124,7 @@ function Library:CreateWindow(options)
         window:_cancelTrack(window.Main,"window",false)
         window._dragRender=nil
         window:_beginDrag(window,input,function(current)
-            window:_moveWindow(center+(current-start),true)
+            window:_moveWindow(center+(current-start))
         end)
     end)
     connect(window,window.ResizeGrip.InputBegan,function(input)
@@ -5362,6 +5548,7 @@ do
                     if item.Icon then iconSlot(window,node,item.Icon,nil,16,U2(-24,7),"Text") end
                     if item.Disabled then node.Active=false; window:_bind(node,{TextColor3="Muted"}) end
                     panel.Rows[index]=node
+                    window:_revealText(node,panel.Owner,'menu-enter')
                 end
             end
             owner.Panels[level]=panel
@@ -5563,16 +5750,23 @@ do
                 row.Position=position; row.Index=index; row.Disabled=self.Disabled or self._loading
                 row.Button.Visible=index~=nil and not self._loading; row.Button.Active=not row.Disabled
                 if index then
+                    local entering=row._motionKey~=self.Keys[index]
+                    if entering then window:_cancelAnimations(row.Button,false) end
+                    row._motionKey=self.Keys[index]
                     row.Button.Position=U2(0,(position-1)*self.RowHeight); row.Button.Size=UDim2.new(0,self._contentWidth,0,self.RowHeight-2)
                     self:_layoutColumns(row)
                     for column,labelObject in ipairs(row.Labels) do labelObject.Text=display(self.Items[index],index,schema and schema[column] or nil) end
                     local selected=self.Value==self.Keys[index]
                     window:_bind(row.Button,{BackgroundColor3=selected and "Accent" or "Inset"})
                     for _,labelObject in ipairs(row.Labels) do window:_bind(labelObject,{TextColor3=selected and "AccentText" or "Text"}) end
+                    if not self._renderNode then
+                        window:_selectionMark(row.Button,selected,self)
+                        if entering then for _,text in ipairs(row.Labels) do window:_revealText(text,self,'row-enter') end end
+                    end
                     if self._renderNode then self:_renderNode(row,index) end
                 end
             end
-            for slot=count+1,#self._pool do self._pool[slot].Button.Visible=false; self._pool[slot].Index=nil end
+            for slot=count+1,#self._pool do window:_cancelAnimations(self._pool[slot].Button,false);self._pool[slot].Button.Visible=false;self._pool[slot].Index=nil;self._pool[slot]._motionKey=nil end
             self._renderingView=false
         end
         function self:_reindex(reset)
@@ -8128,7 +8322,9 @@ function Hub:_installLauncher(options)
         if row.Fallback and row.Fallback.Frame then row.Fallback.Frame.Position=U2(20,20) end
         local width=math.max(100,row.Button.Size.X.Offset)
         rect(row.LauncherTitle,64,10,width-78,23); rect(row.LauncherMeta,64,36,width-78,18)
-        rect(row.LauncherMark,0,8,3,self.RowHeight-18); row.LauncherMark.Visible=selected
+        row.LauncherMark.Position=U2(0,8)
+        if not row._markReady then row.LauncherMark.Size=U2(3,0);row._markReady=true end
+        window:_selectionMotion(row.LauncherMark,selected,U2(3,self.RowHeight-18),U2(3,0),self)
         row.LauncherTitle.Text=(hub:IsFavorite(record.Id) and '★ ' or '')..displayName(record)
         row.LauncherMeta.Text=#record.Scripts..(#record.Scripts==1 and ' script' or ' scripts')..(hub:IsCurrentGame(record.Id) and tr(' · VOCÊ ESTÁ AQUI',' · YOU ARE HERE') or '')
         row.Button.BorderSizePixel=1
@@ -8164,7 +8360,9 @@ function Hub:_installLauncher(options)
         rect(row.LauncherCredit,44,34*scale,width-56,16*scale)
         rect(row.LauncherDescription,14,55*scale,width-28,32*scale)
         rect(row.LauncherState,width-140,34*scale,126,16*scale)
-        rect(row.LauncherMark,0,8,3,self.RowHeight-18); row.LauncherMark.Visible=selected
+        row.LauncherMark.Position=U2(0,8)
+        if not row._markReady then row.LauncherMark.Size=U2(3,0);row._markReady=true end
+        window:_selectionMotion(row.LauncherMark,selected,U2(3,self.RowHeight-18),U2(3,0),self)
         if row.ScriptIcon and row.ScriptIcon.Frame then row.ScriptIcon.Frame.Position=U2(14,12); row.ScriptIcon:SetRole(selected and 'Accent' or 'Text') end
         row.LauncherTitle.Text=spec.Title
         row.LauncherCredit.Text=(spec.Version~='' and 'v'..spec.Version or '')..(spec.Author~='' and ' · '..spec.Author or '')
@@ -8388,7 +8586,7 @@ function Hub:_installLauncher(options)
         bind(ui.Status,{TextColor3=status.Status=='Failed' and 'Danger' or busy and 'Accent' or 'Muted'})
         ui.Activity.Text=running>0 and (running..(running==1 and tr(' execução em andamento',' active run') or tr(' execuções em andamento',' active runs'))) or tr('Selecionar e pesquisar não executa scripts.','Selecting and searching do not run scripts.')
         local progress=(busy or status.Status=='Completed') and status.Progress or 0
-        ui.ProgressFill.Size=UDim2.new(bounded(progress or 0,1),0,1,0)
+        window:_motion(ui.ProgressFill,{Size=UDim2.new(bounded(progress or 0,1),0,1,0)},.16,'execution-progress',hub)
         bind(ui.ProgressFill,{BackgroundColor3=status.Status=='Failed' and 'Danger' or 'Accent'})
         hub.FavoriteButton.Button.Text=record and hub:IsFavorite(record.Id) and tr('Favorito','Favorited') or tr('Favoritar','Favorite')
         hub.TeleportButton.Button.Text=tr('Entrar','Join')
@@ -8397,6 +8595,13 @@ function Hub:_installLauncher(options)
         for _,control in ipairs(captionControls) do syncCaption(control) end
         self._refreshing=false
         self:Layout()
+        local identity=record and record.Id..'/'..record.Name or ''
+        if identity~=self._motionIdentity then
+            self._motionIdentity=identity
+            for _,text in ipairs({ui.GameTitle,ui.GameContext,ui.Description}) do window:_revealText(text,hub,'game-enter') end
+        end
+        local scriptIdentity=spec and identity..'/'..spec.Id or ''
+        if scriptIdentity~=self._motionScript then self._motionScript=scriptIdentity;window:_revealText(ui.SelectedScript,hub,'script-enter') end
     end
     -- Subscriptions are disposable resources; no polling loop is needed.
     scope:Add(window:GetFlagState(filter.Id):Subscribe(function() launcher:ApplyFilter() end),'Disconnect')
@@ -8870,7 +9075,7 @@ do
         if not live(self) then return self end
         self.ValueLabel.Text=ok and tostring(text)..(self.Unit~='' and ' '..self.Unit or '') or '—'
         self.TitleLabel.Text=self.Title; self.SubtitleLabel.Text=self.Subtitle
-        if self.Fill then self.Fill.Size=UDim2.new((value-self.Min)/(self.Max-self.Min),0,1,0) end
+        if self.Fill then self._window:_motion(self.Fill,{Size=UDim2.new((value-self.Min)/(self.Max-self.Min),0,1,0)},.2,'hud-progress',self) end
         if self.HUD.Collapsed then self.HUD:_layout() end
         return self
     end
@@ -9320,6 +9525,10 @@ do
                 if row.Frame.Parent then
                     row.Badge.Text=symbols[record.Status]; row.Message.Text=record.Message~='' and record.Message or record.Status
                     window:_bind(row.Badge,{TextColor3=roles[record.Status]}); window:_bind(row.Title,{TextColor3=record.Status=='Running' and 'Accent' or 'Text'})
+                    if row._motionStatus~=record.Status then
+                        row._motionStatus=record.Status
+                        window:_revealText(row.Badge,self,'step-enter');window:_revealText(row.Message,self,'step-enter')
+                    end
                 end
             end
         end
@@ -9677,6 +9886,7 @@ do
                 Font=window.Font,TextSize=12,ClearTextOnFocus=false,BorderSizePixel=1},{BackgroundColor3='Inset',TextColor3='Text',PlaceholderColor3='Muted',BorderColor3='Border'})
             top=top+34
             connect(self,self.Search:GetPropertyChangedSignal('Text'),function() self:SetQuery(self.Search.Text) end)
+            window:_watchField(self.Search)
         end
         self.Viewport=ui(window,'ScrollingFrame',{Parent=self.Frame,Position=U2(0,top),Size=UDim2.new(1,0,1,-top),CanvasSize=U2(0,0),CanvasPosition=Vector2.new(0,0),
             BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=5,ScrollingDirection=Enum.ScrollingDirection.Y,ClipsDescendants=true},{ScrollBarImageColor3='Accent'})
@@ -9731,6 +9941,8 @@ do
             self.Empty.Visible=#self._filtered==0
             for i=1,pool do
                 local card=self._cards[i] or makeCard();local itemIndex=first*count+i;local record=self._filtered[itemIndex]
+                local entering=record and (not card.Record or card.Record.Id~=record.Id or not card.Frame.Visible)
+                if entering or not record then window:_cancelAnimations(card.Frame,false) end
                 card.Frame.Visible=record~=nil;card.Record=record
                 if record then
                     card.Frame.Position=U2(((i-1)%count)*(cardWidth+gap),(first+math.floor((i-1)/count))*step)
@@ -9739,11 +9951,17 @@ do
                     card.Title.Text=record.Title;card.Description.Text=record.Description;card.Badges.Text=table.concat(record.Badges,' · ')
                     card.Icon:Set(record.Image and false or record.Icon);card.Image.Visible=record.Image~=nil;card.Image.Image=record.Image or ''
                     card.Title.TextTransparency=record.Enabled and 0 or .4
+                    card.Description.TextTransparency=0;card.Badges.TextTransparency=0;card.Image.ImageTransparency=0
+                    window:_selectionMark(card.Frame,record.Id==self.Value,self)
+                    if entering and record.Enabled and not self.Disabled and options.Animated~=false then
+                        for _,text in ipairs({card.Title,card.Description,card.Badges}) do window:_revealText(text,self,'card-enter') end
+                        if card.Image.Visible then window:_revealText(card.Image,self,'card-enter') end
+                    end
                     for _,action in ipairs(card.Actions) do action.Active=not self.Disabled and record.Enabled end
                     window:SetTextTranslation(card.Frame,options.Translate~=false and record.Translate)
                 end
             end
-            for i=pool+1,#self._cards do self._cards[i].Frame.Visible=false;self._cards[i].Record=nil end
+            for i=pool+1,#self._cards do window:_cancelAnimations(self._cards[i].Frame,false);self._cards[i].Frame.Visible=false;self._cards[i].Record=nil end
             self._columnCount=count
         end
         function self:SetQuery(value)
@@ -10241,6 +10459,7 @@ do
         if resolved~='pt-BR' and resolved~='en-US' and not self._supportedLocales[resolved] then resolved=self.FallbackLocale end
         self.LocalePolicy,self.Locale,self.LocaleOrigin=policy,resolved,origin
         self._locale=translations[resolved] or translations['en-US'];self._missingTranslations={}
+        if self._refreshProfile then self._refreshProfile(false) end
         self:_refreshLocalizedText()
         for _,flow in pairs(self._flows or {}) do if not flow.Destroyed then flow:Refresh() end end
         if self._localePicker then

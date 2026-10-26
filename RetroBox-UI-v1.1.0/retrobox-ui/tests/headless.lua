@@ -333,6 +333,8 @@ dofile("tests/pixel-lifecycle.lua")(Mock,Library,test)
 dofile("tests/runtime.lua")(Mock,Library,test)
 dofile("tests/dashboard.lua")(Mock,Library,test)
 dofile("tests/animation.lua")(Mock,Library,test)
+dofile("tests/profile-identity.lua")(Mock,Library,test)
+dofile("tests/motion.lua")(Mock,Library,test)
 dofile("tests/interaction.lua")(Mock,Library,test)
 dofile("tests/integration.lua")(Mock,Library,test)
 dofile("tests/migrations.lua")(Mock,Library,test)
@@ -374,7 +376,7 @@ test("all shipped examples use the public API and clean up",function()
         return Mock.distributionHTTP(game,url)
     end
     local seen={}
-    for _,file in ipairs({"quickstart","showcase","custom-theme","storage-adapter","tooltips","workflows","icons","dashboard","runtime-integration","contrast-showcase","advanced-components","theme-studio","runtime-inspector","dashboard-builder","command-palette","help-accessibility","themes-gallery","script-hub","remote-loader","loader-stable","loader-preview","loader-pinned","hub-bootstrap","hub-catalog","smart-game-metadata","runtime-profiler","session-snapshots","integration-helper","cancellable-operation","mini-hud","compact-action-bar","context-preview","operation-stepper","native-hub-launcher","universal-scripts","localization-forms","reusable-components","card-grid","visual-flow"}) do
+    for _,file in ipairs({"quickstart","showcase","custom-theme","storage-adapter","tooltips","workflows","icons","dashboard","runtime-integration","contrast-showcase","advanced-components","theme-studio","runtime-inspector","dashboard-builder","command-palette","help-accessibility","themes-gallery","script-hub","remote-loader","loader-stable","loader-preview","loader-pinned","hub-bootstrap","hub-catalog","smart-game-metadata","runtime-profiler","session-snapshots","integration-helper","cancellable-operation","mini-hud","compact-action-bar","context-preview","operation-stepper","native-hub-launcher","universal-scripts","localization-forms","reusable-components","card-grid","visual-flow","motion-and-profile"}) do
         loadstring=function(source,name)
             local chunk,err=load(source,name)
             if not chunk then return nil,err end
@@ -383,7 +385,7 @@ test("all shipped examples use the public API and clean up",function()
         dofile("examples/"..file..".lua")
         Mock.pump()
     end
-    assert(requests>=117 and #loaded==39)
+    assert(requests>=120 and #loaded==40)
     for _,library in ipairs(loaded) do
         for window in pairs(library.Windows) do
             if window.Id=="themes-gallery" then

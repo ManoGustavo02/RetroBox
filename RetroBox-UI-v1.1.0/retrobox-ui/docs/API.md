@@ -43,13 +43,13 @@ O arquivo principal retorna Library ao ser carregado por `loadstring(game:HttpGe
 | `Scale` | `1` | De 0.75 a 1.5, com ajuste automático à tela |
 | `ToggleKey` | `RightShift` | Enum.KeyCode; Unknown desativa |
 | `Parent` | Detecção automática | gethui → CoreGui → PlayerGui; Parent explícito tem prioridade |
-| `Locale` | `"pt-BR"` | Idioma interno |
-| `ShowProfile` | `true` | Avatar, DisplayName e @Name do LocalPlayer |
+| `Locale` | `"auto"` | Idioma interno detectado; pt-BR/en-US ou preferência explícita |
+| `ShowProfile` | `true` | Identidade real: acompanha LocalPlayer/Name/DisplayName e recupera inicialização tardia; avatar independente |
 | `Settings` / `Launcher` / `Notifications` | `true` | Aba Configurações + engrenagem, reabrir e notificações |
 | `ErrorNotifications` | `true` | Avisos de erros em callbacks; respeita Notifications |
 | `ReducedMotion` / `Scanlines` | `false` | Reduzir animações e linhas CRT estáticas |
 | `Animations` | `{Enabled=true, Speed=1, Intensity="Normal"}` | Speed .25–4; Intensity Normal/Subtle/Off; preferência salva |
-| `SmoothDragging` / `DragResponsiveness` | `false` / `24` | Reposicionamento gerenciado, como Center; resposta 8–80; gesto manual direto |
+| `SmoothDragging` / `DragResponsiveness` | `true` / `24` | Arraste/reposicionamento suavizados, resposta 8–80; false usa movimento direto |
 | `Debug` / `CallbackExecutor` | `false` / nil | Traceback/estado nos diagnósticos e adaptador síncrono de callbacks |
 | `DestroyOnClose` | `false` | X oculta e permite reabrir; true destrói |
 | `LauncherText` / `LauncherPosition` | `"UI"` / `Vector2.new(.025,.1)` | Texto de 1–16 bytes e posição relativa à tela (0–1) |
@@ -163,6 +163,8 @@ row:AddButton({ Title = "Executar", Feedback = true, Callback = function() retur
 Uma Row aceita os mesmos constructors de Section. Os controles usam colunas de larguras iguais e a altura do mais alto. Abaixo de StackAt, ou com mais de três controles, a linha se empilha. Gap aceita 0–32; StackAt, 200–1000. `row:SetVisible` e `row:Destroy` controlam a linha. IDs, valores, busca, callbacks e perfis continuam registrados na janela. Rows não podem ser aninhadas.
 
 ## Opções comuns
+
+Desde 2.6, `Animated=false` desliga os efeitos de um controle e de seus filhos. A configuração global de animações e `ReducedMotion` continuam tendo prioridade. [Movimento e perfil](RELEASE-2.6.md).
 
 Todos os constructors de Section aceitam `Icon`, opcional junto ao título. `SetIcon` pode trocar ou remover o desenho sem alterar o valor nem executar o callback. A captura embutida ao lado de um toggle usa o ícone do toggle.
 

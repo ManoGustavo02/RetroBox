@@ -1,3 +1,17 @@
+# Preparação e publicação · RetroBox 2.6.0
+
+Identidade real do jogador com recuperação automática e movimento coordenado na library. [Relatório técnico](../RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.6.md) · [Validação](../RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md) · [Demonstração nativa](../RetroBox-UI-v1.1.0/retrobox-ui/examples/motion-and-profile.lua).
+
+A promoção para main ocorre após os checks da pull request. O [histórico de CI](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml) registra testes e versão revisada. As alterações ficam na própria library e se aplicam ao Hub padrão e aos outros consumidores da API 2. Nenhum catálogo/ID/URL do usuário foi modificado.
+
+Validação local: 513 testes de lógica, 40 exemplos, 37 testes do consumidor, 24 Node, dois Python e 18 manifests. O CI inclui a suíte de oito testes Chromium. A renderização Roblox não foi executada; estados intermediários são testados com doubles, com demonstração nativa disponível para conferência no executor.
+
+Artefato: 729528 bytes, SHA-256 `bbffc9a97395f33f70e9d2d92650e609c816045ad7bd6638368d5655d96bfb54`. API 2, bootstrap permanente, Designer e releases anteriores preservados. A distribuição contém `dist/releases/2.6.0`, manifests e aliases Stable/Preview.
+
+---
+
+## Histórico da publicação 2.5.2
+
 # Preparação e publicação · RetroBox 2.5.2
 
 Correção compartilhada do launcher e dos controles tradicionais, sem ajustes nos scripts consumidores. Veja o [relatório das causas e arquivos](../RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.5.2.md) e os [resultados locais](../RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).

@@ -294,7 +294,9 @@ function Hub:_installLauncher(options)
         if row.Fallback and row.Fallback.Frame then row.Fallback.Frame.Position=U2(20,20) end
         local width=math.max(100,row.Button.Size.X.Offset)
         rect(row.LauncherTitle,64,10,width-78,23); rect(row.LauncherMeta,64,36,width-78,18)
-        rect(row.LauncherMark,0,8,3,self.RowHeight-18); row.LauncherMark.Visible=selected
+        row.LauncherMark.Position=U2(0,8)
+        if not row._markReady then row.LauncherMark.Size=U2(3,0);row._markReady=true end
+        window:_selectionMotion(row.LauncherMark,selected,U2(3,self.RowHeight-18),U2(3,0),self)
         row.LauncherTitle.Text=(hub:IsFavorite(record.Id) and '★ ' or '')..displayName(record)
         row.LauncherMeta.Text=#record.Scripts..(#record.Scripts==1 and ' script' or ' scripts')..(hub:IsCurrentGame(record.Id) and tr(' · VOCÊ ESTÁ AQUI',' · YOU ARE HERE') or '')
         row.Button.BorderSizePixel=1
@@ -330,7 +332,9 @@ function Hub:_installLauncher(options)
         rect(row.LauncherCredit,44,34*scale,width-56,16*scale)
         rect(row.LauncherDescription,14,55*scale,width-28,32*scale)
         rect(row.LauncherState,width-140,34*scale,126,16*scale)
-        rect(row.LauncherMark,0,8,3,self.RowHeight-18); row.LauncherMark.Visible=selected
+        row.LauncherMark.Position=U2(0,8)
+        if not row._markReady then row.LauncherMark.Size=U2(3,0);row._markReady=true end
+        window:_selectionMotion(row.LauncherMark,selected,U2(3,self.RowHeight-18),U2(3,0),self)
         if row.ScriptIcon and row.ScriptIcon.Frame then row.ScriptIcon.Frame.Position=U2(14,12); row.ScriptIcon:SetRole(selected and 'Accent' or 'Text') end
         row.LauncherTitle.Text=spec.Title
         row.LauncherCredit.Text=(spec.Version~='' and 'v'..spec.Version or '')..(spec.Author~='' and ' · '..spec.Author or '')
@@ -554,7 +558,7 @@ function Hub:_installLauncher(options)
         bind(ui.Status,{TextColor3=status.Status=='Failed' and 'Danger' or busy and 'Accent' or 'Muted'})
         ui.Activity.Text=running>0 and (running..(running==1 and tr(' execução em andamento',' active run') or tr(' execuções em andamento',' active runs'))) or tr('Selecionar e pesquisar não executa scripts.','Selecting and searching do not run scripts.')
         local progress=(busy or status.Status=='Completed') and status.Progress or 0
-        ui.ProgressFill.Size=UDim2.new(bounded(progress or 0,1),0,1,0)
+        window:_motion(ui.ProgressFill,{Size=UDim2.new(bounded(progress or 0,1),0,1,0)},.16,'execution-progress',hub)
         bind(ui.ProgressFill,{BackgroundColor3=status.Status=='Failed' and 'Danger' or 'Accent'})
         hub.FavoriteButton.Button.Text=record and hub:IsFavorite(record.Id) and tr('Favorito','Favorited') or tr('Favoritar','Favorite')
         hub.TeleportButton.Button.Text=tr('Entrar','Join')
@@ -563,6 +567,13 @@ function Hub:_installLauncher(options)
         for _,control in ipairs(captionControls) do syncCaption(control) end
         self._refreshing=false
         self:Layout()
+        local identity=record and record.Id..'/'..record.Name or ''
+        if identity~=self._motionIdentity then
+            self._motionIdentity=identity
+            for _,text in ipairs({ui.GameTitle,ui.GameContext,ui.Description}) do window:_revealText(text,hub,'game-enter') end
+        end
+        local scriptIdentity=spec and identity..'/'..spec.Id or ''
+        if scriptIdentity~=self._motionScript then self._motionScript=scriptIdentity;window:_revealText(ui.SelectedScript,hub,'script-enter') end
     end
     -- Subscriptions are disposable resources; no polling loop is needed.
     scope:Add(window:GetFlagState(filter.Id):Subscribe(function() launcher:ApplyFilter() end),'Disconnect')

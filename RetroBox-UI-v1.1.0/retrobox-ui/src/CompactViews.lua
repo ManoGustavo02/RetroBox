@@ -217,7 +217,7 @@ do
         if not live(self) then return self end
         self.ValueLabel.Text=ok and tostring(text)..(self.Unit~='' and ' '..self.Unit or '') or '—'
         self.TitleLabel.Text=self.Title; self.SubtitleLabel.Text=self.Subtitle
-        if self.Fill then self.Fill.Size=UDim2.new((value-self.Min)/(self.Max-self.Min),0,1,0) end
+        if self.Fill then self._window:_motion(self.Fill,{Size=UDim2.new((value-self.Min)/(self.Max-self.Min),0,1,0)},.2,'hud-progress',self) end
         if self.HUD.Collapsed then self.HUD:_layout() end
         return self
     end

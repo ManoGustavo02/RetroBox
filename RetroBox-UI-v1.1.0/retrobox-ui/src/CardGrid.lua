@@ -40,6 +40,7 @@ do
                 Font=window.Font,TextSize=12,ClearTextOnFocus=false,BorderSizePixel=1},{BackgroundColor3='Inset',TextColor3='Text',PlaceholderColor3='Muted',BorderColor3='Border'})
             top=top+34
             connect(self,self.Search:GetPropertyChangedSignal('Text'),function() self:SetQuery(self.Search.Text) end)
+            window:_watchField(self.Search)
         end
         self.Viewport=ui(window,'ScrollingFrame',{Parent=self.Frame,Position=U2(0,top),Size=UDim2.new(1,0,1,-top),CanvasSize=U2(0,0),CanvasPosition=Vector2.new(0,0),
             BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=5,ScrollingDirection=Enum.ScrollingDirection.Y,ClipsDescendants=true},{ScrollBarImageColor3='Accent'})
@@ -94,6 +95,8 @@ do
             self.Empty.Visible=#self._filtered==0
             for i=1,pool do
                 local card=self._cards[i] or makeCard();local itemIndex=first*count+i;local record=self._filtered[itemIndex]
+                local entering=record and (not card.Record or card.Record.Id~=record.Id or not card.Frame.Visible)
+                if entering or not record then window:_cancelAnimations(card.Frame,false) end
                 card.Frame.Visible=record~=nil;card.Record=record
                 if record then
                     card.Frame.Position=U2(((i-1)%count)*(cardWidth+gap),(first+math.floor((i-1)/count))*step)
@@ -102,11 +105,17 @@ do
                     card.Title.Text=record.Title;card.Description.Text=record.Description;card.Badges.Text=table.concat(record.Badges,' · ')
                     card.Icon:Set(record.Image and false or record.Icon);card.Image.Visible=record.Image~=nil;card.Image.Image=record.Image or ''
                     card.Title.TextTransparency=record.Enabled and 0 or .4
+                    card.Description.TextTransparency=0;card.Badges.TextTransparency=0;card.Image.ImageTransparency=0
+                    window:_selectionMark(card.Frame,record.Id==self.Value,self)
+                    if entering and record.Enabled and not self.Disabled and options.Animated~=false then
+                        for _,text in ipairs({card.Title,card.Description,card.Badges}) do window:_revealText(text,self,'card-enter') end
+                        if card.Image.Visible then window:_revealText(card.Image,self,'card-enter') end
+                    end
                     for _,action in ipairs(card.Actions) do action.Active=not self.Disabled and record.Enabled end
                     window:SetTextTranslation(card.Frame,options.Translate~=false and record.Translate)
                 end
             end
-            for i=pool+1,#self._cards do self._cards[i].Frame.Visible=false;self._cards[i].Record=nil end
+            for i=pool+1,#self._cards do window:_cancelAnimations(self._cards[i].Frame,false);self._cards[i].Frame.Visible=false;self._cards[i].Record=nil end
             self._columnCount=count
         end
         function self:SetQuery(value)

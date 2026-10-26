@@ -190,6 +190,9 @@ function instanceMT.__index(self,key)
     if key=="AbsoluteCanvasSize" then return self.AbsoluteSize end
     if key=="AbsoluteContentSize" then return Vector2.new(100,100) end
     if key=="Text" then return "" end
+    if key=='Position' then return UDim2.new() end
+    if key=='TextTransparency' or key=='ImageTransparency' or key=='BackgroundTransparency' then return 0 end
+    if key=='Value' and self.ClassName=='NumberValue' then return 0 end
     if key=="ZIndex" then return 1 end
     if key=="Visible" then return true end
 end
@@ -346,6 +349,9 @@ Mock.Viewport=Vector2.new(1280,720)
 local player=Instance.new("Player")
 player.Name="TestUser"; player.DisplayName="Test Player"; player.LocaleId="pt-br"; player.UserId=42
 local playerGui=Instance.new("PlayerGui"); playerGui.Name="PlayerGui"; playerGui.Parent=player
+local players=Instance.new('Players')
+players.LocalPlayer=player; players.PlayerAdded=signal()
+players.GetUserThumbnailAsync=function() return 'rbxthumb://test-avatar',true end
 local services={
     ContentProvider={PreloadAsync=function(_,assets,callback)
         Mock.ThumbnailRequests=Mock.ThumbnailRequests or {}
@@ -360,7 +366,7 @@ local services={
         if Mock.TeleportError then error(Mock.TeleportError) end
         Mock.TeleportRequests=Mock.TeleportRequests or {}; Mock.TeleportRequests[#Mock.TeleportRequests+1]={PlaceId=placeId,Player=player}
     end},
-    Players={LocalPlayer=player,GetUserThumbnailAsync=function() return "rbxthumb://test-avatar",true end},
+    Players=players,
     UserInputService={InputBegan=signal(),InputChanged=signal(),InputEnded=signal(),WindowFocusReleased=signal(),
         GetMouseLocation=function() return Mock.MousePosition or Vector2.new(50,50) end,GetFocusedTextBox=function() return Mock.Focused end},
     RunService={Heartbeat=signal(),RenderStepped=signal(),IsClient=function() return true end},
@@ -368,6 +374,16 @@ local services={
         GenerateGUID=function() return "test-"..tostring(math.random(1,1000000)) end},
     TweenService={Create=function(_,object,info,properties)
         local tween={Completed=signal(),PlaybackState=Enum.PlaybackState.Begin}
+        local starts={};for key in pairs(properties) do starts[key]=object[key] end
+        function tween:Step(alpha)
+            if self.PlaybackState~=Enum.PlaybackState.Playing then return end
+            local function lerp(a,b)
+                if type(a)=='number' and type(b)=='number' then return a+(b-a)*alpha end
+                if type(a)=='table' and type(b)=='table' and type(a.X)=='table' and type(b.X)=='table' and a.Y and b.Y then return UDim2.new(a.X.Scale+(b.X.Scale-a.X.Scale)*alpha,a.X.Offset+(b.X.Offset-a.X.Offset)*alpha,a.Y.Scale+(b.Y.Scale-a.Y.Scale)*alpha,a.Y.Offset+(b.Y.Offset-a.Y.Offset)*alpha) end
+                return alpha==1 and b or a
+            end
+            for key,target in pairs(properties) do local value=lerp(starts[key],target);if value~=nil then object[key]=value end end
+        end
         function tween:Play()
             self.PlaybackState=Enum.PlaybackState.Playing
             local function complete()
