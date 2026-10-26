@@ -1,3 +1,20 @@
+# Validação · RetroBox UI 2.6.0
+
+- **513/513 testes de lógica**, com **40 exemplos**. Incluem **11 regressões de identidade** e **20 de movimento**, além da cobertura anterior.
+- Perfil: LocalPlayer tardio, propriedades incompletas, mudança de Name/DisplayName, PlayerAdded de terceiros, avatar offline/obsoleto, reabertura com evento perdido, nome real Player, Unicode/tradução e destruição durante HTTP.
+- Movimento: estados intermediários de contador e máscaras do ProgressChart, entrada/morfologia de gráficos, escala .75/1/1.5, limite de 96 tracks/512 pontos, controle Animated=false, preferências globais, arraste real do cabeçalho, modais, foco, reciclagem e destruição com ícones estritos.
+- **37/37 testes do Mano Gustavo Hub** com o export conhecido e seus endereços configurados; **24/24 Node**, **2/2 Python** e **18 manifests** de distribuição.
+- A demonstração `examples/motion-and-profile.lua` participa dos 40 exemplos executados pelo loader real e usa somente dados fictícios.
+- Runtime: **729528 bytes**, SHA-256 **bbffc9a97395f33f70e9d2d92650e609c816045ad7bd6638368d5655d96bfb54**. Stable/Preview gerados para 2.6.0; pins anteriores preservados.
+
+O CI da pull request executa também os oito testes Chromium do Designer antes de promover a árvore testada para main. Bootstrap e Designer são preservados por bytes; o build determinístico do editor foi verificado. Veja o [workflow](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml).
+
+Não há renderer/cliente Roblox disponível neste ambiente. Os testes de animação usam doubles de eventos/tween com interpolação numérica e dimensional; não constituem inspeção visual na engine. O HTML do Designer não foi usado como prova das animações nativas. [Causas, comportamento e exemplo executável](RELEASE-2.6.md).
+
+---
+
+## Histórico da validação 2.5.2
+
 # Validação · RetroBox UI 2.5.2
 
 - **482/482 testes de lógica nativa**, com os **39 exemplos** existentes. Incluem **16 regressões novas** de retângulos, cliques, seleção, ajuda, teclas, perfis e limpeza.

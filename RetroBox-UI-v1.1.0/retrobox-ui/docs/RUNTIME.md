@@ -21,7 +21,7 @@ card:SetTrend(100):SetSubtitle("Nova amostra"):AddPoint(2500)
 
 `Value` ou `Default` define o valor inicial (padrão 0). Valores aceitos: número finito, texto até 2048 bytes ou nil via `SetValue`. `Loading=true` exibe Carregando; `Unavailable=true` exibe Indisponível. `SetLoading(bool)` e `SetUnavailable(bool, text?)` alternam esses estados sem perder o valor. Há também `SetUnit(text)`, `SetSubtitle(text)`, `SetTrend(number, text?)`, `SetHistory(array)`, `GetHistory()` e `AddPoint(number, label?)`.
 
-Formatos: `Raw` (padrão), `Compact` (K/M/B/T), `Percent` (45 vira 45%), `Time` (segundos viram mm:ss ou hh:mm:ss) ou `function(value)` retornando texto. `Precision` aceita 0–6. `Library:FormatValue(value, format?, precision?)` usa a mesma formatação. `Animated=true` dá um breve feedback de cor ao mudar um valor numérico.
+Formatos: `Raw` (padrão), `Compact` (K/M/B/T), `Percent` (45 vira 45%), `Time` (segundos viram mm:ss ou hh:mm:ss) ou `function(value)` retornando texto. `Precision` aceita 0–6. `Library:FormatValue(value, format?, precision?)` usa a mesma formatação. A partir de 2.6, valores numéricos usam contagem visual e feedback de cor por padrão. O GetValue/State permanece imediato. `Animated=false` desativa os efeitos; formatadores personalizados não são executados por frame de contagem.
 
 Altura padrão 140, ou 174 com sparkline; descrição acrescenta 20. `Height` aceita 116–600. Sparkline guarda no máximo `MaxPoints` (2–256, padrão 40). Dados são copiados. O card não entra no save, mesmo com Persist=true.
 
@@ -49,7 +49,7 @@ chart:SetRange(0,100) -- ambos nil restauram escala automática
 | `ShowLegend` / `Legend` | Legenda opcional para a série única |
 | `Color` | Color3/HEX opcional; sem ela, segue Accent do tema |
 | `Format` / `Precision` | Formatos dos cards para rótulos dos eixos; padrão Compact / 1 |
-| `Thickness` / `Animated` | Linha 1–12 px, padrão 2; animação de geometria opcional, false por padrão |
+| `Thickness` / `Animated` | Linha 1–12 px, padrão 2; animação de geometria ativa por padrão desde 2.6, false desliga |
 | `Height` | 64–800; padrão Line/Bar 220, Progress 80, Sparkline 82 |
 
 `SetData(array, silent?)`/`SetValue`, `AddPoint(value, label?, time?)`, `Clear()`, `SetRange(min?, max?)` e `SetMaxPoints(number)` atualizam os gráficos. Label aceita até 128 bytes e Time deve ser finito. Time é metadado: o eixo X distribui pontos pela ordem, sem interpolar intervalos de tempo. Uma série vazia mostra Sem dados; uma série constante recebe uma margem de escala. Histórico retornado por GetValue é uma cópia.
@@ -163,11 +163,13 @@ ImportConfig/LoadConfig continuam usando Schema=1; os novos campos Appearance.An
 
 ## Animações, arraste e seções
 
+[Guia da versão 2.6](RELEASE-2.6.md) · [Exemplo nativo](../examples/motion-and-profile.lua)
+
 `Animations={Enabled=true,Speed=1,Intensity="Normal"}` na janela e `SetAnimations(options)` configuram o animador. Options mescla com os valores atuais, GetAnimations retorna cópia. Speed .25–4 acelera a duração; Intensity Normal/Subtle/Off. ReducedMotion=true ou animações desativadas aplicam o destino imediatamente. SetReducedMotion/SetAnimations encerram transições pendentes no destino.
 
-Transições cobrem janela, minimizar/restaurar, botões, checkbox, dropdown, slider, abas, ColorPicker, seções, notificações e diálogos; cards/gráficos animam quando Animated=true. Tweens por propriedade/canal são cancelados em conflitos e liberados ao concluir/destruir. Modais mantêm a barreira de interação até a saída; toasts encolhem para acomodar a lista. Hover não reconstrói pixel art.
+Transições cobrem janela, minimizar/restaurar, botões, checkbox, dropdown, slider, abas, ColorPicker, seções, notificações e diálogos. Desde 2.6 há foco de campos, seleções, entrada de cards/listas, contadores, gráficos, etapas e progresso do Hub/HUD. Cards/gráficos animam por padrão; Animated=false desliga os efeitos de um controle e seus filhos. Tweens por propriedade/canal são cancelados em conflitos e liberados ao concluir/destruir. Modais mantêm a barreira de interação até a saída; toasts encolhem para acomodar a lista. Hover não reconstrói pixel art.
 
-O gesto manual da barra acompanha diretamente a diferença de entrada e a posição local da âncora, sem relayout, salto por inset ou inércia ao soltar. SmoothDragging=false é o padrão; a opção true e DragResponsiveness=24 (8–80) continuam aceitas para reposicionamentos gerenciados como Center. ReducedMotion evita essa interpolação. Só o dedo que iniciou arrasta; foco perdido/soltar encerra a captura. Resize continua recalculando layout para adaptar controles.
+O gesto manual preserva a diferença de entrada e a âncora, sem relayout ou salto por inset. SmoothDragging=true é o padrão desde 2.6 e DragResponsiveness=24 (8–80) controla a aproximação. SmoothDragging=false, ReducedMotion ou animações desligadas usam movimento direto. Soltar aplica a posição final; preferências salvas são preservadas. Só o dedo que iniciou arrasta; foco perdido/soltar encerra a captura. Resize continua recalculando layout para adaptar controles.
 
 `tab:CreateSection({Title="Opções",Collapsible=true,Collapsed=false})` habilita cabeçalho expansível. `SetCollapsed(bool, instant?)` e `IsCollapsed()` controlam a seção. FocusControl expande o destino antes de navegar, sem executar uma função. Estado de recolhimento é transitório. Preferências de animação/arraste aparecem em Configurações → Aparência e acompanham saves/Reset.
 

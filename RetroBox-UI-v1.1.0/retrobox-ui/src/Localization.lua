@@ -184,6 +184,7 @@ do
         if resolved~='pt-BR' and resolved~='en-US' and not self._supportedLocales[resolved] then resolved=self.FallbackLocale end
         self.LocalePolicy,self.Locale,self.LocaleOrigin=policy,resolved,origin
         self._locale=translations[resolved] or translations['en-US'];self._missingTranslations={}
+        if self._refreshProfile then self._refreshProfile(false) end
         self:_refreshLocalizedText()
         for _,flow in pairs(self._flows or {}) do if not flow.Destroyed then flow:Refresh() end end
         if self._localePicker then

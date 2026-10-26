@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.6.0 · 2026-10-26
+
+- Perfil observa LocalPlayer e Name/DisplayName/UserId, recupera inicialização tardia e confere identidade ao reabrir; avatar e tradução não bloqueiam nomes.
+- Respostas de avatar antigas são invalidadas; observers e referências da interface são liberados na destruição.
+- Feedback de botões, foco, seleção, abas, listas/cards, menus, tooltips, estatísticas, gráficos, Hub/HUD e etapas usam o animador central.
+- Gráficos/StatCards animam por padrão; Animated=false desliga movimento por controle. Arraste suavizado passa a ser padrão, respeitando saves e acessibilidade.
+- Geometria dos gráficos usa unidades lógicas, máscaras de progresso acompanham a transição e há orçamento de 96 segmentos animados por gráfico.
+- Novas regressões de identidade/movimento e demonstração nativa com dados fictícios. API 2, bootstrap, Designer e releases anteriores preservados.
+
 ## 2.5.2 · 2026-10-21
 
 - Ordenação do Hub usa a camada de ContextMenu já existente, fora de ancestrais com recorte; respeita a janela e abre para cima quando necessário.

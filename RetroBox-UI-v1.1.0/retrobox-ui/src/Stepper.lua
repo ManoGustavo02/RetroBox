@@ -45,6 +45,10 @@ do
                 if row.Frame.Parent then
                     row.Badge.Text=symbols[record.Status]; row.Message.Text=record.Message~='' and record.Message or record.Status
                     window:_bind(row.Badge,{TextColor3=roles[record.Status]}); window:_bind(row.Title,{TextColor3=record.Status=='Running' and 'Accent' or 'Text'})
+                    if row._motionStatus~=record.Status then
+                        row._motionStatus=record.Status
+                        window:_revealText(row.Badge,self,'step-enter');window:_revealText(row.Message,self,'step-enter')
+                    end
                 end
             end
         end
