@@ -112,7 +112,7 @@ function Hub:_installLauncher(options)
     ui.Background=panel(ui.Root,'LauncherBackground','Background')
     ui.Body=scroll(ui.Root,'LibraryBody')
     ui.Navigation=panel(ui.Body,'GameCatalog','Inset',true)
-    ui.LibraryTitle=label(ui.Navigation,'LibraryTitle',tr('BIBLIOTECA','LIBRARY'),13,'Accent')
+    ui.LibraryTitle=label(ui.Navigation,'LibraryTitle',tr('BIBLIOTECA','LIBRARY'),13,'Text')
     ui.CatalogCount=label(ui.Navigation,'CatalogCount','',10,'Muted')
     ui.Filters=panel(ui.Navigation,'CatalogFilters',nil)
     ui.SortLabel=label(ui.Navigation,'SortLabel','ORGANIZAR',9,'Muted')
@@ -120,6 +120,7 @@ function Hub:_installLauncher(options)
     ui.Details=scroll(ui.Body,'GameDetails')
     ui.Hero=panel(ui.Details,'SelectedGame','Inset',true)
     ui.HeroStrip=panel(ui.Hero,'HeroStrip','Surface')
+    ui.HeroAccent=panel(ui.Hero,'HeroAccent','Accent')
     ui.HeroEyebrow=label(ui.HeroStrip,'HeroEyebrow',tr('JOGO SELECIONADO','SELECTED GAME'),10,'Accent')
     ui.Source=label(ui.HeroStrip,'MetadataOrigin',tr('CONSULTANDO ROBLOX','FETCHING ROBLOX DATA'),9,'Muted')
     ui.Source.TextXAlignment=Enum.TextXAlignment.Right
@@ -159,6 +160,7 @@ function Hub:_installLauncher(options)
         hub:RetryThumbnail(selected.Id); launcher:QueueRefresh()
         return accepted,reason
     end)
+    ui.Appearance=extraButton('appearance',tr('Tema','Theme'),'palette',function() hub:ShowThemeSettings() end)
     ui.More=extraButton('details',tr('Informações','Information'),'info',function()
         local record=hub:_selectedCatalog(); local spec=hub:GetSelectedScript()
         local status=record and spec and hub:GetScriptStatus(record.Id,spec.Id)
@@ -171,7 +173,7 @@ function Hub:_installLauncher(options)
         window:Dialog({Title=tr('Detalhes','Details'),Content=cut(table.concat(parts,'\n\n'),7800),Icon='info'})
     end)
     local moved={hub.GameSearch,hub.Sort,hub.GameList,hub.GameImage,hub.FavoriteButton,hub.TeleportButton,hub.ScriptSearch,hub.ScriptList,
-        hub.PlayButton,hub.CancelButton,ui.All,ui.Favorites,ui.Current,ui.Universal,ui.Expand,ui.Retry,ui.More}
+        hub.PlayButton,hub.CancelButton,ui.All,ui.Favorites,ui.Current,ui.Universal,ui.Expand,ui.Retry,ui.More,ui.Appearance}
     for _,control in ipairs(moved) do
         if control~=hub.Sort then
         function control:_layoutDescription()
@@ -183,7 +185,7 @@ function Hub:_installLauncher(options)
         control.Frame.AutomaticSize=Enum.AutomaticSize.None
         control.DescriptionLabel.Visible=false
     end
-    for _,control in ipairs({ui.All,ui.Favorites,ui.Current,ui.Universal,ui.Expand,ui.Retry,ui.More}) do
+    for _,control in ipairs({ui.All,ui.Favorites,ui.Current,ui.Universal,ui.Expand,ui.Retry,ui.More,ui.Appearance}) do
         control.TitleLabel.Visible=false; control.Frame.BackgroundTransparency=1
         control.Button.Position=U2(0,0); control.Button.Size=UDim2.fromScale(1,1)
         if control._titleIcon and control._titleIcon.Frame then
@@ -200,7 +202,7 @@ function Hub:_installLauncher(options)
     move(hub.PlayButton,ui.Dock); move(hub.CancelButton,ui.Dock)
     move(ui.All,ui.Filters); move(ui.Favorites,ui.Filters); move(ui.Current,ui.Filters)
     move(ui.Universal,ui.Navigation)
-    move(ui.Expand,ui.Details); move(ui.Retry,ui.GameActions); move(ui.More,ui.Dock)
+    move(ui.Expand,ui.Details); move(ui.Retry,ui.GameActions); move(ui.More,ui.Dock);move(ui.Appearance,ui.Navigation)
     tab.Container.Visible=false
     hub.GameSearch.Input.PlaceholderText=tr('Buscar jogos…','Search games…')
     hub.ScriptSearch.Input.PlaceholderText=tr('Buscar scripts deste jogo…','Search scripts in this game…')
@@ -209,12 +211,15 @@ function Hub:_installLauncher(options)
     hub.GameList.Viewport.BorderSizePixel=0; hub.ScriptList.Viewport.BorderSizePixel=0
     hub.GameImage.Image.ScaleType=Enum.ScaleType.Crop
     for _,control in ipairs({hub.GameDetails,hub.ImageStatus,hub.ScriptDetails,hub.ExecutionStatus}) do control:SetVisible(false) end
+    launcher.CoverSkeleton=window:CreateSkeleton({Parent=hub.GameImage.Frame,Lines=3,Cover=true})
+    launcher.MetadataSkeleton=window:CreateSkeleton({Parent=ui.Description,Lines=1,Cover=true})
+    scope:Add(launcher.CoverSkeleton,'Destroy');scope:Add(launcher.MetadataSkeleton,'Destroy')
     local focusTargets={[hub.GameDetails]=ui.GameTitle,[hub.ImageStatus]=hub.GameImage.Frame,[hub.ScriptDetails]=hub.ScriptList.Frame,[hub.ExecutionStatus]=ui.Dock}
     for control,target in pairs(focusTargets) do control._hubFocusTarget=target end
 
     -- Keep native TextButton semantics/focus, with a separate padded caption so
     -- pixel icons never overlap a centered caption at narrow/mobile widths.
-    local captionControls={ui.All,ui.Favorites,ui.Current,ui.Universal,ui.Expand,ui.Retry,ui.More,hub.FavoriteButton,hub.TeleportButton,hub.PlayButton,hub.CancelButton}
+    local captionControls={ui.All,ui.Favorites,ui.Current,ui.Universal,ui.Expand,ui.Retry,ui.More,ui.Appearance,hub.FavoriteButton,hub.TeleportButton,hub.PlayButton,hub.CancelButton}
     local function syncCaption(control)
         local caption=control._hubCaption
         if not alive() or not caption or not caption.Parent or not control.Frame.Parent then return end
@@ -408,7 +413,8 @@ function Hub:_installLauncher(options)
         local universalY=filtersY+filtersHeight+8
         local navHeader=filtersY+filtersHeight-6+(universalVisible and filterHeight+10 or 0)
         local rowHeight=math.ceil(60*ts)
-        local navHeight=columns and bodyHeight or navHeader+math.min(3,hub.GameListMaxRows,math.max(1,hub.GameList:GetViewStats().Filtered))*rowHeight+38
+        local footerHeight=touch and 56 or 44
+        local navHeight=columns and bodyHeight or navHeader+math.min(3,hub.GameListMaxRows,math.max(1,hub.GameList:GetViewStats().Filtered))*rowHeight+footerHeight+16
         navHeight=math.max(navHeader+64,navHeight); self.NavigationHeight=navHeight
         rect(ui.Navigation,0,0,navWidth,navHeight)
         rect(ui.LibraryTitle,14,12,headerStacked and navWidth-28 or navWidth-sortWidth-34,math.ceil(22*ts)); ui.CatalogCount.Visible=false; ui.SortLabel.Visible=false
@@ -421,9 +427,10 @@ function Hub:_installLauncher(options)
         for _,child in ipairs(hub.Sort.Frame:GetChildren()) do
             if child.ClassName=='Frame' and child.Size.Y.Offset==184 then child.Position=U2(0,inputHeight+4) end
         end
-        local gameListHeight=math.min(navHeight-navHeader-44,math.max(1,math.min(hub.GameListMaxRows,hub.GameList:GetViewStats().Filtered))*rowHeight+4)
+        local gameListHeight=math.min(navHeight-navHeader-footerHeight-16,math.max(1,math.min(hub.GameListMaxRows,hub.GameList:GetViewStats().Filtered))*rowHeight+4)
         fitList(hub.GameList,10,navHeader+14,navWidth-20,gameListHeight,rowHeight)
-        rect(ui.CatalogFooter,14,navHeight-24,navWidth-28,16)
+        rect(ui.CatalogFooter,14,navHeight-footerHeight+8,navWidth-114,footerHeight-14);ui.CatalogFooter.TextWrapped=true
+        rect(ui.Appearance.Frame,navWidth-90,navHeight-footerHeight+6,78,footerHeight-12)
         local rightX=columns and navWidth+gap or 0; local rightY=columns and 0 or navHeight+gap
         local rightWidth=columns and width-navWidth-gap or width
         rect(ui.Details,rightX,rightY,rightWidth,columns and bodyHeight or 100)
@@ -462,7 +469,7 @@ function Hub:_installLauncher(options)
         end
         if split then heroHeight=math.max(heroHeight,y+6); y=heroHeight+16 else y=y+10 end
         rect(ui.Hero,0,0,innerWidth,heroHeight)
-        rect(ui.HeroStrip,0,0,innerWidth,28)
+        rect(ui.HeroStrip,0,0,innerWidth,28);rect(ui.HeroAccent,0,0,innerWidth,2)
         rect(ui.HeroEyebrow,12,0,math.max(40,innerWidth-208),28)
         rect(ui.Source,innerWidth-184,0,172,28)
         rect(hub.GameImage.Frame,1,28,imageWidth,math.min(heroHeight-29,self.Expanded and 256 or heroHeight-29))
@@ -539,6 +546,9 @@ function Hub:_installLauncher(options)
         local manual=source._metadataManual and (source._metadataManual.Name or source._metadataManual.Description)
         local loading=metadata.State=='Queued' or metadata.State=='Loading'
         local errorState=metadata.State=='Unavailable'
+        self.MetadataSkeleton:SetVisible(loading and not (source._metadataManual and source._metadataManual.Description))
+        local thumb=record and not universal and hub._thumbs[hub:_thumbnailURI(source,true)]
+        self.CoverSkeleton:SetVisible(thumb and thumb.Status=='Loading' or false)
         ui.Source.Text=universal and tr('UNIVERSAL','UNIVERSAL') or manual and tr('PERSONALIZADO','CUSTOMIZED') or loading and tr('CONSULTANDO ROBLOX','FETCHING ROBLOX DATA') or errorState and tr('DADOS INDISPONÍVEIS','DATA UNAVAILABLE') or metadata.State=='Partial' and tr('DADOS PARCIAIS','PARTIAL DATA') or metadata.Source=='Provider' and tr('DADOS DO PROVEDOR','PROVIDER DATA') or record and tr('DADOS DO ROBLOX','ROBLOX DATA') or tr('SEM SELEÇÃO','NO SELECTION')
         bind(ui.Source,{TextColor3=errorState and 'Danger' or loading and 'Muted' or 'Accent'})
         ui.Description.Text=record and record.Description~='' and record.Description or loading and tr('Carregando a descrição do jogo…','Loading game description…')
@@ -573,6 +583,8 @@ function Hub:_installLauncher(options)
             for _,text in ipairs({ui.GameTitle,ui.GameContext,ui.Description}) do window:_revealText(text,hub,'game-enter') end
         end
         local scriptIdentity=spec and identity..'/'..spec.Id or ''
+        local image=hub.GameImage.Image
+        if image.Visible and image.Image~='' and image.Image~=self._motionImage then self._motionImage=image.Image;window:_revealText(image,hub,'cover-enter') end
         if scriptIdentity~=self._motionScript then self._motionScript=scriptIdentity;window:_revealText(ui.SelectedScript,hub,'script-enter') end
     end
     -- Subscriptions are disposable resources; no polling loop is needed.
@@ -598,7 +610,7 @@ function Hub:_installLauncher(options)
         launcher.Destroyed=true; launcher._queued=false
         window:_forgetSkin(ui.Root)
         for control in pairs(focusTargets) do control._hubFocusTarget=nil end
-        launcher._nodes={}; launcher.Filter=nil;launcher.Category=nil
+        launcher._nodes={}; launcher.Filter=nil;launcher.Category=nil;launcher.CoverSkeleton=nil;launcher.MetadataSkeleton=nil
         if hub.Launcher==launcher then hub.Launcher=nil end
         for _,control in ipairs(captionControls) do control._hubCaption=nil end
         for name in pairs(ui) do ui[name]=nil end

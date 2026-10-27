@@ -136,11 +136,11 @@ return function(Mock,Library,test)
         local h,l=fixture({Locale='en-US',Theme='Hacker'})
         assert(l.UI.LibraryTitle.Text=='LIBRARY' and l.UI.All.Button.Text=='All' and h.PlayButton.Button.Text=='Run script')
         assert(l.UI.GameContext.Text:find('script in this hub',1,true)); h.Window:SetTheme('Paper'); Mock.pump()
-        assert(l.UI.LibraryTitle.TextColor3==h.Window:_ink('Accent',l.UI.LibraryTitle)); finish(h)
+        assert(l.UI.LibraryTitle.TextColor3==h.Window:_ink('Text',l.UI.LibraryTitle) and h:GetThemeProfile().Theme=='Launcher'); finish(h)
     end)
     test('all palettes retain contrast for the visible game and script card labels',function()
         local h=fixture(); local gameList,scriptList=h.GameList,h.ScriptList
-        for _,theme in ipairs(Library:GetThemeNames()) do h.Window:SetTheme(theme); Mock.pump()
+        for _,theme in ipairs(Library:GetThemeNames()) do h.Window:SetTheme(theme);h:SetTheme(theme); Mock.pump()
             for _,view in ipairs({gameList,scriptList}) do for _,row in ipairs(view._pool) do if row.Button.Visible then
                 for _,name in ipairs({'LauncherTitle','LauncherMeta','LauncherCredit','LauncherDescription','LauncherState'}) do
                     local label=row[name]; if label then assert(Library:ContrastRatio(label.TextColor3,h.Window:_surfaceColor(label))>=4.49999,theme..' '..name) end

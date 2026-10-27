@@ -120,7 +120,9 @@ CFrame={new=function(a,b,c)
 end}
 UDim={new=function(scale,offset) return {Scale=scale,Offset=offset} end}
 UDim2={}
-function UDim2.new(xs,xo,ys,yo) return { X=UDim.new(xs or 0,xo or 0),Y=UDim.new(ys or 0,yo or 0) } end
+local dimensionMT={__type="UDim2"}
+dimensionMT.__eq=function(a,b) return a.X.Scale==b.X.Scale and a.X.Offset==b.X.Offset and a.Y.Scale==b.Y.Scale and a.Y.Offset==b.Y.Offset end
+function UDim2.new(xs,xo,ys,yo) return setmetatable({ X=UDim.new(xs or 0,xo or 0),Y=UDim.new(ys or 0,yo or 0) },dimensionMT) end
 function UDim2.fromOffset(x,y) return UDim2.new(0,x,0,y) end
 function UDim2.fromScale(x,y) return UDim2.new(x,0,y,0) end
 local colorMT={ __type="Color3" }; colorMT.__index=colorMT

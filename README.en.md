@@ -2,7 +2,7 @@
 
 # RetroBox UI
 
-<p align="center"><img src="assets/retrobox-badges.svg" alt="RetroBox 2.6.0 · API 2 · 12 temas · 76 pixel icons · MIT" width="795"></p>
+<p align="center"><img src="assets/retrobox-badges.svg" alt="RetroBox 2.7.0 · API 2 · 12 temas · 76 pixel icons · MIT" width="795"></p>
 
 [![Validation](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml)
 
@@ -12,9 +12,9 @@ A standalone Luau GUI library for scripts running through compatible Roblox clie
 
 [Português](README.md) · [Getting started](RetroBox-UI-v1.1.0/retrobox-ui/README.en.md) · [API](RetroBox-UI-v1.1.0/retrobox-ui/docs/API.md) · [Examples](RetroBox-UI-v1.1.0/retrobox-ui/examples) · [Security](SECURITY.md)
 
-> **RetroBox 2.6.0 · API 2** — distribution maintained by **ManoGustavo02**. Offline visual Designer with typed blocks and Luau export; automatic locales, forms, reusable components, CardGrid and catalog diagnostics. Logic tests do not replace native Roblox rendering checks. [Validation](RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
+> **RetroBox 2.7.0 · API 2** — distribution maintained by **ManoGustavo02**. Offline visual Designer with typed blocks and Luau export; automatic locales, forms, reusable components, CardGrid and catalog diagnostics. Logic tests do not replace native Roblox rendering checks. [Validation](RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
 
-**New in 2.6.0:** player identity recovers from late initialization; coordinated motion for controls, charts, cards and window dragging. [Report](RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.6.md) · [Native demo](RetroBox-UI-v1.1.0/retrobox-ui/examples/motion-and-profile.lua).
+**New in 2.7.0:** shared UI polish, loading screens and skeletons; optional text RGB and a separate theme profile for each Hub. [Report](RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.7.md) · [Native demo](RetroBox-UI-v1.1.0/retrobox-ui/examples/appearance-and-rgb.lua).
 
 ## Visual Designer
 
@@ -47,7 +47,7 @@ This notice explains the project's purpose. It does not grant access to third-pa
 Load the permanent API 2 bootstrap:
 
 ```lua
-local RetroBox = loadstring(game:HttpGet("https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua"))({Channel="stable", MinVersion="2.6.0"})
+local RetroBox = loadstring(game:HttpGet("https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua"))({Channel="stable", MinVersion="2.7.0"})
 ```
 
 Read [distribution](RetroBox-UI-v1.1.0/retrobox-ui/docs/AUTO-UPDATE.md) and the [component guide](RetroBox-UI-v1.1.0/retrobox-ui/README.en.md). For a catalog, start with the [native launcher example](RetroBox-UI-v1.1.0/retrobox-ui/examples/native-hub-launcher.lua).

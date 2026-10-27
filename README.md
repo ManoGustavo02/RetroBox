@@ -2,7 +2,7 @@
 
 # RetroBox UI
 
-<p align="center"><img src="assets/retrobox-badges.svg" alt="RetroBox 2.6.0 · API 2 · 12 temas · 76 pixel icons · MIT" width="795"></p>
+<p align="center"><img src="assets/retrobox-badges.svg" alt="RetroBox 2.7.0 · API 2 · 12 temas · 76 pixel icons · MIT" width="795"></p>
 
 [![Validação](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml)
 
@@ -12,9 +12,9 @@ Biblioteca de GUI em Luau para scripts executados no cliente Roblox por executor
 
 [English](README.en.md) · [Começar](RetroBox-UI-v1.1.0/retrobox-ui/README.md) · [API](RetroBox-UI-v1.1.0/retrobox-ui/docs/API.md) · [Script Hub](RetroBox-UI-v1.1.0/retrobox-ui/docs/SCRIPT-HUB.md) · [Exemplos](RetroBox-UI-v1.1.0/retrobox-ui/examples) · [Segurança](SECURITY.md)
 
-> **RetroBox 2.6.0 · API 2** — distribuição da conta **ManoGustavo02**. Designer offline com blocos e exportação Luau; idiomas automáticos, formulários, componentes reutilizáveis, CardGrid e diagnóstico do catálogo. Os testes de lógica não substituem a conferência visual no executor. [Histórico e validação](RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
+> **RetroBox 2.7.0 · API 2** — distribuição da conta **ManoGustavo02**. Designer offline com blocos e exportação Luau; idiomas automáticos, formulários, componentes reutilizáveis, CardGrid e diagnóstico do catálogo. Os testes de lógica não substituem a conferência visual no executor. [Histórico e validação](RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
 
-**Novo na 2.6.0:** perfil acompanha o jogador real mesmo com inicialização tardia; animações ampliadas em controles, gráficos, cards e arraste. [Relatório](RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.6.md) · [Demonstração nativa](RetroBox-UI-v1.1.0/retrobox-ui/examples/motion-and-profile.lua).
+**Novo na 2.7.0:** acabamento na library inteira, carregamento e placeholders; RGB opcional em textos e perfil de tema exclusivo para cada Hub. [Relatório](RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.7.md) · [Demonstração nativa](RetroBox-UI-v1.1.0/retrobox-ui/examples/appearance-and-rgb.lua).
 
 ## Designer visual: monte e conecte no navegador
 
@@ -52,7 +52,7 @@ Este endereço permanente resolve as próximas atualizações compatíveis da AP
 ```lua
 local RetroBox = loadstring(game:HttpGet(
     "https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua"
-))({Channel = "stable", MinVersion = "2.6.0"})
+))({Channel = "stable", MinVersion = "2.7.0"})
 ```
 
 Monte os componentes na sequência padrão da library:

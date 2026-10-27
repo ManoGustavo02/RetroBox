@@ -147,7 +147,7 @@ return function(Mock,Library,test)
     end)
     test('universal badges and controls support every theme, text scale, icons and small layouts',function()
         Mock.Viewport=Vector2.new(420,760);local h,l=fixture({Games={}})
-        for _,theme in ipairs(Library:GetThemeNames())do h.Window:SetTheme(theme);Mock.pump()
+        for _,theme in ipairs(Library:GetThemeNames())do h.Window:SetTheme(theme);h:SetTheme(theme);Mock.pump()
             local row=h.ScriptList._pool[1];assert(row.UniversalTag.Visible)
             assert(Library:ContrastRatio(row.UniversalTag.TextColor3,h.Window:_surfaceColor(row.UniversalTag))>=4.49999,theme)
         end

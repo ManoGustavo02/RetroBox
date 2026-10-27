@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.7.0 · 2026-10-26
+
+- Acabamento compartilhado: entrada coordenada de textos nas páginas, tela de preparação opcional, skeletons nativos e SetLoading para controles comuns.
+- RGB opt-in para títulos, descrições, valores e botões; contraste contextual, preferências de movimento e agendador compartilhado com ColorPickers.
+- Perfil independente de aparência por Hub, preset Launcher, botão Tema e editor de cores; snapshots persistentes e importação atômica.
+- Capas e metadados com placeholders, falha observável e fade de imagem; menus, tooltips e ícones acompanham a paleta local.
+- Orçamentos de efeitos, encerramento seguro ao ocultar/destruir/reexecutar e regressões adicionais. API 2, consumidores, bootstrap, Designer e releases anteriores preservados.
+
 ## 2.6.0 · 2026-10-26
 
 - Perfil observa LocalPlayer e Name/DisplayName/UserId, recupera inicialização tardia e confere identidade ao reabrir; avatar e tradução não bloqueiam nomes.
