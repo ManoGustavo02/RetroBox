@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.8.0 · 2026-10-27
+
+- Central de Ideias opt-in e independente do Script Hub, com categorias, formulário, prévia e PT/EN.
+- Jogo atual ou outro por ID/link; nome automático, identidade real e avatar HTTPS opcional.
+- Webhook Discord ou transporte customizado, confirmação, limites e duplicatas; nenhum envio na abertura.
+- Falhas e timeout mantêm o texto; respostas tardias não alteram GUI nova. Rascunho/credencial fora dos perfis.
+- Regressões de comunicação, idioma, ciclo de vida e layouts. API 2, bootstrap, Designer e releases anteriores preservados.
+
 ## 2.7.0 · 2026-10-26
 
 - Acabamento compartilhado: entrada coordenada de textos nas páginas, tela de preparação opcional, skeletons nativos e SetLoading para controles comuns.

@@ -1,3 +1,15 @@
+# Preparação e publicação · RetroBox 2.8.0
+
+Central de Ideias / Feedback Hub como módulo opt-in independente do catálogo de scripts. UI nativa com PT/EN, prévia, jogo/identidade e webhook ou transporte customizado. [Guia](../RetroBox-UI-v1.1.0/retrobox-ui/docs/FEEDBACK-HUB.md) · [Release](../RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.8.md) · [Validação](../RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
+
+Validação local: 573 testes de lógica, 42 exemplos, 34 regressões novas, 37 testes do consumidor, 24 Node, dois Python, 20 manifests e 11 exemplos do prompt, além do starter do usuário. A promoção usa a árvore exata da pull request validada no CI, com os oito testes Chromium.
+
+Runtime: 807181 bytes; SHA-256 `fb6d47c4ba3f43bd307fb5243beed35da0ac24349cae901c672683cbc1414a9b`. API 2, bootstrap, Designer e releases anteriores preservados. Sem credenciais reais ou POST de teste a um Discord real; o renderer Roblox não está disponível neste ambiente.
+
+---
+
+## Histórico da publicação 2.7.0
+
 # Preparação e publicação · RetroBox 2.7.0
 
 Acabamento compartilhado na library e no Hub, RGB opcional em textos, carregamento e perfis locais de aparência. [Relatório técnico](../RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.7.md) · [Validação](../RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md) · [Demonstração](../RetroBox-UI-v1.1.0/retrobox-ui/examples/appearance-and-rgb.lua).

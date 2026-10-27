@@ -469,3 +469,8 @@ APIs: GetUniversalScripts, GetUniversalScript, AddUniversalScript, UpdateUnivers
 ## Acabamento e RGB · 2.7
 
 [RELEASE-2.7.md](RELEASE-2.7.md) documenta ShowLoading, CreateSkeleton, AddSkeleton e SetLoading nos componentes comuns. RGB é opt-in via SetRGB/SetTitleRGB/SetSubtitleRGB ou RGB/TitleRGB/DescriptionRGB nas opções de criação. A aparência exclusiva do Hub usa HubTheme e GetThemeProfile/SetThemeProfile, sem alterar o tema geral da janela; o botão Tema abre o editor local. [Exemplo executável](../examples/appearance-and-rgb.lua).
+
+
+## Central de Ideias / Feedback Hub · 2.8
+
+`Library:CreateFeedbackHub(options)` cria a tela independente; `window:CreateFeedbackHub(options)` cria a guia nativa. Use GetDraft/SetDraft, GetPreview/BuildPayload, Validate, Submit, GetStatus, CancelSubmission e Destroy. HTTP é disparado somente por Submit/clique. [Opções, privacidade, transporte e estados](FEEDBACK-HUB.md).
