@@ -1,3 +1,21 @@
+# Validação · RetroBox UI 2.7.0
+
+- **539/539 testes de lógica**, com **41 exemplos** executados pelo bootstrap real. Incluem **26 regressões novas** de acabamento, RGB, carregamento e perfis de aparência.
+- RGB: agendador compartilhado com ColorPickers, contraste, Unicode/RichText preservados, opções inválidas, limite de efeitos, opções substituídas sem duplicação, tema atual restaurado, visibilidade, preferências e descarte externo/deferido.
+- Loading/skeletons: progresso real e desconhecido, conclusão repetida, atualização tardia, substituição, timeout, controles sem perda de valor, geometria em tamanho mínimo/escala, limites e falhas antes da alocação.
+- Hub: paletas independentes entre janela e Hubs, hover/campos/pixels/overlays locais, importação atômica e anterior à criação, snapshot após exclusão do tema base, editor com repetição/descarte, metadados e catálogo universal. A matriz de contraste agora muda explicitamente o tema do Hub.
+- **37/37 testes do Mano Gustavo Hub**, com seus sete jogos/IDs e URLs Pastefy. O consumidor permanece byte a byte; o harness só atualizou a expectativa do título de seção para o novo papel Text.
+- **24/24 Node**, **2/2 Python**, **19 manifests** e todos os links/assets verificados. O CI da pull request inclui também os oito testes Chromium do Designer antes da promoção.
+- Runtime: **768050 bytes**, SHA-256 **5d64663839ffce66334ec4f1021aca49803bbda76d2caa88cb343ac8c8b9e0a8**. Stable/Preview 2.7.0; bootstrap, Designer e todas as releases anteriores preservados por bytes.
+
+O mock de UDim2 agora expõe o tipo e a igualdade de valor correspondentes à engine; não representa renderização. Fixtures de movimento isolado dispensam a nova apresentação inicial para medir somente o recurso sob teste. A demonstração [appearance-and-rgb.lua](../examples/appearance-and-rgb.lua) mostra componentes comuns e Hub usando as APIs públicas.
+
+Não há cliente/renderer Roblox neste ambiente. Os resultados acima validam lógica, geometria, estados de tween simulados e limpeza; a aparência na engine deve ser conferida pela demonstração nativa. [Mudanças, limites e APIs](RELEASE-2.7.md) · [CI](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml).
+
+---
+
+## Histórico da validação 2.6.0
+
 # Validação · RetroBox UI 2.6.0
 
 - **513/513 testes de lógica**, com **40 exemplos**. Incluem **11 regressões de identidade** e **20 de movimento**, além da cobertura anterior.

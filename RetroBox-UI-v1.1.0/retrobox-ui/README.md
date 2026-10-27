@@ -1,6 +1,6 @@
 # RetroBox UI
 
-**2.6.0:** perfil real com recuperação automática e animações ampliadas. [Detalhes](docs/RELEASE-2.6.md) · [Demonstração](examples/motion-and-profile.lua).
+**2.7.0:** acabamento geral, carregamento, RGB opcional e tema independente do Hub. [Detalhes](docs/RELEASE-2.7.md) · [Demonstração](examples/appearance-and-rgb.lua).
 
 Library de GUI em Luau para desenvolvedores de scripts executados no cliente Roblox por executores. Um arquivo independente, carregado pelo link **raw do GitHub**, com visual retrô e API para conectar componentes às funções do seu script.
 

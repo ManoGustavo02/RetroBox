@@ -1,3 +1,15 @@
+# Preparação e publicação · RetroBox 2.7.0
+
+Acabamento compartilhado na library e no Hub, RGB opcional em textos, carregamento e perfis locais de aparência. [Relatório técnico](../RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.7.md) · [Validação](../RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md) · [Demonstração](../RetroBox-UI-v1.1.0/retrobox-ui/examples/appearance-and-rgb.lua).
+
+539 testes de lógica, 41 exemplos, 26 novas regressões, 37 testes do consumidor, 24 Node, dois Python e 19 manifests conferidos localmente. A promoção usa a árvore validada na pull request, incluindo os oito testes Chromium no CI. O renderer Roblox não está disponível neste ambiente.
+
+Runtime: 768050 bytes; SHA-256 `5d64663839ffce66334ec4f1021aca49803bbda76d2caa88cb343ac8c8b9e0a8`. API 2, endereço permanente do bootstrap, Designer e releases históricas preservados. O consumidor mantém SHA-256 `e56b77521c5f159923fcdd0f66eb235b8900299c7fcca4a05c3136f72913655b`, seus jogos/IDs e endereços.
+
+---
+
+## Histórico da publicação 2.6.0
+
 # Preparação e publicação · RetroBox 2.6.0
 
 Identidade real do jogador com recuperação automática e movimento coordenado na library. [Relatório técnico](../RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.6.md) · [Validação](../RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md) · [Demonstração nativa](../RetroBox-UI-v1.1.0/retrobox-ui/examples/motion-and-profile.lua).

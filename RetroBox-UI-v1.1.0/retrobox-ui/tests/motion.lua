@@ -7,7 +7,7 @@ return function(Mock,Library,test)
     local function fixture(options)
         sequence=sequence+1;Mock.AnimatedTweens=true;Mock.StrictIconLifecycle=true;Mock.ParentLockErrors=0;Mock.DestroyedIconWrites=0;Mock.Warnings={}
         cache=Library._thumbnails;Library._thumbnails={[Mock.Services.Players.LocalPlayer.UserId]='mock://avatar'}
-        local passed={Id='motion-'..sequence,Settings=false,FileStorage=false,Theme='Hacker'}
+        local passed={Id='motion-'..sequence,Settings=false,FileStorage=false,Theme='Hacker',LoadingScreen=false}
         for key,value in pairs(options or {}) do passed[key]=value end
         local w=Library:CreateWindow(passed);local s=w:CreateTab('Motion'):CreateSection({Title='Controls',Collapsible=true})
         tick();return w,s

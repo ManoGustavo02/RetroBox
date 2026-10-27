@@ -464,3 +464,8 @@ CreateScriptHub aceita UniversalScripts ao lado de Games. A definição mínima 
 APIs: GetUniversalScripts, GetUniversalScript, AddUniversalScript, UpdateUniversalScript, RemoveUniversalScript, IsUniversalScriptAvailable, GetUniversalScriptStatus, RunUniversalScript, CancelUniversalScript, SelectUniversalScripts, SelectUniversalScript e GetSelectedCategory. GetSelectedScript/SelectScript acompanham a categoria atual. URLs em catálogos JSON continuam proibidas.
 
 [Estrutura, argumentos, limites e exemplos](UNIVERSAL-SCRIPTS.md) · [Release 2.4](RELEASE-2.4.md).
+
+
+## Acabamento e RGB · 2.7
+
+[RELEASE-2.7.md](RELEASE-2.7.md) documenta ShowLoading, CreateSkeleton, AddSkeleton e SetLoading nos componentes comuns. RGB é opt-in via SetRGB/SetTitleRGB/SetSubtitleRGB ou RGB/TitleRGB/DescriptionRGB nas opções de criação. A aparência exclusiva do Hub usa HubTheme e GetThemeProfile/SetThemeProfile, sem alterar o tema geral da janela; o botão Tema abre o editor local. [Exemplo executável](../examples/appearance-and-rgb.lua).

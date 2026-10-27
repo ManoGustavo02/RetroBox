@@ -1,4 +1,4 @@
--- RetroBox UI 2.6.0 | Mano Gustavo | MIT License
+-- RetroBox UI 2.7.0 | Mano Gustavo | MIT License
 -- Standalone GUI library for Roblox client executors.
 -- Load the raw GitHub source with loadstring(game:HttpGet(URL))().
 
@@ -9,7 +9,7 @@ local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
 local TextService = game:GetService("TextService")
 
-local Library = { Version = "2.6.0", Themes = {}, Windows = {} }
+local Library = { Version = "2.7.0", Themes = {}, Windows = {} }
 local Window = {}; Window.__index = Window
 local Tab = {}; Tab.__index = Tab
 local Section = {}; Section.__index = Section
@@ -428,7 +428,7 @@ do
     end
     function Window:_surfaceColor(object)
         local override=self._inkSurfaces and self._inkSurfaces[object]
-        if override then return type(override)=="string" and self.Palette[override] or override end
+        if override then return type(override)=="string" and self:_paletteFor(object)[override] or override end
         local current=object
         while current do
             if current:IsA("GuiObject") and (current.BackgroundTransparency or 0)<1 then return current.BackgroundColor3 or self.Palette.Background end
@@ -437,7 +437,7 @@ do
         return self.Palette.Background
     end
     function Window:_ink(role,object,minimum,background)
-        local color=type(role)=="string" and assert(self.Palette[role],"Unknown color role: "..role) or role
+        local color=type(role)=="string" and assert(self:_paletteFor(object)[role],"Unknown color role: "..role) or role
         return Library:ReadableColor(color,background or self:_surfaceColor(object),minimum or 4.5)
     end
     function Window:_refreshInk(object)
@@ -462,16 +462,15 @@ end
 function Window:_text(key) return self._locale[key] or key end
 function Window:_bind(object, roles)
     local registered=self._skin[object] or {}; self._skin[object]=registered
-    for property,role in pairs(roles) do registered[property]=role; object[property]=self.Palette[role] end
+    for property,role in pairs(roles) do registered[property]=role; object[property]=self:_paletteFor(object)[role] end
     self:_refreshInk(object)
 end
 local function ui(window, class, properties, roles)
     local object = Instance.new(class)
     local parent = properties.Parent
     for property, value in pairs(properties) do if property ~= "Parent" then object[property] = value end end
-    if roles then window:_bind(object, roles) end
     object.Parent = parent
-    if roles then window:_refreshInk(object) end
+    if roles then window:_bind(object, roles) end
     if object:IsA("TextLabel") or object:IsA("TextButton") or object:IsA("TextBox") then
         window._textSizes[object]=object.TextSize or 14; object.TextSize=(object.TextSize or 14)*(window.TextScale or 1)
     end
@@ -513,7 +512,7 @@ local function button(window, owner, parent, text, props, pressed)
             if window.Destroyed or owner.Destroyed or owner.Disabled then return end
             if owner.Sections and window.ActiveTab==owner then role="Accent" end
             if role=="Surface" then role=(window._skin[object] or {}).BackgroundColor3 or role end
-            local background=window.Palette[role]
+            local background=window:_paletteFor(object)[role]
             local foreground=(window._skin[object] or {}).TextColor3 or "Text"
             if owner.Sections and window.ActiveTab==owner then foreground="AccentText" end
             window:_animate(object,{BackgroundColor3=background,TextColor3=window:_ink(foreground,object,4.5,background)},.08,"button",owner)
@@ -1663,7 +1662,7 @@ do
         if self.Destroyed or self._closing or not object.Parent then return end
         channel=channel or "style"; local tracks=self._tweens[object]
         local prior=tracks and tracks[channel]
-        if prior and same(prior.Goals,goals) then return prior.Tween end
+        if prior and same(prior.Goals,goals) and not complete then return prior.Tween end
         local conflicts={}
         for name,record in pairs(tracks or {}) do
             local overlap=name==channel
@@ -1741,7 +1740,7 @@ do
             if self.Destroyed or not object.Parent then return end
             local roles=self._skin[object];if not roles then return end
             roles.BorderColor3=active and 'Accent' or 'Border'
-            self:_motion(object,{BorderColor3=self.Palette[active and 'Accent' or 'Border']},.12,'field-focus',self)
+            self:_motion(object,{BorderColor3=self:_paletteFor(object)[active and 'Accent' or 'Border']},.12,'field-focus',self)
         end
         scope:Add(object.Focused:Connect(function() focus(true) end),'Disconnect')
         scope:Add(object.FocusLost:Connect(function() focus(false) end),'Disconnect')
@@ -2254,6 +2253,12 @@ local function base(section, kind, options, height)
     assert(not section.Destroyed and not section._window.Destroyed, "Section has been destroyed")
     assert(options.Animated==nil or type(options.Animated)=='boolean','Animated must be a boolean')
     local window = section._window
+    if Library._validateTextRGB then
+        for _,name in ipairs({"RGB","TitleRGB","DescriptionRGB"}) do if options[name]~=nil then Library._validateTextRGB(options[name]) end end
+        local title=options.TitleRGB;if title==nil then title=options.RGB end
+        local needed=(title and 1 or 0)+(options.DescriptionRGB and 1 or 0)
+        if needed>0 then local count=0;for _ in pairs(window._textRGB or {}) do count=count+1 end;assert(count+needed<=128,"A window supports at most 128 RGB text effects") end
+    end
     resolveIcon(options.Icon)
     assert(options.Floating==nil or type(options.Floating)=="boolean" or type(options.Floating)=="table","Floating must be a boolean or options table")
     assert(not options.Floating or kind=="Toggle" or kind=="Button" or kind=="Keybind","Floating supports Toggle, Button or Keybind")
@@ -2309,6 +2314,9 @@ local function init(control, options, default)
     if options.Floating then control:AddFloatingButton(type(options.Floating)=="table" and options.Floating or {}) end
     if options.Pinnable then control:SetPinnable(options.Pinnable) end
     if control._window._restoreHUDPins then control._window:_restoreHUDPins(control) end
+    local titleRGB=options.TitleRGB;if titleRGB==nil then titleRGB=options.RGB end
+    if titleRGB then control:SetRGB(titleRGB,"Title") end
+    if options.DescriptionRGB then control:SetRGB(options.DescriptionRGB,"Description") end
     return control
 end
 
@@ -3235,15 +3243,18 @@ function Window:_updateRGB()
     if self.Destroyed then return end
     local active = false
     for picker in pairs(self._rainbows) do if not picker.Destroyed and not picker.Disabled then active=true; break end end
+    active=active or self._hasAppearanceWork and self:_hasAppearanceWork()
     if active and not self._rgbConnection then
         self._rgbElapsed=0
         self._rgbConnection=RunService.Heartbeat:Connect(function(delta)
             self._rgbElapsed=self._rgbElapsed+math.min(delta,.25)
             if self._rgbElapsed<1/30 then return end
             local elapsed=self._rgbElapsed; self._rgbElapsed=0
+            if self._stepAppearance then self:_stepAppearance(elapsed) end
             for picker in pairs(self._rainbows) do
                 if not picker.Destroyed and not picker.Disabled then picker:_animate(elapsed) end
             end
+            self:_updateRGB()
         end)
     elseif not active and self._rgbConnection then
         self._rgbConnection:Disconnect(); self._rgbConnection=nil
@@ -3275,7 +3286,7 @@ function Window:_applyTheme()
     end
     for object,roles in pairs(self._skin) do
         if object.Parent then
-            for property,role in pairs(roles) do if property~="TextColor3" and property~="PlaceholderColor3" then object[property]=self.Palette[role] end end
+            for property,role in pairs(roles) do if property~="TextColor3" and property~="PlaceholderColor3" then object[property]=self:_paletteFor(object)[role] end end
         else self:_forgetSkin(object) end
     end
     for object in pairs(self._skin) do if object.Parent then self:_refreshInk(object) end end
@@ -3584,6 +3595,7 @@ function Tab:Select()
     if entering then
         if window:_motionAllowed(self.Container) then self.Container.Position=U2(0,window.Animations.Intensity=='Subtle' and 2 or 6) end
         window:_motion(self.Container,{Position=U2(0,0)},.18,'tab',self)
+        if window._revealPage then window:_revealPage(self) end
     end
     window.Status.Text=self.Title.."  |  v"..Library.Version
     if self._settingsConfig then window:_syncSettings(); window:_refreshProfiles() end
@@ -5422,6 +5434,9 @@ do
         return false
     end
     function Window:_interactionAllowed(object)
+        local ancestor=object
+        while ancestor do if ancestor:GetAttribute('RetroBoxLoading') then return false end;ancestor=ancestor.Parent end
+        if self._loading and self._loading.Blocking and not self._loading.Destroyed then return within(object,self._loading.Frame) end
         return not self._overlay or within(object,self._overlay.Frame)
     end
     function Window:_closeOverlay(reason)
@@ -7134,6 +7149,7 @@ do
         local status=cached and cached.Status or "Unavailable"
         self.ImageStatus:SetText((not rec or loaded) and "" or self.Window:_t17(status=="Loading" and "Carregando imagem…" or "Imagem indisponível",status=="Loading" and "Loading image…" or "Image unavailable"))
         self.ImageStatus:SetVisible(rec~=nil and not loaded)
+        if self.Launcher then self.Launcher:QueueRefresh() end
     end
     function Hub:_pumpThumbnails()
         while not self.Destroyed and self._thumbActive<4 and #self._thumbQueue>0 do
@@ -8026,6 +8042,192 @@ end
 -- END RETRO240 UNIVERSAL SCRIPTS
 
 -- BEGIN RETRO230 HUB LAUNCHER
+-- Hub-specific visual profiles. Catalog IDs, callbacks and data are untouched.
+Library.HubThemes=Library.HubThemes or {
+    Launcher=palette({
+        {7,12,10},{17,26,21},{11,18,15},{228,245,233},{155,184,165},{41,65,51},
+        {38,66,49},{2,5,3},{68,231,132},{5,25,13},{116,237,166},{255,151,159},
+    }),
+}
+local function hubProfile(window,value)
+    if value==nil then value={Theme='Launcher'} end
+    if type(value)=='string' then value={Theme=value} end
+    assert(type(value)=='table','HubTheme must be a theme name or profile table')
+    for field in pairs(value) do assert(field=='Theme' or field=='Accent' or field=='Colors','Unknown Hub theme field: '..tostring(field)) end
+    local name=value.Theme or 'Launcher'
+    assert(type(name)=='string' and #name>=1 and #name<=64 and not name:find('%c'),'Invalid Hub theme name')
+    local base=Library.HubThemes[name] or window._themeOverrides[name] or Library.Themes[name]
+    local result={Theme=name,Colors={}}
+    assert(value.Colors==nil or type(value.Colors)=='table','Hub theme Colors must be a role map')
+    for role,color in pairs(base or {}) do result.Colors[role]=hex(color) end
+    for role,color in pairs(value.Colors or {}) do assert(table.find(roleNames,role),'Unknown Hub color role: '..tostring(role));result.Colors[role]=hex(parseColor(color)) end
+    for _,role in ipairs(roleNames) do assert(result.Colors[role],'Unknown Hub theme or incomplete palette: '..name) end
+    if value.Accent~=nil then result.Accent=hex(parseColor(value.Accent)) end
+    return result
+end
+function Hub:GetThemeProfile() return copy(self.ThemeProfile) end
+function Hub:GetThemeNames()
+    local result=self.Window:GetThemeNames()
+    for name in pairs(Library.HubThemes) do if not table.find(result,name) then result[#result+1]=name end end
+    for _,profile in ipairs({self.ThemeProfile,self._initialThemeProfile}) do if profile and not table.find(result,profile.Theme) then result[#result+1]=profile.Theme end end
+    table.sort(result);return result
+end
+function Hub:SetThemeProfile(value)
+    assert(not self.Destroyed,'Hub has been destroyed')
+    local profile=hubProfile(self.Window,value);local window=self.Window
+    local colors=copy(Library.HubThemes[profile.Theme] or window._themeOverrides[profile.Theme] or Library.Themes[profile.Theme] or {})
+    for role,color in pairs(profile.Colors) do colors[role]=parseColor(color) end
+    if profile.Accent then colors.Accent=parseColor(profile.Accent);colors.AccentText=Library:ReadableColor(colors.AccentText,colors.Accent,4.5) end
+    window._hubThemeProfiles=window._hubThemeProfiles or {}
+    local count=0;for _ in pairs(window._hubThemeProfiles) do count=count+1 end
+    assert(window._hubThemeProfiles[self.Id] or count<128,'Hub profile limit is 128')
+    local previous=self.HubPalette
+    self.ThemeProfile=profile;self.HubPalette=colors
+    window._hubThemeProfiles[self.Id]=copy(profile)
+    window._paletteScopes=window._paletteScopes or {}
+    for root,palette in pairs(window._paletteScopes) do
+        if previous and palette==previous then window._paletteScopes[root]=colors;window:_cancelAnimations(root,false);window:_reskin(root) end
+    end
+    window._paletteScopes[self.Tab.Frame]=colors
+    if self._themeTab and not self._themeTab.Destroyed then window._paletteScopes[self._themeTab.Frame]=colors end
+    window:_cancelAnimations(self.Tab.Frame,false);window:_reskin(self.Tab.Frame)
+    if self.Launcher then self.Launcher:Refresh() end
+    if self._themeTab then
+        window:_reskin(self._themeTab.Frame)
+        if self._themeSelect then self._themeSelect:SetValue(profile.Theme,true) end
+        for role,picker in pairs(self._themePickers or {}) do if not picker.Destroyed then picker:SetColor(colors[role],true) end end
+    end
+    window:_scheduleSave();return self
+end
+function Hub:SetTheme(name)
+    if not (Library.HubThemes[name] or Library.Themes[name] or self.Window._themeOverrides[name]) then
+        if self.ThemeProfile.Theme==name then return self:SetThemeProfile(self.ThemeProfile) end
+        if self._initialThemeProfile.Theme==name then return self:SetThemeProfile(self._initialThemeProfile) end
+    end
+    return self:SetThemeProfile({Theme=name})
+end
+function Hub:SetAccent(color)
+    local profile=self:GetThemeProfile();profile.Accent=color and hex(parseColor(color)) or nil
+    return self:SetThemeProfile(profile)
+end
+function Hub:ResetThemeProfile() return self:SetThemeProfile(self._initialThemeProfile) end
+function Hub:_setupAppearance(options)
+    local window=self.Window
+    local initial=hubProfile(window,options.HubTheme)
+    self._initialThemeProfile=copy(initial)
+    self:SetThemeProfile(window._hubThemeProfiles and window._hubThemeProfiles[self.Id] or initial)
+    self.Scope:Add(function()
+        for root,colors in pairs(window._paletteScopes) do if colors==self.HubPalette then window._paletteScopes[root]=nil end end
+        if self._themeTab then
+            window._paletteScopes[self._themeTab.Frame]=nil
+            local tab=self._themeTab;self._themeTab=nil
+            if not tab.Destroyed then tab:Destroy() end
+            self._themePickers=nil
+        end
+    end)
+end
+function Hub:ShowThemeSettings()
+    assert(not self.Destroyed,'Hub has been destroyed')
+    if self._themeTab and not self._themeTab.Destroyed then self._themeTab:Select();return self._themeTab end
+    local hub=self;local window=self.Window
+    local tab=window:CreateTab({Title=window:_t17('Tema do Hub','Hub appearance'),Icon='palette',Columns=2})
+    self._themeTab=tab;window._paletteScopes[tab.Frame]=self.HubPalette
+    local scope=self.Scope:Child()
+    scope:Add(tab.Frame.Destroying:Connect(function()
+        window._paletteScopes[tab.Frame]=nil
+        if hub._themeTab==tab then hub._themeTab=nil;hub._themePickers=nil;hub._themeSelect=nil end
+        scope:Destroy()
+    end),'Disconnect')
+    local section=tab:CreateSection({Title=window:_t17('Perfil de aparência independente','Independent appearance profile'),Icon='palette'})
+    section:AddLabel({Id='hub/'..hub.Id..'/appearance/explanation',Title=window:_t17('Estas cores pertencem a este Hub.','These colors belong to this Hub.'),Description=window:_t17('O tema da janela e dos outros Hubs continua com suas próprias configurações.','The window and other Hubs keep their own settings.'),Height=84})
+    local choose=section:AddDropdown({Id='hub/'..hub.Id..'/appearance/theme',Title=window:_t17('Tema','Theme'),Options=self:GetThemeNames(),Default=self.ThemeProfile.Theme,Persist=false,Callback=function(name)
+        hub:SetTheme(name)
+        for role,picker in pairs(hub._themePickers or {}) do picker:SetColor(hub.HubPalette[role],true) end
+    end})
+    self._themeSelect=choose
+    section:AddButton({Id='hub/'..hub.Id..'/appearance/reset',Title=window:_t17('Restaurar perfil do Hub','Reset Hub profile'),Icon='restore',Callback=function()
+        hub:ResetThemeProfile();choose:SetValue(hub.ThemeProfile.Theme,true)
+        for role,picker in pairs(hub._themePickers or {}) do picker:SetColor(hub.HubPalette[role],true) end
+    end})
+    section:AddButton({Id='hub/'..hub.Id..'/appearance/back',Title=window:_t17('Voltar ao Hub','Back to Hub'),Icon='gamepad',Callback=function() hub.Tab:Select() end})
+    local colors=tab:CreateSection({Title=window:_t17('Personalizar cores','Customize colors'),Icon='sliders',Side='Right'})
+    self._themePickers={}
+    local labels={Background={'Fundo','Background'},Surface={'Painéis','Panels'},Inset={'Áreas internas','Inset surfaces'},Text={'Texto principal','Primary text'},Muted={'Texto secundário','Secondary text'},Border={'Bordas','Borders'},Highlight={'Realce ao passar o mouse','Hover highlight'},Shadow={'Sombras','Shadows'},Accent={'Destaque','Accent'},AccentText={'Texto sobre destaque','Accent text'},Success={'Sucesso','Success'},Danger={'Erro e alerta','Errors and alerts'}}
+    for _,role in ipairs(roleNames) do
+        self._themePickers[role]=colors:AddColorPicker({Id='hub/'..hub.Id..'/appearance/color-'..role,Title=window:_t17(labels[role][1],labels[role][2]),Default=self.HubPalette[role],AllowRainbow=false,AllowOpacity=false,Persist=false,Callback=function(color)
+            local profile=hub:GetThemeProfile();profile.Colors[role]=hex(color)
+            if role=='Accent' then profile.Accent=nil end
+            hub:SetThemeProfile(profile)
+        end})
+    end
+    window:_reskin(tab.Frame);tab:Select();return tab
+end
+function Hub:SetRGB(options,part)
+    assert(not self.Destroyed and self.Launcher,'Hub has been destroyed');part=part or 'Title'
+    local target=({Title=self.Launcher.UI.GameTitle,Description=self.Launcher.UI.Description,SelectedScript=self.Launcher.UI.SelectedScript})[part]
+    assert(target,'Unknown Hub RGB part: '..tostring(part))
+    if options==false then local effect=self.Window._textRGB and self.Window._textRGB[target];if effect then effect:Destroy() end
+    else self.Window:SetRGB(target,options) end
+    return self
+end
+function Hub:_finishAppearance(options)
+    if options.HubTitleRGB then self:SetRGB(options.HubTitleRGB,'Title') end
+    if options.HubDescriptionRGB then self:SetRGB(options.HubDescriptionRGB,'Description') end
+    if options.LoadingScreen~=false and (options.LoadingScreen~=nil or self.Window:_motionAllowed(self.Tab.Frame)) then
+        local startup=copy(type(options.LoadingScreen)=='table' and options.LoadingScreen or {Message=self.Window:_t17('Preparando catálogo…','Preparing catalog…')})
+        if startup.Blocking==nil then startup.Blocking=false end
+        local loading=self.Window:ShowLoading(startup)
+        self.Scope:Add(loading,'Destroy','startup-loading')
+        self.Window._paletteScopes[loading.Frame]=self.HubPalette;self.Window:_reskin(loading.Frame)
+        local object=loading.Frame
+        loading.Scope:Add(function() self.Window._paletteScopes[object]=nil end)
+        local pending=task.defer(function()
+            loading.Scope:Remove('ready',true)
+            if not loading.Destroyed then loading:Finish(self.Window:_t17('Catálogo pronto','Catalog ready')) end
+        end)
+        loading.Scope:Add(pending,function(thread) if coroutine.status(thread)=='suspended' then task.cancel(thread) end end,'ready')
+    end
+    self.Window:_reskin(self.Tab.Frame)
+end
+-- Profiles are validated alongside the rest of an atomic config import. They
+-- can be loaded before the developer creates a Hub; the profile is then applied.
+do
+    local export=Window._exportAdvanced
+    function Window:_exportAdvanced()
+        local result=export(self);result.HubThemes=copy(self._hubThemeProfiles or {});return result
+    end
+    local prepare=Window._prepareAdvanced
+    function Window:_prepareAdvanced(value)
+        local result=prepare(self,value)
+        if value and value.HubThemes~=nil then
+            assert(type(value.HubThemes)=='table','HubThemes must be a profile map');result.HubThemes={};local count=0
+            for id,profile in pairs(value.HubThemes) do
+                key(id,'Hub profile Id');count=count+1;assert(count<=128,'Hub profile limit is 128')
+                -- Profiles may refer to a custom palette imported in the same
+                -- transaction; validate against that prepared palette too.
+                local proxy={_themeOverrides=copy(self._themeOverrides)}
+                for name,theme in pairs(result.Themes or {}) do proxy._themeOverrides[name]=theme.Colors end
+                result.HubThemes[id]=hubProfile(proxy,profile)
+            end
+        end
+        return result
+    end
+    local apply=Window._applyAdvanced
+    function Window:_applyAdvanced(value,deferUI)
+        apply(self,value,deferUI)
+        if value and value.HubThemes then
+            self._hubThemeProfiles=copy(value.HubThemes)
+            for id,hub in pairs(self._scriptHubs or {}) do if not hub.Destroyed then hub:SetThemeProfile(value.HubThemes[id] or hub._initialThemeProfile) end end
+        end
+    end
+    local reset=Window.ResetConfig
+    function Window:ResetConfig(...)
+        local result=reset(self,...)
+        for _,hub in pairs(self._scriptHubs or {}) do if not hub.Destroyed then hub:ResetThemeProfile() end end
+        return result
+    end
+end
+
 -- Native Script Hub launcher. Embedded inside the existing Hub lexical scope.
 -- Catalogs, runtime, callbacks and control identities remain owned by Hub.
 function Hub:_displayGameName(record)
@@ -8140,7 +8342,7 @@ function Hub:_installLauncher(options)
     ui.Background=panel(ui.Root,'LauncherBackground','Background')
     ui.Body=scroll(ui.Root,'LibraryBody')
     ui.Navigation=panel(ui.Body,'GameCatalog','Inset',true)
-    ui.LibraryTitle=label(ui.Navigation,'LibraryTitle',tr('BIBLIOTECA','LIBRARY'),13,'Accent')
+    ui.LibraryTitle=label(ui.Navigation,'LibraryTitle',tr('BIBLIOTECA','LIBRARY'),13,'Text')
     ui.CatalogCount=label(ui.Navigation,'CatalogCount','',10,'Muted')
     ui.Filters=panel(ui.Navigation,'CatalogFilters',nil)
     ui.SortLabel=label(ui.Navigation,'SortLabel','ORGANIZAR',9,'Muted')
@@ -8148,6 +8350,7 @@ function Hub:_installLauncher(options)
     ui.Details=scroll(ui.Body,'GameDetails')
     ui.Hero=panel(ui.Details,'SelectedGame','Inset',true)
     ui.HeroStrip=panel(ui.Hero,'HeroStrip','Surface')
+    ui.HeroAccent=panel(ui.Hero,'HeroAccent','Accent')
     ui.HeroEyebrow=label(ui.HeroStrip,'HeroEyebrow',tr('JOGO SELECIONADO','SELECTED GAME'),10,'Accent')
     ui.Source=label(ui.HeroStrip,'MetadataOrigin',tr('CONSULTANDO ROBLOX','FETCHING ROBLOX DATA'),9,'Muted')
     ui.Source.TextXAlignment=Enum.TextXAlignment.Right
@@ -8187,6 +8390,7 @@ function Hub:_installLauncher(options)
         hub:RetryThumbnail(selected.Id); launcher:QueueRefresh()
         return accepted,reason
     end)
+    ui.Appearance=extraButton('appearance',tr('Tema','Theme'),'palette',function() hub:ShowThemeSettings() end)
     ui.More=extraButton('details',tr('Informações','Information'),'info',function()
         local record=hub:_selectedCatalog(); local spec=hub:GetSelectedScript()
         local status=record and spec and hub:GetScriptStatus(record.Id,spec.Id)
@@ -8199,7 +8403,7 @@ function Hub:_installLauncher(options)
         window:Dialog({Title=tr('Detalhes','Details'),Content=cut(table.concat(parts,'\n\n'),7800),Icon='info'})
     end)
     local moved={hub.GameSearch,hub.Sort,hub.GameList,hub.GameImage,hub.FavoriteButton,hub.TeleportButton,hub.ScriptSearch,hub.ScriptList,
-        hub.PlayButton,hub.CancelButton,ui.All,ui.Favorites,ui.Current,ui.Universal,ui.Expand,ui.Retry,ui.More}
+        hub.PlayButton,hub.CancelButton,ui.All,ui.Favorites,ui.Current,ui.Universal,ui.Expand,ui.Retry,ui.More,ui.Appearance}
     for _,control in ipairs(moved) do
         if control~=hub.Sort then
         function control:_layoutDescription()
@@ -8211,7 +8415,7 @@ function Hub:_installLauncher(options)
         control.Frame.AutomaticSize=Enum.AutomaticSize.None
         control.DescriptionLabel.Visible=false
     end
-    for _,control in ipairs({ui.All,ui.Favorites,ui.Current,ui.Universal,ui.Expand,ui.Retry,ui.More}) do
+    for _,control in ipairs({ui.All,ui.Favorites,ui.Current,ui.Universal,ui.Expand,ui.Retry,ui.More,ui.Appearance}) do
         control.TitleLabel.Visible=false; control.Frame.BackgroundTransparency=1
         control.Button.Position=U2(0,0); control.Button.Size=UDim2.fromScale(1,1)
         if control._titleIcon and control._titleIcon.Frame then
@@ -8228,7 +8432,7 @@ function Hub:_installLauncher(options)
     move(hub.PlayButton,ui.Dock); move(hub.CancelButton,ui.Dock)
     move(ui.All,ui.Filters); move(ui.Favorites,ui.Filters); move(ui.Current,ui.Filters)
     move(ui.Universal,ui.Navigation)
-    move(ui.Expand,ui.Details); move(ui.Retry,ui.GameActions); move(ui.More,ui.Dock)
+    move(ui.Expand,ui.Details); move(ui.Retry,ui.GameActions); move(ui.More,ui.Dock);move(ui.Appearance,ui.Navigation)
     tab.Container.Visible=false
     hub.GameSearch.Input.PlaceholderText=tr('Buscar jogos…','Search games…')
     hub.ScriptSearch.Input.PlaceholderText=tr('Buscar scripts deste jogo…','Search scripts in this game…')
@@ -8237,12 +8441,15 @@ function Hub:_installLauncher(options)
     hub.GameList.Viewport.BorderSizePixel=0; hub.ScriptList.Viewport.BorderSizePixel=0
     hub.GameImage.Image.ScaleType=Enum.ScaleType.Crop
     for _,control in ipairs({hub.GameDetails,hub.ImageStatus,hub.ScriptDetails,hub.ExecutionStatus}) do control:SetVisible(false) end
+    launcher.CoverSkeleton=window:CreateSkeleton({Parent=hub.GameImage.Frame,Lines=3,Cover=true})
+    launcher.MetadataSkeleton=window:CreateSkeleton({Parent=ui.Description,Lines=1,Cover=true})
+    scope:Add(launcher.CoverSkeleton,'Destroy');scope:Add(launcher.MetadataSkeleton,'Destroy')
     local focusTargets={[hub.GameDetails]=ui.GameTitle,[hub.ImageStatus]=hub.GameImage.Frame,[hub.ScriptDetails]=hub.ScriptList.Frame,[hub.ExecutionStatus]=ui.Dock}
     for control,target in pairs(focusTargets) do control._hubFocusTarget=target end
 
     -- Keep native TextButton semantics/focus, with a separate padded caption so
     -- pixel icons never overlap a centered caption at narrow/mobile widths.
-    local captionControls={ui.All,ui.Favorites,ui.Current,ui.Universal,ui.Expand,ui.Retry,ui.More,hub.FavoriteButton,hub.TeleportButton,hub.PlayButton,hub.CancelButton}
+    local captionControls={ui.All,ui.Favorites,ui.Current,ui.Universal,ui.Expand,ui.Retry,ui.More,ui.Appearance,hub.FavoriteButton,hub.TeleportButton,hub.PlayButton,hub.CancelButton}
     local function syncCaption(control)
         local caption=control._hubCaption
         if not alive() or not caption or not caption.Parent or not control.Frame.Parent then return end
@@ -8436,7 +8643,8 @@ function Hub:_installLauncher(options)
         local universalY=filtersY+filtersHeight+8
         local navHeader=filtersY+filtersHeight-6+(universalVisible and filterHeight+10 or 0)
         local rowHeight=math.ceil(60*ts)
-        local navHeight=columns and bodyHeight or navHeader+math.min(3,hub.GameListMaxRows,math.max(1,hub.GameList:GetViewStats().Filtered))*rowHeight+38
+        local footerHeight=touch and 56 or 44
+        local navHeight=columns and bodyHeight or navHeader+math.min(3,hub.GameListMaxRows,math.max(1,hub.GameList:GetViewStats().Filtered))*rowHeight+footerHeight+16
         navHeight=math.max(navHeader+64,navHeight); self.NavigationHeight=navHeight
         rect(ui.Navigation,0,0,navWidth,navHeight)
         rect(ui.LibraryTitle,14,12,headerStacked and navWidth-28 or navWidth-sortWidth-34,math.ceil(22*ts)); ui.CatalogCount.Visible=false; ui.SortLabel.Visible=false
@@ -8449,9 +8657,10 @@ function Hub:_installLauncher(options)
         for _,child in ipairs(hub.Sort.Frame:GetChildren()) do
             if child.ClassName=='Frame' and child.Size.Y.Offset==184 then child.Position=U2(0,inputHeight+4) end
         end
-        local gameListHeight=math.min(navHeight-navHeader-44,math.max(1,math.min(hub.GameListMaxRows,hub.GameList:GetViewStats().Filtered))*rowHeight+4)
+        local gameListHeight=math.min(navHeight-navHeader-footerHeight-16,math.max(1,math.min(hub.GameListMaxRows,hub.GameList:GetViewStats().Filtered))*rowHeight+4)
         fitList(hub.GameList,10,navHeader+14,navWidth-20,gameListHeight,rowHeight)
-        rect(ui.CatalogFooter,14,navHeight-24,navWidth-28,16)
+        rect(ui.CatalogFooter,14,navHeight-footerHeight+8,navWidth-114,footerHeight-14);ui.CatalogFooter.TextWrapped=true
+        rect(ui.Appearance.Frame,navWidth-90,navHeight-footerHeight+6,78,footerHeight-12)
         local rightX=columns and navWidth+gap or 0; local rightY=columns and 0 or navHeight+gap
         local rightWidth=columns and width-navWidth-gap or width
         rect(ui.Details,rightX,rightY,rightWidth,columns and bodyHeight or 100)
@@ -8490,7 +8699,7 @@ function Hub:_installLauncher(options)
         end
         if split then heroHeight=math.max(heroHeight,y+6); y=heroHeight+16 else y=y+10 end
         rect(ui.Hero,0,0,innerWidth,heroHeight)
-        rect(ui.HeroStrip,0,0,innerWidth,28)
+        rect(ui.HeroStrip,0,0,innerWidth,28);rect(ui.HeroAccent,0,0,innerWidth,2)
         rect(ui.HeroEyebrow,12,0,math.max(40,innerWidth-208),28)
         rect(ui.Source,innerWidth-184,0,172,28)
         rect(hub.GameImage.Frame,1,28,imageWidth,math.min(heroHeight-29,self.Expanded and 256 or heroHeight-29))
@@ -8567,6 +8776,9 @@ function Hub:_installLauncher(options)
         local manual=source._metadataManual and (source._metadataManual.Name or source._metadataManual.Description)
         local loading=metadata.State=='Queued' or metadata.State=='Loading'
         local errorState=metadata.State=='Unavailable'
+        self.MetadataSkeleton:SetVisible(loading and not (source._metadataManual and source._metadataManual.Description))
+        local thumb=record and not universal and hub._thumbs[hub:_thumbnailURI(source,true)]
+        self.CoverSkeleton:SetVisible(thumb and thumb.Status=='Loading' or false)
         ui.Source.Text=universal and tr('UNIVERSAL','UNIVERSAL') or manual and tr('PERSONALIZADO','CUSTOMIZED') or loading and tr('CONSULTANDO ROBLOX','FETCHING ROBLOX DATA') or errorState and tr('DADOS INDISPONÍVEIS','DATA UNAVAILABLE') or metadata.State=='Partial' and tr('DADOS PARCIAIS','PARTIAL DATA') or metadata.Source=='Provider' and tr('DADOS DO PROVEDOR','PROVIDER DATA') or record and tr('DADOS DO ROBLOX','ROBLOX DATA') or tr('SEM SELEÇÃO','NO SELECTION')
         bind(ui.Source,{TextColor3=errorState and 'Danger' or loading and 'Muted' or 'Accent'})
         ui.Description.Text=record and record.Description~='' and record.Description or loading and tr('Carregando a descrição do jogo…','Loading game description…')
@@ -8601,6 +8813,8 @@ function Hub:_installLauncher(options)
             for _,text in ipairs({ui.GameTitle,ui.GameContext,ui.Description}) do window:_revealText(text,hub,'game-enter') end
         end
         local scriptIdentity=spec and identity..'/'..spec.Id or ''
+        local image=hub.GameImage.Image
+        if image.Visible and image.Image~='' and image.Image~=self._motionImage then self._motionImage=image.Image;window:_revealText(image,hub,'cover-enter') end
         if scriptIdentity~=self._motionScript then self._motionScript=scriptIdentity;window:_revealText(ui.SelectedScript,hub,'script-enter') end
     end
     -- Subscriptions are disposable resources; no polling loop is needed.
@@ -8626,7 +8840,7 @@ function Hub:_installLauncher(options)
         launcher.Destroyed=true; launcher._queued=false
         window:_forgetSkin(ui.Root)
         for control in pairs(focusTargets) do control._hubFocusTarget=nil end
-        launcher._nodes={}; launcher.Filter=nil;launcher.Category=nil
+        launcher._nodes={}; launcher.Filter=nil;launcher.Category=nil;launcher.CoverSkeleton=nil;launcher.MetadataSkeleton=nil
         if hub.Launcher==launcher then hub.Launcher=nil end
         for _,control in ipairs(captionControls) do control._hubCaption=nil end
         for name in pairs(ui) do ui[name]=nil end
@@ -8792,7 +9006,9 @@ end
                 if handle then handle:Cancel("user cancelled") end
             end})); hub.CancelButton:SetVisible(false)
             hub:_installResponsiveLayout(options)
+            hub:_setupAppearance(options)
             hub:_installLauncher(options)
+            hub:_finishAppearance(options)
             hub.Scope:Add(self:GetFlagState(hub.GameList.Id):Subscribe(function(value)
                 if hub._selecting then return end
                 if value then hub:SelectGame(value)
@@ -8845,6 +9061,7 @@ end
         local universals=normalizeUniversalScripts(options.UniversalScripts); local count=#universals; for _,rec in ipairs(initial) do count=count+#rec.Scripts end; assert(count<=4096,"Script catalog limit is 4096 entries")
         local settings={}; for name,value in pairs(options) do settings[name]=value end
         settings.Id=options.WindowId or options.Id or "RetroBox-ScriptHub"; settings.Title=options.Title or "Script Hub"
+        settings.LoadingScreen=false -- Hub owns its startup phase; avoid two overlays.
         local window=self:CreateWindow(settings)
         local hubOptions={}; for name,value in pairs(options) do hubOptions[name]=value end
         hubOptions.Id=options.HubId or options.Id or "script-hub"
@@ -10539,6 +10756,389 @@ do
             if profile.Appearance and profile.Appearance.Locale then self:SetLocale(profile.Appearance.Locale) end
         end
         return ok,reason
+    end
+end
+
+-- Shared appearance effects: bounded, observable and owned by window scopes.
+do
+    local function within(object,root)
+        while object do if object==root then return true end;object=object.Parent end
+        return false
+    end
+    function Window:_paletteFor(object)
+        while object do
+            local colors=self._paletteScopes and self._paletteScopes[object]
+            if colors then return colors end
+            object=object.Parent
+        end
+        return self.Palette
+    end
+    function Window:_reskin(root)
+        for object,roles in pairs(self._skin) do
+            if object.Parent and within(object,root) then
+                for property,role in pairs(roles) do object[property]=self:_paletteFor(object)[role] end
+                self:_refreshInk(object)
+            end
+        end
+    end
+    function Window:_revealPage(tab)
+        if not self:_motionAllowed(tab.Container) then return end
+        local count,seen=0,{}
+        for _,section in ipairs(tab.Sections) do
+            for _,control in ipairs(section.Controls) do
+                if not control.Destroyed and not seen[control] then
+                    seen[control]=true
+                    for _,object in ipairs({control.TitleLabel,control.DescriptionLabel}) do
+                        if object and object.Visible and self:_motionAllowed(object) then
+                            self:_revealText(object,control,'page-enter');count=count+1
+                            if count>=48 then return end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    -- Overlays live outside clipped pages, but inherit the palette of their
+    -- anchor. Keep their original bounds, keyboard behavior and disposal scope.
+    local contextMenu=Window.ContextMenu
+    function Window:ContextMenu(options,anchor)
+        local owner,err=contextMenu(self,options,anchor)
+        if owner and typeof(anchor)=='Instance' then
+            self._paletteScopes=self._paletteScopes or {}
+            local root=owner.Frame;local colors=self:_paletteFor(anchor)
+            self._paletteScopes[root]=colors~=self.Palette and colors or nil
+            owner.Scope:Add(function() self._paletteScopes[root]=nil end)
+            self:_reskin(root)
+        end
+        return owner,err
+    end
+    local showTooltip=Window._showTooltip
+    function Window:_showTooltip(control,...)
+        local result=showTooltip(self,control,...)
+        if result and self.TooltipFrame then
+            self._paletteScopes=self._paletteScopes or {}
+            local colors=self:_paletteFor(control.Frame)
+            self._paletteScopes[self.TooltipFrame]=colors~=self.Palette and colors or nil
+            self:_reskin(self.TooltipFrame)
+        end
+        return result
+    end
+    local forget=Window._forgetSkin
+    function Window:_forgetSkin(root)
+        if self._paletteScopes then
+            for object in pairs(self._paletteScopes) do if within(object,root) then self._paletteScopes[object]=nil end end
+        end
+        forget(self,root)
+    end
+    local function visible(window,object)
+        if window.Destroyed or window._closing or not object or not object.Parent then return false end
+        while object and object~=window.Gui do
+            if object==window.Main and (window._shown==false or window.Minimized) then return false end
+            if object:IsA('GuiObject') and object.Visible==false then return false end
+            object=object.Parent
+        end
+        return object==window.Gui
+    end
+    -- Ancestor visibility is observed only for mounted effects. No polling is
+    -- needed to discover a hidden tab/window, and idle effects release Heartbeat.
+    function Window:_watchEffect(object,scope,refresh)
+        local ancestry=scope:Child()
+        local function watch()
+            ancestry:Clean()
+            if not object.Parent then refresh();return end
+            local parent=object
+            while parent and parent~=self.Gui do
+                if parent:IsA('GuiObject') then ancestry:Add(parent:GetPropertyChangedSignal('Visible'):Connect(refresh),'Disconnect') end
+                if parent~=object then ancestry:Add(parent:GetPropertyChangedSignal('Parent'):Connect(watch),'Disconnect') end
+                parent=parent.Parent
+            end
+            refresh()
+        end
+        scope:Add(object:GetPropertyChangedSignal('Parent'):Connect(watch),'Disconnect')
+        watch()
+    end
+    local defaults={Enabled=true,Speed=.15,Phase=0,Saturation=.82,Brightness=1,Contrast=4.5}
+    local function rgbOptions(value,current)
+        if value==true then value={} elseif value==false then value={Enabled=false} end
+        assert(type(value)=='table','RGB must be boolean or an options table')
+        local result=copy(current or defaults)
+        for name,item in pairs(value) do assert(defaults[name]~=nil,'Unknown RGB option: '..tostring(name));result[name]=item end
+        assert(type(result.Enabled)=='boolean','RGB Enabled must be boolean')
+        for name,range in pairs({Speed={.01,4},Phase={0,1},Saturation={0,1},Brightness={.25,1},Contrast={1,7}}) do
+            assert(finite(result[name]) and result[name]>=range[1] and result[name]<=range[2],'Invalid RGB '..name)
+        end
+        return result
+    end
+    Library._validateTextRGB=rgbOptions
+    local function restore(window,effect)
+        local object=effect.Target
+        if not object or not object.Parent or effect._engineDestroying then return end
+        local role=(window._skin[object] or {}).TextColor3
+        object.TextColor3=role and window:_ink(role,object) or effect.Original
+    end
+    function Window:_paintTextRGB(effect)
+        if not effect.Target or not effect.Target.Parent then return end
+        if not effect.Options.Enabled or not self:_motionAllowed(effect.Target) then restore(self,effect);return end
+        local o=effect.Options
+        local color=Color3.fromHSV((effect.Hue+o.Phase)%1,o.Saturation,o.Brightness)
+        effect.Target.TextColor3=Library:ReadableColor(color,self:_surfaceColor(effect.Target),o.Contrast)
+    end
+    function Window:SetRGB(target,options)
+        assert(not self.Destroyed and typeof(target)=='Instance' and
+            (target:IsA('TextLabel') or target:IsA('TextButton') or target:IsA('TextBox')),'RGB target must be a live text Instance')
+        assert(target.Parent and within(target,self.Gui),'RGB target must belong to this window')
+        local settings=rgbOptions(options==nil and true or options)
+        self._textRGB=self._textRGB or {}
+        local old=self._textRGB[target]
+        if old then old:SetOptions(settings);return old end
+        local count=0;for _ in pairs(self._textRGB) do count=count+1 end
+        assert(count<128,'A window supports at most 128 RGB text effects')
+        local window=self
+        local effect={Target=target,Options=settings,Hue=0,Original=target.TextColor3,Scope=self:CreateScope()}
+        function effect:GetOptions() return copy(self.Options) end
+        function effect:SetOptions(value)
+            assert(not self.Destroyed,'RGB effect has been destroyed');self.Options=rgbOptions(value,self.Options)
+            window:_paintTextRGB(self);window:_updateRGB();return self
+        end
+        function effect:SetEnabled(value) return self:SetOptions({Enabled=value}) end
+        function effect:Destroy()
+            if self.Destroyed then return end;self.Destroyed=true
+            local object=self.Target;window._textRGB[object]=nil;restore(window,self)
+            self.Scope:Destroy();self.Target=nil;self.Original=nil
+            window:_updateRGB()
+        end
+        self._textRGB[target]=effect
+        effect.Scope:Add(function() effect:Destroy() end)
+        effect.Scope:Add(target.Destroying:Connect(function() effect._engineDestroying=true;effect:Destroy() end),'Disconnect')
+        self:_watchEffect(target,effect.Scope,function()
+            if effect.Destroyed then return end
+            if not target.Parent or not within(target,window.Gui) then effect:Destroy();return end
+            window:_paintTextRGB(effect);window:_updateRGB()
+        end)
+        return effect
+    end
+    local ink=Window._refreshInk
+    function Window:_refreshInk(object)
+        ink(self,object)
+        local effect=self._textRGB and self._textRGB[object]
+        if effect then self:_paintTextRGB(effect) end
+    end
+    function Control:SetRGB(options,part)
+        assert(not self.Destroyed,'Control has been destroyed');part=part or 'Title'
+        local target=({Title=self.TitleLabel,Description=self.DescriptionLabel,Value=self.ValueLabel,Button=self.Button})[part]
+        assert(target,'This control has no text part: '..tostring(part))
+        if options==false then
+            local effect=self._window._textRGB and self._window._textRGB[target];if effect then effect:Destroy() end
+        else self._window:SetRGB(target,options) end
+        return self
+    end
+    function Window:SetTitleRGB(options)
+        if options==false then local e=self._textRGB and self._textRGB[self.TitleLabel];if e then e:Destroy() end
+        else self:SetRGB(self.TitleLabel,options) end
+        return self
+    end
+    function Window:SetSubtitleRGB(options)
+        if options==false then local e=self._textRGB and self._textRGB[self.SubtitleLabel];if e then e:Destroy() end
+        else self:SetRGB(self.SubtitleLabel,options) end
+        return self
+    end
+    function Window:_hasAppearanceWork()
+        for object,effect in pairs(self._textRGB or {}) do
+            if not effect.Destroyed and effect.Options.Enabled and visible(self,object) and self:_motionAllowed(object) then return true end
+        end
+        for effect in pairs(self._busyVisuals or {}) do
+            if not effect.Destroyed and visible(self,effect.Frame) and self:_motionAllowed(effect.Frame) then return true end
+        end
+        return false
+    end
+    function Window:_stepAppearance(dt)
+        for object,effect in pairs(self._textRGB or {}) do
+            if not effect.Destroyed and effect.Options.Enabled and visible(self,object) and self:_motionAllowed(object) then
+                effect.Hue=(effect.Hue+dt*effect.Options.Speed*self.Animations.Speed)%1;self:_paintTextRGB(effect)
+            end
+        end
+        for effect in pairs(self._busyVisuals or {}) do
+            if not effect.Destroyed and visible(self,effect.Frame) and self:_motionAllowed(effect.Frame) then
+                effect.Elapsed=(effect.Elapsed+dt*self.Animations.Speed)%8
+                local alpha=.38+(self.Animations.Intensity=='Subtle' and .06 or .15)*math.sin(effect.Elapsed*3)
+                for index,bar in ipairs(effect.Bars) do if bar.Parent then bar.BackgroundTransparency=clamp(alpha+(index-1)*.06,0,1) end end
+            end
+        end
+    end
+    function Window:CreateSkeleton(options)
+        options=options or {};assert(type(options)=='table','Skeleton options must be a table')
+        local parent=options.Parent
+        assert(not self.Destroyed and typeof(parent)=='Instance' and parent:IsA('GuiObject') and parent.Parent and within(parent,self.Gui),'Skeleton Parent must be a GUI object in this window')
+        assert(options.Position==nil or typeof(options.Position)=='UDim2','Skeleton Position must be UDim2')
+        assert(options.Size==nil or typeof(options.Size)=='UDim2','Skeleton Size must be UDim2')
+        assert(options.Cover==nil or type(options.Cover)=='boolean','Skeleton Cover must be boolean')
+        assert(options.ZIndex==nil or finite(options.ZIndex) and options.ZIndex%1==0 and options.ZIndex>=0 and options.ZIndex<=10000,'Invalid skeleton ZIndex')
+        local lines=options.Lines==nil and 3 or options.Lines
+        assert(finite(lines) and lines%1==0 and lines>=1 and lines<=8,'Skeleton Lines must be 1–8')
+        self._busyVisuals=self._busyVisuals or {};local count=0;for _ in pairs(self._busyVisuals) do count=count+1 end
+        assert(count<128,'A window supports at most 128 skeletons')
+        local window=self;local effect={Scope=self:CreateScope(),Bars={},Elapsed=0}
+        effect.Frame=frame(self,parent,{Name='LoadingSkeleton',Position=options.Position or U2(0,0),Size=options.Size or UDim2.fromScale(1,1),
+            Active=false,ClipsDescendants=true,ZIndex=options.ZIndex or parent.ZIndex+2},options.Cover and 'Inset' or nil)
+        for index=1,lines do
+            effect.Bars[index]=frame(self,effect.Frame,{Name='SkeletonLine',Size=U2(0,0),BackgroundTransparency=.42,ZIndex=effect.Frame.ZIndex+1},'Border')
+        end
+        local function layout()
+            if effect.Destroyed or not effect.Frame.Parent then return end
+            local size=effect.Frame.AbsoluteSize;local scale=math.max(.01,window._actualScale or 1)
+            local height=math.max(0,size.Y/scale);local inset=math.min(12,math.max(0,size.X/scale)*.08)
+            local barHeight=math.min(12,height/lines*.5)
+            for index,bar in ipairs(effect.Bars) do
+                bar.Position=UDim2.new(0,inset,(index-.5)/lines,-barHeight/2)
+                bar.Size=UDim2.new(index==lines and .62 or 1,index==lines and -inset or -2*inset,0,barHeight)
+            end
+        end
+        layout();effect.Scope:Add(effect.Frame:GetPropertyChangedSignal('AbsoluteSize'):Connect(layout),'Disconnect')
+        function effect:SetVisible(value)
+            if not self.Destroyed then self.Frame.Visible=value~=false;window:_updateRGB() end;return self
+        end
+        function effect:Destroy()
+            if self.Destroyed then return end;self.Destroyed=true;window._busyVisuals[self]=nil
+            local object=self.Frame;self.Scope:Destroy()
+            if object then window:_forgetSkin(object);if not self._engineDestroying and object.Parent then object:Destroy() end end
+            self.Frame=nil;self.Bars={};window:_updateRGB()
+        end
+        self._busyVisuals[effect]=true
+        effect.Scope:Add(function() effect:Destroy() end)
+        effect.Scope:Add(effect.Frame.Destroying:Connect(function() effect._engineDestroying=true;effect:Destroy() end),'Disconnect')
+        self:_watchEffect(effect.Frame,effect.Scope,function()
+            if effect.Destroyed then return end
+            if not effect.Frame.Parent or not within(effect.Frame,window.Gui) then effect:Destroy();return end
+            window:_updateRGB()
+        end)
+        return effect
+    end
+    function Section:AddSkeleton(options)
+        options=options or {};local height=options.Height or 100
+        assert(finite(height) and height>=48 and height<=500,'Skeleton Height must be 48–500')
+        local lines=options.Lines==nil and 3 or options.Lines
+        assert(finite(lines) and lines%1==0 and lines>=1 and lines<=8,'Skeleton Lines must be 1–8')
+        local count=0;for _ in pairs(self._window._busyVisuals or {}) do count=count+1 end
+        assert(count<128,'A window supports at most 128 skeletons')
+        local self=base(self,'Skeleton',options,height);self.Persist=false
+        self.Skeleton=self._window:CreateSkeleton({Parent=self.Frame,Lines=lines,Position=U2(0,26),Size=UDim2.new(1,0,1,-26)})
+        function self:_normalize(value) assert(type(value)=='boolean','Skeleton state must be boolean');return value end
+        function self:_render() self.Skeleton:SetVisible(self.Value) end
+        function self:SetLoading(value) return self:SetValue(value,true) end
+        self:Manage(self.Skeleton,'Destroy');return init(self,options,true)
+    end
+    function Control:SetLoading(value)
+        assert(type(value)=='boolean' and not self.Destroyed,'Loading must be boolean on a live control')
+        if value and not self._loadingSkeleton then
+            self._loadingSkeleton=self._window:CreateSkeleton({Parent=self.Frame,Cover=true})
+            self:Manage(self._loadingSkeleton,'Destroy','loading-skeleton')
+        elseif not value and self._loadingSkeleton then
+            self._loadingSkeleton:Destroy();self._resources:Remove('loading-skeleton',true);self._loadingSkeleton=nil
+            for _,object in ipairs({self.TitleLabel,self.DescriptionLabel}) do self._window:_revealText(object,self,'loaded') end
+        end
+        self.Frame:SetAttribute('RetroBoxLoading',value)
+        return self
+    end
+    local function loadingOptions(options)
+        options=options or {};assert(type(options)=='table','LoadingScreen must be a table or boolean')
+        for _,key in ipairs({'Title','Message'}) do assert(options[key]==nil or type(options[key])=='string' and #options[key]<=2048,'Invalid loading '..key) end
+        assert(options.Blocking==nil or type(options.Blocking)=='boolean','Loading Blocking must be boolean')
+        assert(options.Timeout==nil or finite(options.Timeout) and options.Timeout>=1 and options.Timeout<=120,'Loading Timeout must be 1–120 seconds')
+        return options
+    end
+    function Window:ShowLoading(options)
+        assert(not self.Destroyed,'Window has been destroyed');options=loadingOptions(options)
+        if self._loading then self._loading:Destroy() end
+        local count=0;for _ in pairs(self._busyVisuals or {}) do count=count+1 end
+        assert(count<128,'A window supports at most 128 skeletons')
+        self:_closeOverlay('loading');self:_hideTooltip();self:_hideSearchResults();self:_releaseBindings()
+        local window=self;local owner={Scope=self:CreateScope(),Blocking=options.Blocking~=false,Progress=nil}
+        owner.Frame=frame(self,self.Main,{Name='LoadingScreen',Position=U2(0,42),Size=UDim2.new(1,0,1,-42),ZIndex=180,Active=owner.Blocking,ClipsDescendants=true},'Background')
+        local card=frame(self,owner.Frame,{Name='LoadingCard',AnchorPoint=Vector2.new(.5,.5),Position=UDim2.new(.5,0,.45,0),Size=UDim2.new(.86,0,0,184),BorderSizePixel=1,ZIndex=181},'Surface')
+        owner.Card=card
+        self:_bind(card,{BorderColor3='Border'})
+        owner.TitleLabel=label(self,card,options.Title or self.Title,{Position=U2(18,14),Size=UDim2.new(1,-36,0,32),TextSize=20,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=182})
+        owner.MessageLabel=label(self,card,options.Message or self:_t17('Preparando interface…','Preparing interface…'),{Position=U2(18,51),Size=UDim2.new(1,-36,0,38),TextSize=12,TextWrapped=true,ZIndex=182},'Muted')
+        local track=frame(self,card,{Position=UDim2.new(0,18,1,-21),Size=UDim2.new(1,-36,0,3),ZIndex=182},'Border')
+        owner.Track=track
+        owner.Fill=frame(self,track,{Size=UDim2.new(0,0,1,0),ZIndex=183},'Accent')
+        owner.Skeleton=self:CreateSkeleton({Parent=card,Lines=2,Position=U2(6,93),Size=UDim2.new(1,-12,1,-126),ZIndex=182})
+        owner.Scope:Add(owner.Skeleton,'Destroy')
+        function owner:SetMessage(value)
+            assert(not self.Destroyed and type(value)=='string' and #value<=2048,'Loading message must contain at most 2048 bytes')
+            self.MessageLabel.Text=value;return self
+        end
+        function owner:SetProgress(value)
+            assert(not self.Destroyed and (value==nil or finite(value) and value>=0 and value<=1),'Loading progress must be nil or 0–1')
+            if self.Finishing then return self end
+            self.Progress=value;self.Skeleton:SetVisible(value==nil)
+            window:_motion(self.Fill,{Size=UDim2.new(value or 0,0,1,0)},.18,'loading-progress',self);return self
+        end
+        function owner:Destroy()
+            if self.Destroyed then return end;self.Destroyed=true
+            if window._loading==self then window._loading=nil end
+            local object=self.Frame;self.Scope:Destroy()
+            if object then window:_forgetSkin(object);if not self._engineDestroying and object.Parent then object:Destroy() end end
+            self.Frame=nil;self.Fill=nil;self.TitleLabel=nil;self.MessageLabel=nil;self.Skeleton=nil;self.Card=nil;self.Track=nil
+        end
+        function owner:Finish(message)
+            if self.Destroyed or self.Finishing then return self end
+            if message then self:SetMessage(message) end
+            self:SetProgress(1);self.Finishing=true
+            window:_motion(self.Fill,{Size=UDim2.fromScale(1,1)},.16,'loading-progress',self,function()
+                if self.Destroyed then return end
+                for _,object in ipairs({self.TitleLabel,self.MessageLabel}) do window:_motion(object,{TextTransparency=1},.1,'loading-exit',self) end
+                for _,object in ipairs({self.Card,self.Track,self.Fill}) do window:_motion(object,{BackgroundTransparency=1},.1,'loading-exit',self) end
+                window:_motion(self.Frame,{BackgroundTransparency=1},.1,'loading-exit',self,function() self:Destroy() end)
+            end)
+            return self
+        end
+        self._loading=owner
+        owner.Scope:Add(function() owner:Destroy() end)
+        owner.Scope:Add(owner.Frame.Destroying:Connect(function() owner._engineDestroying=true;owner:Destroy() end),'Disconnect')
+        -- A developer/network failure cannot leave the application behind an
+        -- unbounded loading barrier. Timeout releases the overlay, no fake 100%.
+        local timer=task.delay(options.Timeout or 20,function()
+            owner.Scope:Remove('timeout',true);owner:Destroy()
+        end)
+        owner.Scope:Add(timer,function(thread) if coroutine.status(thread)=='suspended' then task.cancel(thread) end end,'timeout')
+        self:_revealText(owner.TitleLabel,owner,'loading-enter')
+        self:_revealText(owner.MessageLabel,owner,'loading-enter')
+        return owner
+    end
+    local applyTheme=Window._applyTheme
+    function Window:_applyTheme(...)
+        applyTheme(self,...)
+        self:_reskin(self.Gui)
+    end
+    for _,name in ipairs({'SetAnimations','SetReducedMotion','Show','Hide','Minimize'}) do
+        local method=Window[name]
+        Window[name]=function(self,...)
+            local result=method(self,...)
+            for _,effect in pairs(self._textRGB or {}) do self:_paintTextRGB(effect) end
+            self:_updateRGB();return result
+        end
+    end
+    local createWindow=Library.CreateWindow
+    function Library:CreateWindow(options)
+        options=options or {}
+        assert(options.LoadingScreen==nil or type(options.LoadingScreen)=='boolean' or type(options.LoadingScreen)=='table','LoadingScreen must be boolean or table')
+        if type(options.LoadingScreen)=='table' then loadingOptions(options.LoadingScreen) end
+        for _,key in ipairs({'TitleRGB','SubtitleRGB'}) do if options[key]~=nil then rgbOptions(options[key]) end end
+        local window=createWindow(self,options)
+        if options.TitleRGB then window:SetTitleRGB(options.TitleRGB) end
+        if options.SubtitleRGB then window:SetSubtitleRGB(options.SubtitleRGB) end
+        if options.LoadingScreen~=false and (options.LoadingScreen~=nil or window:_motionAllowed(window.Main)) then
+            local startup=copy(type(options.LoadingScreen)=='table' and options.LoadingScreen or {})
+            if startup.Blocking==nil then startup.Blocking=false end
+            local loading=window:ShowLoading(startup)
+            local pending=task.defer(function()
+                loading.Scope:Remove('ready',true)
+                if not loading.Destroyed then loading:Finish(window:_t17('Interface pronta','Interface ready')) end
+            end)
+            loading.Scope:Add(pending,function(thread) if coroutine.status(thread)=='suspended' then task.cancel(thread) end end,'ready')
+        end
+        return window
     end
 end
 

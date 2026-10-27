@@ -189,3 +189,10 @@ Na 1.9, [Script Hub Mode](SCRIPT-HUB.md) reutiliza flags, scopes e RunAction: Pl
 GetStatus e GetRuntimeSnapshot acrescentam Profile com métricas por tarefa/ação. O Runtime Inspector existente mostra duração e tarefas que excederam seu intervalo; detalhes incluem os demais contadores. A separação entre pedido e conclusão do cancelamento é mantida. ctx:Wait(seconds) e ctx:AwaitAction são pontos de espera instrumentados. Tempo não atribuído não é medição de CPU; task.wait direto não é interceptado. Veja [RUNTIME-PROFILER.md](RUNTIME-PROFILER.md).
 
 Estados transitórios podem ser registrados explicitamente para [Session Snapshots](SESSION-SNAPSHOTS.md), sem substituir perfis nem capturar runtime. O exemplo [cancellable-operation.lua](../examples/cancellable-operation.lua) cobre seis etapas, cancelamento, falha e cleanup.
+
+
+## Apresentação e carregamento · 2.7
+
+RGB de textos e skeletons compartilham o agendador Heartbeat de 30 Hz dos ColorPickers. Não há um loop por componente. Efeitos ocultos pausam e liberam a conexão quando não existe outro consumidor ativo; movimento reduzido e intensidade Off usam apresentação estática. Até 128 textos RGB e 128 skeletons por janela; entrada de páginas limitada a 48 textos. Valores públicos continuam imediatos e o RGB não dispara callbacks.
+
+LoadingScreen=false dispensa a preparação inicial; ShowLoading retorna uma apresentação gerenciada por scope, com SetMessage, SetProgress, Finish e Destroy. Seu progresso representa somente o trabalho informado pelo desenvolvedor; um timeout libera a tela sem declarar a tarefa concluída. [APIs, opções e exemplos](RELEASE-2.7.md).

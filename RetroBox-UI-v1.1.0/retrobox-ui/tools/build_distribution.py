@@ -27,9 +27,9 @@ def embed():
         ('RETRO210 SESSION AND INTEGRATION', ['SessionSnapshots.lua', 'Integration.lua'], '-- BEGIN CENTRAL ANIMATOR'),
         ('RETRO210 GAME METADATA', ['GameMetadata.lua'], '    function Window:CreateScriptHub(options)'),
         ('RETRO240 UNIVERSAL SCRIPTS', ['UniversalScripts.lua'], '-- BEGIN RETRO230 HUB LAUNCHER'),
-        ('RETRO230 HUB LAUNCHER', ['HubLauncher.lua'], '    function Window:CreateScriptHub(options)'),
+        ('RETRO230 HUB LAUNCHER', ['HubAppearance.lua', 'HubLauncher.lua'], '    function Window:CreateScriptHub(options)'),
         ('RETRO250 CATALOG DIAGNOSTICS', ['CatalogDiagnostics.lua'], '    function Window:CreateScriptHub(options)'),
-        ('RETRO250 DEVELOPMENT TOOLS', ['DesignerCatalog.lua', 'DevelopmentComponents.lua', 'CardGrid.lua', 'FlowGraph.lua', 'Localization.lua'], 'return Library\n'),
+        ('RETRO250 DEVELOPMENT TOOLS', ['DesignerCatalog.lua', 'DevelopmentComponents.lua', 'CardGrid.lua', 'FlowGraph.lua', 'Localization.lua', 'Appearance.lua'], 'return Library\n'),
         ('RETRO220 COMPACT COMPONENTS', ['CompactViews.lua', 'Preview.lua', 'Stepper.lua'], 'return Library\n'),
     ]
     for name, modules, marker in additions:

@@ -1,7 +1,7 @@
 return function(Mock,Library,test)
     local function fixture()
         Mock.AnimatedTweens=true
-        local w=Library:CreateWindow({Id="animation-test",FileStorage=false,Settings=false,SmoothDragging=true})
+        local w=Library:CreateWindow({Id="animation-test",LoadingScreen=false,FileStorage=false,Settings=false,SmoothDragging=true})
         local s=w:CreateTab("Main"):CreateSection({Title="Controls",Collapsible=true})
         Mock.pump(1); return w,s
     end
