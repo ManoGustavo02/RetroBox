@@ -1,5 +1,7 @@
 <p align="center"><img src="assets/retrobox-banner.svg" alt="RetroBox — retro interfaces, Luau components and runtime" width="100%"></p>
 
+**New in 2.9:** [separate library/script updates](RetroBox-UI-v1.1.0/retrobox-ui/docs/NEWS.md) in every window and [optional diagnostic bug reports](RetroBox-UI-v1.1.0/retrobox-ui/docs/FEEDBACK-HUB.md#diagnóstico-opcional--29).
+
 # RetroBox UI
 
 <p align="center"><img src="assets/retrobox-badges.svg" alt="RetroBox 2.9.0 · API 2 · 12 temas · 76 pixel icons · MIT" width="795"></p>

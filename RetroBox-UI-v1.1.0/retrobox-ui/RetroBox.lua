@@ -11925,12 +11925,12 @@ do
         for key in pairs(value) do total=total+1;assert(type(key)=='number' and key%1==0 and key>=1 and key<=#value,'ScriptUpdates must be a dense array') end
         assert(total==#value,'ScriptUpdates must be a dense array')
         for _,item in ipairs(value) do
-            assert(type(item)=='table' and type(item.Id)=='string' and item.Id:match('^[%w_.%-]+) and #item.Id<=64 and not seen[item.Id],'Update Id must be unique and contain 1-64 safe characters')
+            assert(type(item)=='table' and type(item.Id)=='string' and item.Id:match('^[%w_.%-]+$') and #item.Id<=64 and not seen[item.Id],'Update Id must be unique and contain 1-64 safe characters')
             for key in pairs(item) do assert(key=='Id' or key=='Version' or key=='Title' or key=='Description' or key=='Date','Unknown script update field') end
             seen[item.Id]=true
             local e={Id=item.Id,Title=text(item.Title,160),Description=text(item.Description,2400)}
             if item.Version~=nil then assert(type(item.Version)=='string' and #item.Version<=48 and not item.Version:find('[%c]'),'Invalid script update Version');e.Version=item.Version end
-            if item.Date~=nil then assert(type(item.Date)=='string' and item.Date:match('^%d%d%d%d%-%d%d%-%d%d),'Update Date must use YYYY-MM-DD');e.Date=item.Date end
+            if item.Date~=nil then assert(type(item.Date)=='string' and item.Date:match('^%d%d%d%d%-%d%d%-%d%d$'),'Update Date must use YYYY-MM-DD');e.Date=item.Date end
             result[#result+1]=e
         end
         return result
@@ -11940,7 +11940,7 @@ do
         for source,items in pairs(value) do
             assert(result[source] and type(items)=='table','Invalid news read namespace');local n=0
             for id,hash in pairs(items) do
-                n=n+1;assert(n<=256 and type(id)=='string' and id:match('^[%w_.%-]+) and #id<=64 and type(hash)=='string' and #hash==64 and hash:match('^[a-f0-9]+),'Invalid news read marker')
+                n=n+1;assert(n<=256 and type(id)=='string' and id:match('^[%w_.%-]+$') and #id<=64 and type(hash)=='string' and #hash==64 and hash:match('^[a-f0-9]+$'),'Invalid news read marker')
                 result[source][id]=hash
             end
         end

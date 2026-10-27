@@ -7,7 +7,7 @@
   "Channel": "pinned",
   "Artifact": {
     "Path": "dist/releases/2.9.0/RetroBox.lua",
-    "SHA256": "ea190ac47f45d7e84d1523cd114de1db3c252e168d31d5c662242f3d6d3f5da2",
-    "Bytes": 857446
+    "SHA256": "ead73cfafa36b7488f31b3a461d540057200153e458cd5686d54d6e39e9aa31b",
+    "Bytes": 857454
   }
 }
