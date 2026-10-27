@@ -330,3 +330,7 @@ No executor, conferir: bootstrap/canais publicados; thumbnail em janela grande/p
 ## Validação da 2.1.0
 
 336/336 testes headless, incluindo os 29 exemplos oficiais; 2/2 testes Python de distribuição. Novas regressões: 20 de PixelIcon, 25 de metadata, 8 de profiler, 8 de snapshots, 3 do helper e 16 da operação cancelável. Testes privados: seis loaders atuais do GitHub, o hub atual com sete jogos e o exemplo principal do prompt. Dez manifestos conferidos com hashlib. Releases anteriores e bootstrap preservados byte a byte. Renderização nativa e execução específica dos jogos continuam sem validação em cliente Roblox. Detalhes e arquivos em [RELEASE-2.1.md](RELEASE-2.1.md).
+
+## 2.9.0 — Diagnóstico e Novidades
+
+35 novas regressões em tests/feedback-diagnostics-news.lua cobrem anexo explícito, filtragem e seleção, permissão negada, captura visível, encerramento, redação, Unicode/limites Discord, cópia, rascunhos e perfis; também histórico oficial, feeds isolados, seleção inicial de abas, PT/EN, marcadores de leitura, importação atômica e destruição/recriação da área Novidades. As suites anteriores e o Designer continuam no CI. Transporte usa respostas controladas; nenhuma credencial real é publicada ou mensagem enviada. Esta sessão não tem ambiente de execução local: resultados efetivos são os checks da revisão no GitHub. Não houve inspeção visual no Roblox.

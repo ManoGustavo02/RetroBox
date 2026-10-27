@@ -1,13 +1,13 @@
 {
   "SchemaVersion": 1,
   "Kind": "RetroBox",
-  "Version": "2.8.0",
+  "Version": "2.9.0",
   "APIVersion": 2,
-  "Build": "retrobox-2.8.0",
+  "Build": "retrobox-2.9.0",
   "Channel": "stable",
   "Artifact": {
-    "Path": "dist/releases/2.8.0/RetroBox.lua",
-    "SHA256": "fb6d47c4ba3f43bd307fb5243beed35da0ac24349cae901c672683cbc1414a9b",
-    "Bytes": 807181
+    "Path": "dist/releases/2.9.0/RetroBox.lua",
+    "SHA256": "bfdb6540e866b0312bd2a6fcabeedc66cf7666368b3ddd4f264d7a0c7bb62211",
+    "Bytes": 858443
   }
 }

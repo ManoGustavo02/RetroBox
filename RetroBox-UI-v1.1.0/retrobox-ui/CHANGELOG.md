@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.9.0 · 2026-10-27
+
+- Área Novidades em todas as janelas, com histórico oficial da RetroBox e updates opcionais do script em fontes separadas.
+- Marcação de leitura por conteúdo, idioma PT/EN e persistência no perfil; conteúdo oficial não aceita substituição pela API pública.
+- Diagnóstico opcional na Central de Ideias: erro colado, código/tag, reprodução e seleção de registros disponíveis.
+- Captura de console explícita e limitada, prévia, cópia e remoção de padrões reconhecidos de segredo; anexos não entram nos perfis.
+- Limites do embed conferidos antes do envio, preservação de rascunho e encerramento seguro de captura e respostas tardias.
+
 ## 2.8.0 · 2026-10-27
 
 - Central de Ideias opt-in e independente do Script Hub, com categorias, formulário, prévia e PT/EN.

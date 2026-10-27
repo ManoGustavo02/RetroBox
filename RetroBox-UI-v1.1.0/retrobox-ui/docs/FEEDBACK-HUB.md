@@ -99,3 +99,32 @@ Rascunho, webhook, função de transporte e identidade não são salvos nos perf
 - [Validação da RetroBox](VALIDATION.md)
 
 Os testes de transporte usam respostas simuladas e não publicam mensagens no Discord. Este ambiente não possui renderer Roblox. Um webhook e executor reais precisam ser conferidos pelo responsável pela distribuição; nenhuma credencial real acompanha os exemplos.
+
+## Diagnóstico opcional · 2.9
+
+Diagnostics=true é o padrão nas novas versões; cria uma seção opcional que inicia com o anexo e a captura desativados. Diagnostics=false mantém a tela sem essa seção. ScriptVersion é uma string opcional (até 64 bytes) incluída somente com o diagnóstico anexado. O nome, idioma e demais opções da janela permanecem compatíveis.
+
+O jogador pode colar até 2000 caracteres de erro/stack trace, informar Code (até 64 caracteres), Steps (até 400) e marcar até 5 registros. O diagnóstico tem sua própria prévia selecionável e botão de cópia. Um envio de BugReport recebe [BUG]; outros relatos com diagnóstico recebem [DIAGNOSTIC]. A tag de erro é incluída como campo do embed.
+
+Carregar erros disponíveis consulta explicitamente os diagnósticos das janelas desta instância da RetroBox (até 16 janelas) e o histórico local de LogService quando permitido (até as 160 entradas mais recentes). Somente erros e avisos são importados, com deduplicação, até 80 registros retidos e tamanho limitado por registro. Mensagens muito longas são resumidas na captura e sinalizadas na prévia. Nenhum registro vem marcado. A integração não promete acesso ao console privado de um executor nem a logs do servidor.
+
+Acompanhar novos erros é opt-in e usa LogService.MessageOut quando disponível. Apenas a tela visível captura registros. Desativar o anexo ou destruir a tela encerra a conexão; eventos tardios não tocam na UI. Falhas de permissão são tratadas em sondagens específicas; não há hook de print/warn/error nem varredura de scripts ou clipboard.
+
+O preparo remove padrões reconhecidos de webhook, token do destino, Bearer, cookies e campos de segredo. Isso não garante identificar todo dado sensível: o jogador deve revisar a prévia. A cópia usa somente o diagnóstico preparado; sem acesso ao clipboard, a prévia permanece selecionável. Não se lê o clipboard automaticamente.
+
+O envio confere o embed inteiro antes de chamar o transporte: até 25 fields, até 1024 unidades por valor e 6000 no total, medindo emoji de forma conservadora como UTF-16. O diagnóstico é dividido em fields de até 900 unidades sem quebrar Unicode. Se não couber, a UI pede reduzir o texto ou selecionar menos registros; não há truncamento silencioso no envio nem upload de arquivo externo.
+
+### API de diagnóstico
+
+- hub:GetDraft().Diagnostics retorna Include, Text, Code, Steps e Selected (IDs locais).
+- hub:SetDraft({Diagnostics={Include=true,Text='erro copiado',Code='E_BUTTON',Steps='Clique no botão',Selected={}}}) valida os campos antes de aplicar o restante do rascunho.
+- hub:SetDiagnosticText(text, include?) preenche o texto; não envia.
+- hub:CollectDiagnostics() importa registros disponíveis somente quando chamado.
+- hub:GetDiagnosticRecords() retorna cópias saneadas e IDs locais de seleção.
+- hub:SetDiagnosticCapture(true|false) altera a captura explícita.
+- hub:ClearDiagnostics() limpa texto, tag, passos e seleção, e desativa o anexo; preserva a mensagem de feedback.
+- hub:GetPreview().Diagnostics existe somente quando o usuário incluiu um diagnóstico válido.
+
+Nenhuma dessas ações chama Submit automaticamente. Dados de diagnóstico não entram nos perfis. A detecção de duplicatas considera o conteúdo anexado e independe do idioma da interface. Falhas e respostas incertas preservam o diagnóstico; ClearOnSuccess só limpa se o rascunho completo ainda for igual ao enviado.
+
+[Notas da versão](RELEASE-2.9.md) · [Novidades por origem](NEWS.md)

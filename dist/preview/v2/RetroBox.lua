@@ -9,7 +9,7 @@ local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
 local TextService = game:GetService("TextService")
 
-local Library = { Version = "2.8.0", Themes = {}, Windows = {} }
+local Library = { Version = "2.9.0", Themes = {}, Windows = {} }
 local Window = {}; Window.__index = Window
 local Tab = {}; Tab.__index = Tab
 local Section = {}; Section.__index = Section
@@ -3778,7 +3778,7 @@ function Tab:Destroy()
     local index=table.find(window.Tabs,self); if index then table.remove(window.Tabs,index) end
     if window.ActiveTab==self then
         window.ActiveTab=nil
-        for _,tab in ipairs(window.Tabs) do if not tab.Hidden and not tab.Destroyed then tab:Select(); break end end
+        for _,tab in ipairs(window.Tabs) do if not tab.Hidden and not tab.Destroyed and not tab._passive then tab:Select(); break end end
     end
 end
 
@@ -11145,12 +11145,243 @@ end
 -- END RETRO250 DEVELOPMENT TOOLS
 
 -- BEGIN RETRO280 FEEDBACK HUB
+-- Optional diagnostic attachments: explicit selection, preview, bounded data and scoped capture.
+do
+    local Diagnostic={};Diagnostic.__index=Diagnostic
+    local function clean(value) return (value:gsub('\r\n','\n'):gsub('\r','\n'):gsub('^%s+',''):gsub('%s+$','')) end
+    local function valid(value,limit)
+        return type(value)=='string' and #value<=limit*4 and utf8.len(value) and utf8.len(value)<=limit and not value:find('[%z\1-\8\11\12\14-\31]')
+    end
+    local function excerpt(value,limit)
+        local n=utf8.len(value);if not n then return '' end
+        return n<=limit and value or value:sub(1,utf8.offset(value,limit+1)-1)..'…'
+    end
+    local function sensitive(key)
+        key=key:lower();return key:find('token',1,true) or key:find('password',1,true) or key:find('secret',1,true) or key:find('cookie',1,true) or key:find('apikey',1,true) or key:find('api_key',1,true) or key:find('api-key',1,true) or key=='authorization' or key=='.roblosecurity'
+    end
+    function Diagnostic:Sanitize(value)
+        local text=clean(value);local before=text
+        local token=self.Hub.Options.URL and self.Hub.Options.URL:match('/webhooks/[^/]+/([^?]+)')
+        if token then text=text:gsub(token:gsub('([^%w])','%%%1'),'[REDACTED]') end
+        text=text:gsub('https://[^/%s]+/api/[^%s]*webhooks/%d+/[%w_%-]+','[WEBHOOK REDACTED]')
+        text=text:gsub('[Bb][Ee][Aa][Rr][Ee][Rr]%s+[%w%._~%+/%-=]+','Bearer [REDACTED]')
+        text=text:gsub('([%w_.%-]+)(%s*[:=]%s*)(["\'])(.-)%3',function(key,sep,quote,item)
+            return key..sep..quote..(sensitive(key) and '[REDACTED]' or item)..quote
+        end)
+        text=text:gsub('([%w_.%-]+)(%s*[:=]%s*)([^%s,;"\']+)',function(key,sep,item)
+            return key..sep..(sensitive(key) and '[REDACTED]' or item)
+        end)
+        return text,text~=before
+    end
+    function Diagnostic:GetDraft()
+        local c=self.Controls;local selected={}
+        for _,label in ipairs(c.Records:GetValue()) do if self.LabelIds[label] then selected[#selected+1]=self.LabelIds[label] end end
+        return {Include=c.Include:GetValue(),Text=c.Text.Input.Text,Code=c.Code.Input.Text,Steps=c.Steps.Input.Text,Selected=selected}
+    end
+    function Diagnostic:CheckDraft(value)
+        assert(type(value)=='table','Diagnostic draft must be a table')
+        for key in pairs(value) do assert(key=='Include' or key=='Text' or key=='Code' or key=='Steps' or key=='Selected','Unknown diagnostic draft field') end
+        if value.Include~=nil then assert(type(value.Include)=='boolean','Diagnostic Include must be boolean') end
+        for name,limit in pairs({Text=2000,Code=64,Steps=400}) do if value[name]~=nil then assert(valid(value[name],limit),'Invalid diagnostic '..name) end end
+        if value.Selected~=nil then
+            assert(type(value.Selected)=='table' and #value.Selected<=5,'Select up to 5 diagnostic records')
+            local n,seen=0,{};for key,id in pairs(value.Selected) do n=n+1;assert(type(key)=='number' and key%1==0 and key>=1 and key<=#value.Selected and self.ById[id] and not seen[id],'Invalid diagnostic selection');seen[id]=true end
+            assert(n==#value.Selected,'Diagnostic selection must be a dense array')
+        end
+    end
+    function Diagnostic:SetDraft(value)
+        self:CheckDraft(value);self.Syncing=true
+        for name in pairs({Text=true,Code=true,Steps=true}) do if value[name]~=nil then self.Controls[name]:SetValue(value[name],true) end end
+        if value.Include~=nil then self.Controls.Include:SetValue(value.Include,true) end
+        if value.Selected then
+            local labels={};for label,id in pairs(self.LabelIds) do if table.find(value.Selected,id) then labels[#labels+1]=label end end
+            self.Controls.Records:SetValue(labels,true)
+        end
+        self.Syncing=false;self:Refresh();self.Hub._last=nil;self.Hub:Refresh();return self
+    end
+    function Diagnostic:Snapshot()
+        local draft=self:GetDraft();if not draft.Include then return nil end
+        if not valid(draft.Text,2000) or not valid(draft.Code,64) or not valid(draft.Steps,400) then return nil,'DiagnosticInvalid' end
+        if #draft.Selected>5 then return nil,'DiagnosticSelection' end
+        local text,redacted=self:Sanitize(draft.Text);local code,redactedCode=self:Sanitize(draft.Code);local steps,redactedSteps=self:Sanitize(draft.Steps)
+        local records={}
+        for _,id in ipairs(draft.Selected) do local record=self.ById[id];if record then local public=copy(record);public.Key=nil;records[#records+1]=public end end
+        if text=='' and #records==0 then return nil,'DiagnosticEmpty' end
+        local result={Text=text,Code=code,Steps=steps,Records=records,LibraryVersion=Library.Version,ScriptVersion=self.Hub.Options.ScriptVersion,Redacted=redacted or redactedCode or redactedSteps}
+        for _,record in ipairs(records) do if record.Redacted then result.Redacted=true end end
+        return result
+    end
+    function Diagnostic:Format(snapshot)
+        if not snapshot then return '' end
+        local lines={'RetroBox '..snapshot.LibraryVersion}
+        if snapshot.ScriptVersion then lines[#lines+1]='Script '..snapshot.ScriptVersion end
+        if snapshot.Code~='' then lines[#lines+1]=self:_tr('Código: ','Code: ')..snapshot.Code end
+        if snapshot.Text~='' then lines[#lines+1]=snapshot.Text end
+        for _,record in ipairs(snapshot.Records) do
+            lines[#lines+1]='['..record.Source..' / '..record.Level..'] '..record.Message..(record.Truncated and self:_tr('\n[Registro resumido na captura]','\n[Record shortened during capture]') or '')
+        end
+        if snapshot.Steps~='' then lines[#lines+1]=self:_tr('Como reproduzir: ','Steps to reproduce: ')..snapshot.Steps end
+        return table.concat(lines,'\n\n')
+    end
+    function Diagnostic:_tr(pt,en) return self.Hub:_tr(pt,en) end
+    function Diagnostic:_selected()
+        local set={};for _,id in ipairs(self:GetDraft().Selected) do set[id]=true end;return set
+    end
+    function Diagnostic:Add(message,source,level)
+        if self.Destroyed or type(message)~='string' or not utf8.len(message) then return end
+        message=message:gsub('[%z\1-\8\11\12\14-\31]','')
+        local sanitized,redacted=self:Sanitize(message);if sanitized=='' then return end
+        local key=Library:SHA256(source..'/'..level..'/'..sanitized);if self.Seen[key] then return end
+        self.Seq=self.Seq+1;local id='record-'..self.Seq
+        local r={Id=id,Source=source,Level=level,Message=excerpt(sanitized,2000),Redacted=redacted,Truncated=utf8.len(sanitized)>2000,Key=key}
+        self.Records[#self.Records+1]=r;self.ById[id]=r;self.Seen[key]=true
+        if #self.Records>80 then
+            local selected=self:_selected();local index
+            for i,record in ipairs(self.Records) do if not selected[record.Id] then index=i;break end end
+            local removed=table.remove(self.Records,index or #self.Records);self.ById[removed.Id]=nil;self.Seen[removed.Key]=nil
+        end
+        self:_queueRefresh()
+    end
+    function Diagnostic:_queueRefresh()
+        if self.Pending or self.Destroyed then return end
+        self.Pending=task.defer(function()
+            self.Scope:Remove('diagnostic-refresh',true);self.Pending=nil
+            if not self.Destroyed then self:Refresh() end
+        end)
+        self.Scope:Add(self.Pending,function(thread) if coroutine.status(thread)=='suspended' then task.cancel(thread) end end,'diagnostic-refresh')
+    end
+    function Diagnostic:Collect()
+        if self.Destroyed then return false end
+        local windows=0
+        for window in pairs(Library.Windows) do
+            if not window.Destroyed and windows<16 then
+                windows=windows+1
+                for _,record in ipairs(window:GetDiagnostics()) do self:Add(record.Message..(record.Traceback and '\n'..record.Traceback or ''),'RetroBox','Error') end
+            end
+        end
+        -- Capability probe only: some client/executor environments deny LogService access.
+        local ok,history=pcall(function() return game:GetService('LogService'):GetLogHistory() end)
+        if self.Destroyed then return false end
+        if ok and type(history)=='table' then
+            for i=math.max(1,#history-159),#history do
+                local record=history[i];if type(record)=='table' then
+                    local kind=tostring(record.messageType)
+                    if kind:find('MessageError',1,true) then self:Add(record.message,'Console','Error')
+                    elseif kind:find('MessageWarning',1,true) then self:Add(record.message,'Console','Warning') end
+                end
+            end
+        end
+        self.Available=ok and type(history)=='table';self:Refresh();return self.Available
+    end
+    function Diagnostic:SetCapturing(value)
+        assert(type(value)=='boolean','Capture must be boolean')
+        if self.Destroyed then return false end
+        self.Scope:Remove('console-capture');self.Capturing=false
+        if value then
+            -- A denied event is reported as unavailable; manual attachments remain usable.
+            local ok,connection=pcall(function() return game:GetService('LogService').MessageOut:Connect(function(message,messageType)
+                if self.Destroyed or self.Hub.Window._shown==false or self.Hub.Window.Minimized or not self.Hub.Tab.Frame.Visible then return end
+                local kind=tostring(messageType)
+                if kind:find('MessageError',1,true) then self:Add(message,'Console','Error')
+                elseif kind:find('MessageWarning',1,true) then self:Add(message,'Console','Warning') end
+            end) end)
+            if self.Destroyed then if ok and connection then connection:Disconnect() end;return false end
+            if ok and connection then self.Scope:Add(connection,'Disconnect','console-capture');self.Capturing=true else self.Available=false end
+        end
+        self.Controls.Live:SetValue(self.Capturing,true);self:Refresh();return self.Capturing
+    end
+    function Diagnostic:GetRecords() local result=copy(self.Records);for _,record in ipairs(result) do record.Key=nil end;return result end
+    function Diagnostic:Clear()
+        self:SetDraft({Include=false,Text='',Code='',Steps='',Selected={}});return self
+    end
+    function Diagnostic:CopyPreview()
+        local snapshot=self:Snapshot();local value=self:Format(snapshot);self.Controls.Preview.Input:CaptureFocus()
+        self.Controls.Preview.Input.SelectionStart=1;self.Controls.Preview.Input.CursorPosition=#value+1
+        if type(setclipboard)=='function' then
+            local ok=pcall(setclipboard,value);self.Copied=ok
+        else self.Copied=false end
+        self:Refresh();return value,self.Copied
+    end
+    function Diagnostic:Refresh()
+        if self.Destroyed or self.Syncing then return end;self.Syncing=true
+        local c=self.Controls
+        local signature=tostring(self.Seq)..'/'..#self.Records..'/'..self.Hub.Window:GetLocale()
+        if self._recordSignature~=signature then
+            local selected=self:_selected();local labels={};self.LabelIds={}
+            for _,record in ipairs(self.Records) do
+                local text='#'..record.Id:match('%d+')..' ['..record.Source..' / '..(record.Level=='Error' and self:_tr('ERRO','ERROR') or self:_tr('AVISO','WARNING'))..'] '..excerpt(record.Message:gsub('\n',' '),72)
+                labels[#labels+1]=text;self.LabelIds[text]=record.Id
+            end
+            c.Records:SetOptions(labels,false);local selectedLabels={}
+            for _,text in ipairs(labels) do if selected[self.LabelIds[text]] then selectedLabels[#selectedLabels+1]=text end end
+            c.Records:SetValue(selectedLabels,true);self._recordSignature=signature
+        end
+        c.Text:SetDescription(tostring(utf8.len(c.Text.Input.Text) or 0)..' / 2000 '..self:_tr('caracteres','characters'))
+        c.Code:SetDescription(self:_tr('Opcional · até 64 caracteres.','Optional · up to 64 characters.'))
+        c.Steps:SetDescription(self:_tr('Opcional · até 400 caracteres.','Optional · up to 400 characters.'))
+        self.Section:SetTitle(self:_tr('Diagnóstico do problema','Problem diagnostics'))
+        for name,pair in pairs(self.Captions) do c[name]:SetTitle(self:_tr(pair[1],pair[2]));if c[name].Button then c[name].Button.Text=self:_tr(pair[1],pair[2]) end end
+        c.Intro:SetText(self:_tr('Cole o erro e/ou carregue registros para marcar até 5. Nada é anexado sem ativar a opção abaixo.','Paste an error and/or load records to select up to 5. Nothing is attached unless you enable the option below.'))
+        local included=c.Include:GetValue()
+        for _,name in ipairs({'Text','Code','Steps','Records','Preview','Copy','Clear'}) do c[name]:SetVisible(included) end
+        c.Collect:SetVisible(included);c.Live:SetVisible(included)
+        if not included and self.Capturing then self.Scope:Remove('console-capture');self.Capturing=false;c.Live:SetValue(false,true) end
+        local snapshot,why=self:Snapshot();local formatted=self:Format(snapshot)
+        c.Preview:SetValue(formatted,true)
+        if snapshot and self.Hub._ready then
+            local _,failure=self.Hub:BuildPayload()
+            if failure=='DiagnosticPayloadLarge' then why=failure end
+        end
+        self.Hub.Window:_bind(c.Note.TitleLabel,{TextColor3=why and 'Danger' or snapshot and snapshot.Redacted and 'Accent' or 'Muted'})
+        c.Note:SetText(why and self.Hub:_message(why) or snapshot and (snapshot.Redacted and self:_tr('Padrões de segredo reconhecidos foram removidos. Revise esta prévia antes de enviar.','Recognized secret patterns were removed. Review this preview before sending.') or self:_tr('Somente este diagnóstico será anexado ao envio.','Only this diagnostic preview will be attached.')) or self:_tr('Diagnóstico opcional: desativado.','Optional diagnostics: disabled.'))
+        c.CollectionStatus:SetText((self.Available==false and self:_tr('Histórico indisponível neste ambiente. Você pode colar o erro manualmente.','History unavailable in this environment. You can paste the error manually.') or self:_tr('Registros disponíveis: ','Available records: ')..#self.Records)..(self.Capturing and self:_tr(' · Captura ativa',' · Capture active') or '')..(self.Copied==false and self:_tr(' · Selecione e copie o texto da prévia.',' · Select and copy the preview text.') or self.Copied and self:_tr(' · Prévia copiada.',' · Preview copied.') or ''))
+        self.Syncing=false
+    end
+    function Diagnostic:Destroy()
+        if self.Destroyed then return end;self.Destroyed=true
+        self.Scope:Destroy();self.Records={};self.ById={};self.Seen={};self.LabelIds={};self.Controls={};self.Pending=nil;self.Capturing=false
+    end
+    function Window:_createFeedbackDiagnostics(hub,add)
+        local d=setmetatable({Hub=hub,Scope=hub.Scope:Child(),Controls={},Records={},ById={},Seen={},LabelIds={},Captions={},Seq=0},Diagnostic)
+        d.Section=hub.Tab:CreateSection({Title=hub:_tr('Diagnóstico do problema','Problem diagnostics'),Icon='warning'})
+        local function control(method,name,pt,en,opts)
+            local c=add(d.Section,method,'Diagnostic'..name,pt,en,opts);d.Controls[name]=c;d.Captions[name]={pt,en};return c
+        end
+        control('AddLabel','Intro','','',{Height=96})
+        control('AddToggle','Include','Anexar diagnóstico ao envio','Attach diagnostics to submission',{Default=false})
+        control('AddInput','Text','Erro / stack trace copiado','Copied error / stack trace',{Multiline=true,Live=true,MaxLength=8000})
+        control('AddInput','Code','Código ou tag do erro (opcional)','Error code or tag (optional)',{Live=true,MaxLength=256})
+        control('AddInput','Steps','Como reproduzir (opcional)','Steps to reproduce (optional)',{Multiline=true,Live=true,MaxLength=1600})
+        control('AddButton','Collect','Carregar erros disponíveis','Load available errors',{Icon='refresh',Callback=function() d:Collect();hub:Refresh() end})
+        control('AddToggle','Live','Acompanhar novos erros nesta tela','Capture new errors while this screen is open',{Default=false,Callback=function(value) d:SetCapturing(value) end})
+        control('AddDropdown','Records','Marcar registros para anexar (até 5)','Select records to attach (up to 5)',{Multi=true,Options={},Default={}})
+        control('AddInput','Preview','Diagnóstico que será enviado','Diagnostics to be sent',{Multiline=true,MaxLength=65536})
+        d.Controls.Preview.Input.TextEditable=false
+        control('AddLabel','Note','','',{Height=96})
+        control('AddLabel','CollectionStatus','','',{Height=80})
+        control('AddButton','Copy','Copiar diagnóstico da prévia','Copy diagnostic preview',{Icon='copy',Callback=function() d:CopyPreview() end})
+        control('AddButton','Clear','Limpar diagnóstico','Clear diagnostics',{Icon='reset',Callback=function() d:Clear();hub:Refresh() end})
+        for _,name in ipairs({'Include','Text','Code','Steps','Records'}) do
+            d.Scope:Add(d.Controls[name]:OnChanged(function()
+                if not d.Syncing then hub._last=nil;d:Refresh();hub:Refresh() end
+            end),'Disconnect')
+        end
+        for _,name in ipairs({'Text','Code','Steps','Preview'}) do self:SetTextTranslation(d.Controls[name].Input,false) end
+        self:SetTextTranslation(d.Controls.Intro.Frame,false);self:SetTextTranslation(d.Controls.Note.Frame,false);self:SetTextTranslation(d.Controls.CollectionStatus.Frame,false)
+        d:Refresh();return d
+    end
+end
+
 -- Explicit opt-in communication UI. No network request is sent on construction.
 do
     local Feedback={};Feedback.__index=Feedback
     local kinds={ScriptRequest={'Pedir script para um jogo','Request a game script'},Suggestion={'Sugerir melhoria','Suggest an improvement'},Feedback={'Enviar feedback','Share feedback'},BugReport={'Relatar problema','Report a problem'}}
     local order={'ScriptRequest','Suggestion','Feedback','BugReport'}
     local messages={
+        DiagnosticInvalid={'Confira os limites e o texto dos campos de diagnóstico.','Check the diagnostic text and field limits.'},
+        DiagnosticSelection={'Marque no máximo 5 registros para anexar.','Select at most 5 records to attach.'},
+        DiagnosticEmpty={'Cole um erro ou marque um registro para anexar.','Paste an error or select a record to attach.'},
+        DiagnosticPayloadLarge={'O diagnóstico excede o limite do Discord. Reduza o texto ou marque menos registros.','Diagnostics exceed the Discord limit. Shorten the text or select fewer records.'},
         Destroyed={'A Central de Ideias foi encerrada.','The Ideas Center has been closed.'},
         Idle={'Escreva sua ideia e confira a prévia antes de enviar.','Write your idea and review the preview before sending.'},
         Empty={'Escreva uma mensagem antes de enviar.','Write a message before sending.'},
@@ -11234,6 +11465,9 @@ do
         assert(seen[result.DefaultCategory],'DefaultCategory must be enabled')
         if options.Game~=nil then assert(options.Game=='current' or gameId(options.Game),'Invalid feedback Game') end
         result.Game=options.Game or 'current'
+        assert(options.Diagnostics==nil or type(options.Diagnostics)=='boolean','Diagnostics must be boolean')
+        result.Diagnostics=options.Diagnostics~=false
+        if options.ScriptVersion~=nil then assert(type(options.ScriptVersion)=='string' and #options.ScriptVersion<=64 and count(options.ScriptVersion) and not options.ScriptVersion:find('[%c]'),'Invalid ScriptVersion');result.ScriptVersion=options.ScriptVersion end
         return result
     end
     -- Session-only bounded ledger contains hashes/timing, never drafts or URLs.
@@ -11324,15 +11558,19 @@ do
         return entry(Library:SHA256((self.Options.URL or 'adapter:'..self.Options.CooldownKey)..'/'..tostring(identity.UserId)))
     end
     function Feedback:GetDraft()
-        return {Category=self.Category,Message=self.Controls.Message.Input.Text,Game=self.Controls.CurrentGame:GetValue() and 'current' or self.Controls.Target.Input.Text}
+        local result={Category=self.Category,Message=self.Controls.Message.Input.Text,Game=self.Controls.CurrentGame:GetValue() and 'current' or self.Controls.Target.Input.Text}
+        if self.Diagnostics then result.Diagnostics=self.Diagnostics:GetDraft() end
+        return result
     end
     function Feedback:SetDraft(value)
         assert(not self.Destroyed and type(value)=='table','Draft must be a table on a live Feedback Hub')
-        for key in pairs(value) do assert(key=='Category' or key=='Message' or key=='Game','Unknown feedback draft field') end
+        for key in pairs(value) do assert(key=='Category' or key=='Message' or key=='Game' or key=='Diagnostics','Unknown feedback draft field') end
         if value.Category~=nil then assert(table.find(self.Options.Categories,value.Category),'Unknown feedback category') end
         if value.Message~=nil then assert(type(value.Message)=='string' and #value.Message<=self.Options.MaxLength*4 and count(value.Message),'Invalid draft text') end
         if value.Game~=nil then assert(value.Game=='current' or gameId(value.Game),'Invalid feedback game') end
+        if value.Diagnostics~=nil then assert(self.Diagnostics,'Diagnostics are disabled');self.Diagnostics:CheckDraft(value.Diagnostics) end
         self._syncing=true
+        if value.Diagnostics then self.Diagnostics:SetDraft(value.Diagnostics) end
         if value.Category then self.Category=value.Category end
         if value.Message then self.Controls.Message:SetValue(value.Message,true) end
         if value.Game then
@@ -11345,6 +11583,14 @@ do
     function Feedback:SetCategory(value) return self:SetDraft({Category=value}) end
     function Feedback:SetGame(value) return self:SetDraft({Game=value}) end
     function Feedback:ClearDraft() self:SetMessage('');return self end
+    function Feedback:SetDiagnosticText(value,include)
+        assert(self.Diagnostics and not self.Destroyed,'Diagnostics are disabled or destroyed')
+        self.Diagnostics:SetDraft({Text=value,Include=include});return self
+    end
+    function Feedback:GetDiagnosticRecords() return self.Diagnostics and self.Diagnostics:GetRecords() or {} end
+    function Feedback:CollectDiagnostics() assert(self.Diagnostics,'Diagnostics are disabled');return self.Diagnostics:Collect() end
+    function Feedback:SetDiagnosticCapture(value) assert(self.Diagnostics,'Diagnostics are disabled');return self.Diagnostics:SetCapturing(value) end
+    function Feedback:ClearDiagnostics() if self.Diagnostics then self.Diagnostics:Clear() end;return self end
     function Feedback:GetPreview()
         if self.Destroyed then return nil,'Destroyed' end
         local draft=self:GetDraft();local message=trim(draft.Message:gsub('\r\n','\n'):gsub('\r','\n'))
@@ -11356,18 +11602,50 @@ do
         local id=draft.Game=='current' and validId(game.PlaceId) or gameId(draft.Game)
         if not id then return nil,'InvalidGame' end
         local identity=self:_identity();if not identity then return nil,'Identity' end
-        return {Category=self.Category,Message=message,Game={PlaceId=id,Name=self._game and self._game.Id==id and self._game.Name or 'Game '..string.format('%.0f',id),URL='https://www.roblox.com/games/'..string.format('%.0f',id)},
+        local result={Category=self.Category,Message=message,Game={PlaceId=id,Name=self._game and self._game.Id==id and self._game.Name or 'Game '..string.format('%.0f',id),URL='https://www.roblox.com/games/'..string.format('%.0f',id)},
             Player={Name=identity.Name,DisplayName=identity.DisplayName,AvatarURL=self.Options.IncludeAvatar and self._avatar and self._avatar.UserId==identity.UserId and self._avatar.URL or nil}}
+        if self.Diagnostics then
+            local diagnostic,why=self.Diagnostics:Snapshot();if why then return nil,why end
+            result.Diagnostics=diagnostic
+        end
+        return result
+    end
+    -- Discord counts the whole embed, with UTF-16 units used conservatively for emoji.
+    local function wireLength(value)
+        local n=0;for _,code in utf8.codes(value or '') do n=n+(code>65535 and 2 or 1) end;return n
+    end
+    local function chunks(value,limit)
+        local result,part,units={},{},0
+        for _,code in utf8.codes(value) do
+            local size=code>65535 and 2 or 1
+            if units+size>limit then result[#result+1]=table.concat(part);part={};units=0 end
+            part[#part+1]=utf8.char(code);units=units+size
+        end
+        if #part>0 then result[#result+1]=table.concat(part) end
+        return result
     end
     function Feedback:BuildPayload()
         local preview,reason=self:GetPreview();if not preview then return nil,reason end
         local pair=kinds[preview.Category]
         local function field(pt,en,value,inline) return {name=self:_tr(pt,en),value=value,inline=inline==true} end
-        local embed={title=self:_tr(pair[1],pair[2]),description=preview.Message,url=preview.Game.URL,color=4505476,
+        local embed={title=(preview.Category=='BugReport' and '[BUG] ' or '')..self:_tr(pair[1],pair[2]),description=preview.Message,url=preview.Game.URL,color=4505476,
             author={name=excerpt(preview.Player.DisplayName..' (@'..preview.Player.Name..')',120)},
             fields={field('Jogo','Game',preview.Game.Name),field('Link do jogo','Game link',preview.Game.URL),field('ID do jogo','Place ID',string.format('%.0f',preview.Game.PlaceId),true),
                 field('Nome do jogador','Player display name',preview.Player.DisplayName,true),field('Usuário','Username','@'..preview.Player.Name,true)}}
         if preview.Player.AvatarURL then embed.thumbnail={url=preview.Player.AvatarURL} end
+        if preview.Diagnostics then
+            if preview.Category~='BugReport' then embed.title='[DIAGNOSTIC] '..embed.title end
+            if preview.Diagnostics.Code~='' then embed.fields[#embed.fields+1]=field('Tag do erro','Error tag',preview.Diagnostics.Code) end
+            local formatted=self.Diagnostics:Format(preview.Diagnostics)
+            for i,part in ipairs(chunks(formatted,900)) do embed.fields[#embed.fields+1]=field('Diagnóstico '..i,'Diagnostics '..i,part) end
+        end
+        local total=wireLength(embed.title)+wireLength(embed.description)+wireLength(embed.author.name)
+        if #embed.fields>25 or wireLength(embed.title)>256 or wireLength(embed.description)>4096 then return nil,'DiagnosticPayloadLarge' end
+        for _,item in ipairs(embed.fields) do
+            if wireLength(item.name)>256 or wireLength(item.value)>1024 then return nil,'DiagnosticPayloadLarge' end
+            total=total+wireLength(item.name)+wireLength(item.value)
+        end
+        if total>6000 then return nil,'DiagnosticPayloadLarge' end
         return {embeds={embed},allowed_mentions={parse={}}},preview
     end
     function Feedback:Validate(options)
@@ -11375,13 +11653,20 @@ do
         if self.Destroyed then return false,'Destroyed' end
         if self._operation then return false,'Busy' end
         local preview,reason=self:GetPreview();if not preview then return false,reason end
+        local payload,payloadReason=self:BuildPayload();if not payload then return false,payloadReason end
         if not self.Options.Transport and not self.Options.URL then return false,'NotConfigured' end
         if not self.Options.Transport and not requester(self.Options.Request) then return false,'Unavailable' end
         local item=self:_entry(self:_identity());if not item then return false,'Busy' end
         local now=os.clock()
         if item.PendingUntil>now then return false,'Busy' end
         if item.Next>now then return false,'Cooldown',math.ceil(item.Next-now) end
-        local hash=Library:SHA256(preview.Category..'/'..tostring(preview.Game.PlaceId)..'/'..preview.Message)
+        local diagnosticKey=''
+        if preview.Diagnostics then
+            local d=preview.Diagnostics;local parts={d.LibraryVersion,d.ScriptVersion or '',d.Code,d.Text,d.Steps}
+            for _,record in ipairs(d.Records) do parts[#parts+1]=record.Source..'\0'..record.Level..'\0'..record.Message end
+            diagnosticKey='\0diagnostics\0'..table.concat(parts,'\0')
+        end
+        local hash=Library:SHA256(preview.Category..'/'..tostring(preview.Game.PlaceId)..'/'..preview.Message..diagnosticKey)
         local previous=item.Seen[hash]
         if previous and (previous.Code=='Sent' or previous.Code=='Unconfirmed' and options.RetryUnconfirmed~=true) then return false,previous.Code=='Sent' and 'Duplicate' or 'Unconfirmed' end
         return true,preview,hash,item
@@ -11397,7 +11682,11 @@ do
         self._operation=nil;self._last=copy(result)
         if result.Code=='Sent' then
             self._last.NewDraft=not same(self:GetDraft(),operation.Draft)
-            if self.Options.ClearOnSuccess and same(self:GetDraft(),operation.Draft) then self.Controls.Message:SetValue('',true) end
+            if self.Options.ClearOnSuccess and same(self:GetDraft(),operation.Draft) then
+                self.Controls.Message:SetValue('',true)
+                if self.Diagnostics then self.Diagnostics:Clear() end
+                self._last=copy(result);self._last.NewDraft=false
+            end
             if self.Options.OnSent then self.Window:_dispatch(self.Options.OnSent,{Phase='FeedbackSent'},copy(operation.Preview),copy(result)) end
         end
         self:Refresh()
@@ -11497,11 +11786,12 @@ do
         self.Controls.Clear.Button.Text=self:_tr('Limpar mensagem','Clear message')
         self.Controls.Cancel.Button.Text=self:_tr('Parar espera','Stop waiting')
         self.Controls.Retry.Button.Text=self:_tr('Reenviar com confirmação','Resend with confirmation')
+        if self.Diagnostics then self.Diagnostics:Refresh() end
         self._syncing=false;self:Refresh()
     end
     function Feedback:Refresh()
         if self.Destroyed or not self._ready or self._refreshing or self._syncing then return end
-        self._refreshing=true;self:_loadContext()
+        self._refreshing=true;if self.Diagnostics then self.Diagnostics:Refresh() end;self:_loadContext()
         local c=self.Controls;local draft=self:GetDraft();local preview,why=self:GetPreview();local status=self:GetStatus()
         local normalizedMessage=trim(draft.Message:gsub('\r\n','\n'):gsub('\r','\n'))
         local identity=self:_identity();local id=draft.Game=='current' and validId(game.PlaceId) or gameId(draft.Game)
@@ -11514,6 +11804,9 @@ do
         c.MessagePreview:SetText(excerpt(normalizedMessage,320))
         c.MessagePreview:SetDescription((count(normalizedMessage) or 0)>320 and self:_tr('Prévia resumida; a mensagem completa será enviada.','Short preview; your complete message will be sent.') or '')
         c.Notice:SetText(self:_tr('Ao enviar, você compartilha o jogo, o link e ID, sua mensagem, nome, @usuário e avatar disponível com o responsável no Discord.','Sending shares the game, link and ID, your message, display name, @username and available avatar with the owner on Discord.'))
+        if preview and preview.Diagnostics then
+            c.Notice:SetText(self:_tr('Ao enviar, você compartilha jogo, link/ID, mensagem, nome/@, avatar disponível e o diagnóstico revisado com o responsável no Discord.','Sending shares the game, link/ID, message, name/@, available avatar and reviewed diagnostics with the owner on Discord.'))
+        end
         local label=status.Message
         if status.RetryAfter then label=label..' '..status.RetryAfter..'s' end
         c.Status:SetText(label);c.Submit:SetDisabled(not status.CanSubmit)
@@ -11539,6 +11832,7 @@ do
         if self._retryDialog and not self.Window.Destroyed and not self.Window._closing then self._retryDialog:Close('feedback destroyed') end
         self._retryDialog=nil
         if self._operation and self._operation.Handle then self._operation.Handle:Cancel('feedback destroyed') end
+        if self.Diagnostics then self.Diagnostics:Destroy();self.Diagnostics=nil end
         self.Scope:Destroy();self.Window._feedbackHubs[self.Id]=nil;self.Window._resources:Remove('feedback-hub:'..self.Id,true)
         if self.Tab and not self.Tab.Destroyed then self.Tab:Destroy() end
         self.Controls={};self._captions={};self._last=nil;self._operation=nil;self.Options={};self._avatar=nil;self._game=nil
@@ -11598,6 +11892,7 @@ do
             hub.Scope:Add(hub.Tab.Frame.Destroying:Connect(function() if not hub.Destroyed then hub:Destroy() end end),'Disconnect')
             hub.Scope:Add(function() if not hub.Destroyed then hub:Destroy() end end)
             self:_bind(hub.Controls.Submit.Button,{BackgroundColor3='Accent',TextColor3='AccentText'})
+            if settings.Diagnostics then hub.Diagnostics=self:_createFeedbackDiagnostics(hub,add) end
             hub._ready=true;identity();hub:_refreshLocale();hub.Tab:Select()
         end)
         if not ok then hub:Destroy();error(err,2) end
@@ -11624,5 +11919,183 @@ do
 end
 
 -- END RETRO280 FEEDBACK HUB
+
+-- BEGIN RETRO290 NEWS
+-- Built-in release notes are owned by the library; consumers only set ScriptUpdates.
+do
+    local official=HttpService:JSONDecode([==[[{"Id":"retrobox-2.9.0","Version":"2.9.0","Date":"2026-10-27","Title":{"pt-BR":"Novidades e relatos com diagnóstico","en-US":"Updates and diagnostic bug reports"},"Description":{"pt-BR":"- Área Novidades em todas as janelas, com histórico oficial da RetroBox e updates opcionais do script em fontes separadas.\n- Marcação de leitura por conteúdo, idioma PT/EN e persistência no perfil; conteúdo oficial não aceita substituição pela API pública.\n- Diagnóstico opcional na Central de Ideias: erro colado, código/tag, reprodução e seleção de registros disponíveis.\n- Captura de console explícita e limitada, prévia, cópia e remoção de padrões reconhecidos de segredo; anexos não entram nos perfis.\n- Limites do embed conferidos antes do envio, preservação de rascunho e encerramento seguro de captura e respostas tardias.","en-US":"- Updates in every window, with official RetroBox history and optional script updates in separate sources.\n- Content-based read markers, PT/EN and saved read state; public consumer APIs cannot replace official notes.\n- Optional Ideas Center diagnostics: pasted error, error tag, reproduction steps and selected available records.\n- Explicit bounded console capture, preview, copy and recognized-secret redaction; attachments stay out of profiles.\n- Embed limits checked before sending, draft preservation and managed capture/request cleanup."}},{"Id":"retrobox-2.8.0","Version":"2.8.0","Date":"2026-10-27","Title":{"pt-BR":"Central de Ideias","en-US":"Ideas Center"},"Description":{"pt-BR":"- Central de Ideias opt-in e independente do Script Hub, com categorias, formulário, prévia e PT/EN.\n- Jogo atual ou outro por ID/link; nome automático, identidade real e avatar HTTPS opcional.\n- Webhook Discord ou transporte customizado, confirmação, limites e duplicatas; nenhum envio na abertura.\n- Falhas e timeout mantêm o texto; respostas tardias não alteram GUI nova. Rascunho/credencial fora dos perfis.\n- Regressões de comunicação, idioma, ciclo de vida e layouts. API 2, bootstrap, Designer e releases anteriores preservados.","en-US":"- Standalone or attached Ideas Center with requests, suggestions, feedback and bug reports.\n- Current or selected game, real player identity, optional avatar and PT/EN preview.\n- Explicit Discord webhook or custom transport, confirmed delivery, cooldown and duplicate handling.\n- Draft preservation, timeout handling and safe cleanup; no send when opening."}},{"Id":"retrobox-2.7.0","Version":"2.7.0","Date":"2026-10-26","Title":{"pt-BR":"Acabamento visual, RGB e tema do Hub","en-US":"Visual polish, RGB and Hub theme"},"Description":{"pt-BR":"- Acabamento compartilhado: entrada coordenada de textos nas páginas, tela de preparação opcional, skeletons nativos e SetLoading para controles comuns.\n- RGB opt-in para títulos, descrições, valores e botões; contraste contextual, preferências de movimento e agendador compartilhado com ColorPickers.\n- Perfil independente de aparência por Hub, preset Launcher, botão Tema e editor de cores; snapshots persistentes e importação atômica.\n- Capas e metadados com placeholders, falha observável e fade de imagem; menus, tooltips e ícones acompanham a paleta local.\n- Orçamentos de efeitos, encerramento seguro ao ocultar/destruir/reexecutar e regressões adicionais. API 2, consumidores, bootstrap, Designer e releases anteriores preservados.","en-US":"- Shared visual polish, coordinated entrances, optional loading screens and native skeletons.\n- Optional RGB for titles, descriptions, values and buttons, respecting contrast and motion preferences.\n- Independent Hub appearance profiles, Launcher preset and palette editor.\n- Image placeholders and status, local theme integration and bounded managed effects."}},{"Id":"retrobox-2.6.0","Version":"2.6.0","Date":"2026-10-26","Title":{"pt-BR":"Identidade e animações","en-US":"Identity and animations"},"Description":{"pt-BR":"- Perfil observa LocalPlayer e Name/DisplayName/UserId, recupera inicialização tardia e confere identidade ao reabrir; avatar e tradução não bloqueiam nomes.\n- Respostas de avatar antigas são invalidadas; observers e referências da interface são liberados na destruição.\n- Feedback de botões, foco, seleção, abas, listas/cards, menus, tooltips, estatísticas, gráficos, Hub/HUD e etapas usam o animador central.\n- Gráficos/StatCards animam por padrão; Animated=false desliga movimento por controle. Arraste suavizado passa a ser padrão, respeitando saves e acessibilidade.\n- Geometria dos gráficos usa unidades lógicas, máscaras de progresso acompanham a transição e há orçamento de 96 segmentos animados por gráfico.\n- Novas regressões de identidade/movimento e demonstração nativa com dados fictícios. API 2, bootstrap, Designer e releases anteriores preservados.","en-US":"- Player profile follows real LocalPlayer identity, including delayed initialization and changes.\n- Stale avatar responses are discarded and observers are cleaned up.\n- Central animation system covers interactions, charts, statistics, Hubs and compact views.\n- Smooth dragging and animated charts by default, with accessibility and explicit opt-outs."}},{"Id":"retrobox-2.5.2","Version":"2.5.2","Date":"2026-10-21","Title":{"pt-BR":"Layout e interação do launcher","en-US":"Launcher layout and interaction"},"Description":{"pt-BR":"- Ordenação do Hub usa a camada de ContextMenu já existente, fora de ancestrais com recorte; respeita a janela e abre para cima quando necessário.\n- Botões do launcher reservam espaço pelo texto, fonte, escala e ícone reais; ações e filtros quebram em linhas quando necessário.\n- Cabeçalhos tradicionais compartilham o cálculo de informação, fixação, Keybind integrado e controle principal, com altura responsiva.\n- Remoção/recriação de ajuda e fixação não acumula deslocamentos; callbacks, captura de teclas, preferências e IDs preservados.\n- Regressões de geometria/interação e compatibilidade com o Hub anexado. Sem redesign, mudança de API ou modificação dos consumidores.","en-US":"- Launcher sorting uses the existing context-menu overlay without clipping.\n- Action widths use actual text, font, scale and icons; rows wrap when needed.\n- Control headers reserve responsive room for help, pinning and keybinds.\n- Existing callbacks, IDs and saved preferences are preserved."}},{"Id":"retrobox-2.5.1","Version":"2.5.1","Date":"2026-10-20","Title":{"pt-BR":"Desempenho dos grafos","en-US":"Flow graph performance"},"Description":{"pt-BR":"- Avaliação memoizada por expressão nos grafos nativos e na prévia, evitando recálculo exponencial de subexpressões compartilhadas.\n- Cada leitura de entrada usa um cache novo, preservando mudanças de valores entre bindings e ações.\n- Comparação de registros na prévia independe da ordem das chaves, como no runtime.\n- Regressões com 28 operações compartilhadas e refresh; release 2.5.0 preservada por bytes.","en-US":"- Memoized flow expressions prevent exponential recalculation of shared inputs.\n- Every new evaluation gets a fresh cache so state changes remain visible.\n- Preview record comparisons ignore map-key order, matching the native runtime."}},{"Id":"retrobox-2.5.0","Version":"2.5.0","Date":"2026-10-20","Title":{"pt-BR":"Designer e ferramentas de desenvolvimento","en-US":"Designer and developer tools"},"Description":{"pt-BR":"- Designer HTML offline com 21 componentes, Row, 22 blocos tipados, prévia, PT/EN, JSON e compilador Luau real.\n- Localização automática por janela, dicionários, parâmetros, provider explícito e preferência em perfis.\n- Formulários transacionais, componentes reutilizáveis, CardGrid com pool limitado e grafos sem ciclos.\n- Diagnóstico de catálogo por download/compilação explícitos, sem executar o conteúdo.\n- Fontes do editor, catálogo compartilhado, exemplos, testes Chromium e integração contínua.\n- API 2, bootstrap, estrutura histórica, jogos/IDs dos consumidores e pins publicados preservados.","en-US":"- Offline HTML Designer with 21 components, rows, 22 typed blocks, preview and a real Luau compiler.\n- Automatic window localization, dictionaries, parameters and explicit translation provider.\n- Transactional forms, reusable components, bounded CardGrid and acyclic flows.\n- Explicit catalog diagnostics and Chromium tests; existing API 2 consumers preserved."}},{"Id":"retrobox-2.4.0","Version":"2.4.0","Date":"2026-10-20","Title":{"pt-BR":"Scripts universais","en-US":"Universal scripts"},"Description":{"pt-BR":"- UniversalScripts nativo e separado de Games, com categoria, tag UNIVERSAL e nome/descrição/URL ou Callback.\n- Id opcional, APIs de cadastro/edição/execução, perfis e ações independentes por categoria.\n- Raw do Pastefy aceito por URL HTTPS; download apenas na execução, com progresso, erros e cancelamento cooperativo.\n- Catálogos JSON continuam sem URL/código e atualizam universais de forma atômica por metadados/Actions locais.\n- Preserva API 2, estrutura histórica, tema/PixelIcons, jogos e artefatos até 2.3.1.","en-US":"- UniversalScripts live separately from game entries, with a UNIVERSAL tag and their own metadata.\n- Optional IDs, registration/editing APIs, profiles and independent actions.\n- HTTPS Pastefy raw URLs load only on explicit execution, with progress and cancellation.\n- Remote JSON catalogs remain metadata-only."}},{"Id":"retrobox-2.3.1","Version":"2.3.1","Date":"2026-10-20","Title":{"pt-BR":"Nova origem de distribuição","en-US":"New distribution origin"},"Description":{"pt-BR":"- Origem padrão do updater e bootstrap passam a ManoGustavo02/RetroBox.\n- Guias e exemplos ativos apontam para a conta nova; estrutura histórica, API 2 e temas preservados.\n- Nova release, sem reescrever os pins 2.0.0, 2.1.0, 2.2.0 e 2.3.0.\n- README bilíngue, banner e badges locais, guias de contribuição/segurança, formulários e CI de validação.\n- Canais Stable/Preview apontam para 2.3.1; resultados de publicação e acesso remoto ficam no relatório da release.","en-US":"- Default updater and bootstrap origin migrated to ManoGustavo02/RetroBox.\n- Active guides and examples point to the new account; historical releases are preserved.\n- Bilingual README, local artwork, contribution/security guides, issue forms and CI."}},{"Id":"retrobox-2.3.0","Version":"2.3.0","Date":"2026-10-19","Title":{"pt-BR":"Launcher padrão do Script Hub","en-US":"Standard Script Hub launcher"},"Description":{"pt-BR":"- Launcher padrão em CreateScriptHub, com catálogo, filtros, destaque, cards e barra fixa, compartilhado por todos os consumidores.\n- FallbackName/Notes nativos, SetCatalogFilter/GetCatalogFilter e compatibilidade dos IDs/perfis/API 2.\n- Temas, idioma, contraste dos cards, buscas/foco, detalhes completos e status de teleporte integrados.\n- Limpeza de Hold evita render em toggle/PixelIcon já destruído durante sinais diferidos.\n- Novo exemplo e regressões específicas de hubs genéricos e integração do consumidor.\n- GitHub retornou 403 de conta suspensa; este pacote não foi publicado.","en-US":"- Shared launcher layout for CreateScriptHub: filters, featured game, cards and fixed actions.\n- FallbackName, Notes and catalog filter APIs preserve existing IDs and API 2.\n- Improved themes, language, contrast, search, complete details and teleport status.\n- Historical note: publication from the old account was blocked; distribution later migrated in 2.3.1."}},{"Id":"retrobox-2.2.0","Version":"2.2.0","Date":"2026-10-19","Title":{"pt-BR":"Mini HUD, previews e etapas","en-US":"Mini HUD, previews and steppers"},"Description":{"pt-BR":"- Mini HUD com States compartilhados, valores/progresso/timers/status, arraste/trava, escala/opacidade, recolhimento e layout em perfis.\n- Fixar/Soltar de StatCard, Progress, ProgressChart, Label e Stepper; valores silenciosos e cleanup do controle preservados.\n- Barra compacta reutiliza FloatingButton e Press/Toggle/Hold, disabled/busy e liberação ao perder foco.\n- AddPreview com imagem/modelo clonado/WorldModel, câmera própria, zoom/rotação, Apply/Cancel, animações opcionais e renderer com scope.\n- AddStepper acompanha progressos/resultados de RunAction, com transições manuais e resumo fixável.\n- 32 regressões específicas e quatro exemplos novos; distribuição e bootstrap API 2 preservados.","en-US":"- Mini HUD with shared states, values, progress, timers, dragging, locking and profile layouts.\n- Pin/unpin existing components, compact action bar, image/model previews and operation stepper.\n- Scoped resources, explicit callbacks and additional regression examples."}},{"Id":"retrobox-2.1.0","Version":"2.1.0","Title":{"pt-BR":"Ícones, metadados e profiler","en-US":"Icons, metadata and profiler"},"Description":{"pt-BR":"- PixelIcon separa observação de Destroying da destruição explícita, com limpeza idempotente e soltura de referências, sem pcall de supressão.\n- Smart Game Metadata no Hub atual: campos manuais preservados, consulta assíncrona, provider opcional, cache/limite/deduplicação e integração com catálogos.\n- Profiler por tarefa/ação no Runtime Inspector existente, com tempos, contadores, espera instrumentada, histórico limitado e aviso de intervalo excedido.\n- Session Snapshots opcionais de States registrados, validados e independentes dos perfis.\n- CreateIntegration e cinco exemplos novos, incluindo operação cancelável de seis etapas.\n- API 2 e bootstrap permanente preservados; releases anteriores continuam imutáveis.","en-US":"- Idempotent PixelIcon lifecycle fixes and cleanup without suppressing destroyed-parent errors.\n- Smart game metadata with async providers, cache and field-level overrides.\n- Task/action profiler, optional registered session snapshots and integration helpers."}},{"Id":"retrobox-2.0.0","Version":"2.0.0","Title":{"pt-BR":"Bootstrap permanente e API 2","en-US":"Permanent bootstrap and API 2"},"Description":{"pt-BR":"- Bootstrap permanente de API 2; Stable/Preview/Pinned, SemVer, compatibilidade, SHA-256, cache opcional e rollback com histórico imutável.\n- Código do Hub por módulos Version/Start/LoadHub e catálogo JSON por CatalogUpdate/Actions, com origens explícitas e atualizações independentes.\n- Script Hub nativo com imagem ampla, sem rótulo Miniatura, listas adaptativas, seleção por jogo, um Executar script, cancelamento/feedback e panes responsivos.\n- Busca global passa a navegar ao pane correto; APIs, IDs/perfis, temas, ícones e componentes anteriores preservados.\n- Guias, migração, prompt completo, 24 exemplos, builders e verificação de distribuição. 256 testes de lógica e 2 de pipeline aprovados.","en-US":"- Permanent API 2 bootstrap with stable/preview/pinned channels, integrity checks and immutable releases.\n- Independent script hub modules and metadata catalogs.\n- Native Script Hub launcher with responsive lists, search, game selection and execution feedback.\n- Existing IDs, themes, profiles and controls retained."}}]]==])
+    local function text(value,limit)
+        local function part(s) assert(type(s)=='string' and utf8.len(s) and #s<=limit*4 and utf8.len(s)<=limit and not s:find('[%z\1-\8\11\12\14-\31]'),'Invalid update text');return s end
+        if type(value)=='string' then return part(value) end
+        assert(type(value)=='table' and value['pt-BR'] and value['en-US'],'Localized update text requires pt-BR and en-US')
+        for key in pairs(value) do assert(key=='pt-BR' or key=='en-US','Unsupported update text key') end
+        return {['pt-BR']=part(value['pt-BR']),['en-US']=part(value['en-US'])}
+    end
+    local function entries(value)
+        assert(type(value)=='table' and #value<=100,'ScriptUpdates must contain at most 100 entries')
+        local result,seen={},{};local total=0
+        for key in pairs(value) do total=total+1;assert(type(key)=='number' and key%1==0 and key>=1 and key<=#value,'ScriptUpdates must be a dense array') end
+        assert(total==#value,'ScriptUpdates must be a dense array')
+        for _,item in ipairs(value) do
+            assert(type(item)=='table' and type(item.Id)=='string' and item.Id:match('^[%w_.%-]+$') and #item.Id<=64 and not seen[item.Id],'Update Id must be unique and contain 1-64 safe characters')
+            for key in pairs(item) do assert(key=='Id' or key=='Version' or key=='Title' or key=='Description' or key=='Date','Unknown script update field') end
+            seen[item.Id]=true
+            local e={Id=item.Id,Title=text(item.Title,160),Description=text(item.Description,2400)}
+            if item.Version~=nil then assert(type(item.Version)=='string' and #item.Version<=48 and not item.Version:find('[%c]'),'Invalid script update Version');e.Version=item.Version end
+            if item.Date~=nil then assert(type(item.Date)=='string' and item.Date:match('^%d%d%d%d%-%d%d%-%d%d$'),'Update Date must use YYYY-MM-DD');e.Date=item.Date end
+            result[#result+1]=e
+        end
+        return result
+    end
+    local function readState(value)
+        assert(type(value)=='table','NewsRead must be a table');local result={Library={},Script={}}
+        for source,items in pairs(value) do
+            assert(result[source] and type(items)=='table','Invalid news read namespace');local n=0
+            for id,hash in pairs(items) do
+                n=n+1;assert(n<=256 and type(id)=='string' and id:match('^[%w_.%-]+$') and #id<=64 and type(hash)=='string' and #hash==64 and hash:match('^[a-f0-9]+$'),'Invalid news read marker')
+                result[source][id]=hash
+            end
+        end
+        return result
+    end
+    local function translated(window,value)
+        return type(value)=='table' and (window:GetLocale()=='pt-BR' and value['pt-BR'] or value['en-US']) or value
+    end
+    local hashCache=setmetatable({},{__mode='k'})
+    local function fingerprint(item)
+        if hashCache[item] then return hashCache[item] end
+        -- Hash stable explicit fields, rather than JSON map iteration order.
+        local function canonical(v) return type(v)=='table' and v['pt-BR']..'\0'..v['en-US'] or v or '' end
+        local value=Library:SHA256(item.Id..'\0'..canonical(item.Title)..'\0'..canonical(item.Description)..'\0'..(item.Version or '')..'\0'..(item.Date or ''));hashCache[item]=value;return value
+    end
+    local function sourceName(value) assert(value=='Library' or value=='Script','Update source must be Library or Script');return value end
+    local News={};News.__index=News
+    function Library:GetReleaseNotes() return copy(official) end
+    function Window:GetLibraryUpdates() return copy(official) end
+    function Window:GetScriptUpdates() return copy(self._scriptUpdates or {}) end
+    function Window:SetScriptUpdates(value)
+        assert(not self.Destroyed,'Window has been destroyed')
+        local checked=entries(value);self._scriptUpdates=checked
+        if self._news and not self._news.Destroyed then self._news:Refresh() end
+        return self
+    end
+    function Window:GetUnreadUpdateCount(source)
+        source=sourceName(source);local count=0;local markers=self._newsRead and self._newsRead[source] or {}
+        for _,item in ipairs(source=='Library' and official or self._scriptUpdates or {}) do if markers[item.Id]~=fingerprint(item) then count=count+1 end end
+        return count
+    end
+    function Window:MarkUpdateRead(source,id)
+        assert(not self.Destroyed,'Window has been destroyed');source=sourceName(source)
+        local found;for _,item in ipairs(source=='Library' and official or self._scriptUpdates or {}) do if item.Id==id then found=item;break end end
+        assert(found,'Unknown update Id')
+        self._newsRead=self._newsRead or {Library={},Script={}};local markers=self._newsRead[source]
+        -- Prune markers no longer represented by this window's bounded feed.
+        local keep={};for _,item in ipairs(source=='Library' and official or self._scriptUpdates or {}) do if markers[item.Id] then keep[item.Id]=markers[item.Id] end end
+        keep[id]=fingerprint(found);self._newsRead[source]=keep;self:_scheduleSave()
+        if self._news and not self._news.Destroyed then self._news:Refresh() end
+        return self
+    end
+    function News:_tr(pt,en) return self.Window:_t17(pt,en) end
+    function News:_ensureView()
+        if self.Controls or self.Destroyed then return end
+        local w=self.Window;local choose=self.Tab:CreateSection({Title=self:_tr('Histórico de atualizações','Update history'),Icon='notification'})
+        local detail=self.Tab:CreateSection({Title=self:_tr('Detalhes da atualização','Update details'),Icon='info'})
+        self.Choose,self.Detail=choose,detail;self.Controls={}
+        local function opts(id,title,more)
+            local o={Id='__retrobox/news/'..id,Title=title,Internal=true,Persist=false}
+            for k,v in pairs(more or {}) do o[k]=v end;return o
+        end
+        self.Controls.Source=choose:AddDropdown(opts('source','',{Options={'RetroBox','Script'},Default=self.Source=='Library' and 'RetroBox' or 'Script',Callback=function(value)
+            if not self.Refreshing then self.Source=value=='RetroBox' and 'Library' or 'Script';self.Selected=nil;self:Refresh() end
+        end}))
+        self.Controls.List=choose:AddDropdown(opts('list','',{Options={},Callback=function(value)
+            if not self.Refreshing then self.Selected=self.LabelIds[value];self:Refresh() end
+        end}))
+        self.Title=label(w,detail.Content,'',{LayoutOrder=1,Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextSize=15},'Accent')
+        self.Meta=label(w,detail.Content,'',{LayoutOrder=2,Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextSize=12},'Muted')
+        self.Body=label(w,detail.Content,'',{LayoutOrder=3,Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextSize=13},'Text')
+        self.Controls.Read=detail:AddButton(opts('read','',{Icon='check',Callback=function() if self.Selected then w:MarkUpdateRead(self.Source,self.Selected) end end}))
+        self.Controls.Read.Frame.LayoutOrder=4
+        for _,object in ipairs({self.Title,self.Meta,self.Body}) do object.RichText=false;w:SetTextTranslation(object,false) end
+        self.Controls.Source:SetValue(self.Source=='Library' and 'RetroBox' or 'Script',true)
+    end
+    function News:Refresh()
+        if self.Destroyed or self.Refreshing then return end;self.Refreshing=true
+        local w=self.Window;local a,b=w:GetUnreadUpdateCount('Library'),w:GetUnreadUpdateCount('Script')
+        self.Tab:SetTitle(self:_tr('Novidades','Updates')..(a+b>0 and ' ('..(a+b)..')' or ''))
+        if self.Controls then
+            local c=self.Controls;c.Source:SetTitle(self:_tr('Origem das novidades','Update source'))
+            c.Source:SetOptions({'RetroBox',self:_tr('Este script','This script')},false);c.Source:SetValue(self.Source=='Library' and 'RetroBox' or self:_tr('Este script','This script'),true)
+            c.List:SetTitle(self:_tr('Escolha uma atualização','Choose an update'))
+            self.Choose:SetTitle(self:_tr('Histórico de atualizações','Update history'));self.Detail:SetTitle(self:_tr('Detalhes da atualização','Update details'))
+            local items=self.Source=='Library' and official or w._scriptUpdates or {};local selected;local labels={};self.LabelIds={}
+            for i,item in ipairs(items) do
+                local unread=(w._newsRead[self.Source] or {})[item.Id]~=fingerprint(item)
+                local name=(unread and self:_tr('[NOVA] ','[NEW] ') or '')..tostring(i)..' · '..(item.Version and item.Version..' · ' or '')..translated(w,item.Title)
+                labels[#labels+1]=name;self.LabelIds[name]=item.Id
+                if item.Id==self.Selected then selected=item end
+            end
+            if not selected then selected=items[1];self.Selected=selected and selected.Id or nil end
+            c.List:SetOptions(labels,false)
+            if selected then
+                for name,id in pairs(self.LabelIds) do if id==selected.Id then c.List:SetValue(name,true);break end end
+                self.Title.Text=translated(w,selected.Title)
+                local read=(w._newsRead[self.Source] or {})[selected.Id]==fingerprint(selected)
+                self.Meta.Text=(self.Source=='Library' and 'RETROBOX' or self:_tr('ESTE SCRIPT','THIS SCRIPT'))..' · '..(selected.Version or selected.Id)..(selected.Date and ' · '..selected.Date or '')..' · '..(read and self:_tr('Lida','Read') or self:_tr('Não lida','Unread'))
+                self.Body.Text=translated(w,selected.Description);c.Read:SetDisabled(read)
+            else
+                self.Title.Text=self:_tr('Sem novidades cadastradas','No updates registered')
+                self.Meta.Text=self:_tr('ESTE SCRIPT','THIS SCRIPT');self.Body.Text=self:_tr('O desenvolvedor ainda não cadastrou atualizações deste script.','The developer has not registered updates for this script yet.');c.Read:SetDisabled(true)
+            end
+            c.Read:SetTitle(self:_tr('Marcar como lida','Mark as read'));c.Read.Button.Text=self:_tr('Marcar como lida','Mark as read')
+        end
+        self.Refreshing=false
+    end
+    function News:Destroy()
+        if self.Destroyed then return end;self.Destroyed=true
+        self.Scope:Destroy();self.Controls=nil;self.Title=nil;self.Meta=nil;self.Body=nil
+        if self.Window._news==self then self.Window._news=nil;self.Window.NewsTab=nil end
+    end
+    function Window:_installNews()
+        if self._news and not self._news.Destroyed then return self._news end
+        local n=setmetatable({Window=self,Source='Library',Scope=self:CreateScope()},News)
+        n.Tab=self:CreateTab({Title=self:_t17('Novidades','Updates'),Icon='notification',Internal=true});n.Tab._passive=true;self._news=n;self.NewsTab=n.Tab
+        n.Tab._toolManager=n
+        n.Scope:Add(n.Tab.Frame:GetPropertyChangedSignal('Visible'):Connect(function() if n.Tab.Frame.Visible and not n.Destroyed and not self.Destroyed and not self._closing then n:_ensureView();n:Refresh() end end),'Disconnect')
+        self:Manage(n,'Destroy','news');n:Refresh();return n
+    end
+    function Window:OpenUpdates(source)
+        assert(not self.Destroyed,'Window has been destroyed')
+        local n=self:_installNews();if source then n.Source=sourceName(source);n.Selected=nil end
+        n:_ensureView();n.Tab:Select();n:Refresh();return n.Tab
+    end
+    local export=Window._exportAdvanced
+    function Window:_exportAdvanced()
+        local result=export(self);result.NewsRead=copy(self._newsRead or {Library={},Script={}});return result
+    end
+    local prepare=Window._prepareAdvanced
+    function Window:_prepareAdvanced(value)
+        local result=prepare(self,value);if result and value.NewsRead~=nil then result.NewsRead=readState(value.NewsRead) end;return result
+    end
+    local apply=Window._applyAdvanced
+    function Window:_applyAdvanced(value,deferUI)
+        apply(self,value,deferUI)
+        if value and value.NewsRead then self._newsRead=copy(value.NewsRead);if self._news then self._news:Refresh() end end
+    end
+    local locale=Window.SetLocale
+    function Window:SetLocale(...)
+        local result=locale(self,...);if self._news and not self._news.Destroyed then self._news:Refresh() end;return result
+    end
+    local create=Library.CreateWindow
+    function Library:CreateWindow(options)
+        options=options or {}
+        assert(options.LibraryUpdates==nil and options.ReleaseNotes==nil,'Library release notes cannot be replaced by consumer options')
+        local script=entries(options.ScriptUpdates or {})
+        local w=create(self,options);w._scriptUpdates=script;w._newsRead=w._newsRead or {Library={},Script={}}
+        w:_installNews();w._initial.Advanced=w:_exportAdvanced();return w
+    end
+end
+
+-- END RETRO290 NEWS
 
 return Library
