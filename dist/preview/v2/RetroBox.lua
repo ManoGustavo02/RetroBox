@@ -3778,7 +3778,7 @@ function Tab:Destroy()
     local index=table.find(window.Tabs,self); if index then table.remove(window.Tabs,index) end
     if window.ActiveTab==self then
         window.ActiveTab=nil
-        for _,tab in ipairs(window.Tabs) do if not tab.Hidden and not tab.Destroyed then tab:Select(); break end end
+        for _,tab in ipairs(window.Tabs) do if not tab.Hidden and not tab.Destroyed and not tab._passive then tab:Select(); break end end
     end
 end
 
@@ -12047,7 +12047,7 @@ do
     function Window:_installNews()
         if self._news and not self._news.Destroyed then return self._news end
         local n=setmetatable({Window=self,Source='Library',Scope=self:CreateScope()},News)
-        n.Tab=self:CreateTab({Title=self:_t17('Novidades','Updates'),Icon='notification',Internal=true});self._news=n;self.NewsTab=n.Tab
+        n.Tab=self:CreateTab({Title=self:_t17('Novidades','Updates'),Icon='notification',Internal=true});n.Tab._passive=true;self._news=n;self.NewsTab=n.Tab
         n.Tab._toolManager=n
         n.Scope:Add(n.Tab.Frame:GetPropertyChangedSignal('Visible'):Connect(function() if n.Tab.Frame.Visible and not n.Destroyed and not self.Destroyed and not self._closing then n:_ensureView();n:Refresh() end end),'Disconnect')
         self:Manage(n,'Destroy','news');n:Refresh();return n
