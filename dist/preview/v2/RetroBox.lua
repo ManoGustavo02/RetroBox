@@ -11304,14 +11304,21 @@ do
     end
     function Diagnostic:Refresh()
         if self.Destroyed or self.Syncing then return end;self.Syncing=true
-        local c=self.Controls;local selected=self:_selected();local labels={};self.LabelIds={}
-        for _,record in ipairs(self.Records) do
-            local text='#'..record.Id:match('%d+')..' ['..record.Source..' / '..(record.Level=='Error' and self:_tr('ERRO','ERROR') or self:_tr('AVISO','WARNING'))..'] '..excerpt(record.Message:gsub('\n',' '),72)
-            labels[#labels+1]=text;self.LabelIds[text]=record.Id
+        local c=self.Controls
+        local signature=tostring(self.Seq)..'/'..#self.Records..'/'..self.Hub.Window:GetLocale()
+        if self._recordSignature~=signature then
+            local selected=self:_selected();local labels={};self.LabelIds={}
+            for _,record in ipairs(self.Records) do
+                local text='#'..record.Id:match('%d+')..' ['..record.Source..' / '..(record.Level=='Error' and self:_tr('ERRO','ERROR') or self:_tr('AVISO','WARNING'))..'] '..excerpt(record.Message:gsub('\n',' '),72)
+                labels[#labels+1]=text;self.LabelIds[text]=record.Id
+            end
+            c.Records:SetOptions(labels,false);local selectedLabels={}
+            for _,text in ipairs(labels) do if selected[self.LabelIds[text]] then selectedLabels[#selectedLabels+1]=text end end
+            c.Records:SetValue(selectedLabels,true);self._recordSignature=signature
         end
-        c.Records:SetOptions(labels,false);local selectedLabels={}
-        for _,text in ipairs(labels) do if selected[self.LabelIds[text]] then selectedLabels[#selectedLabels+1]=text end end
-        c.Records:SetValue(selectedLabels,true)
+        c.Text:SetDescription(tostring(utf8.len(c.Text.Input.Text) or 0)..' / 2000 '..self:_tr('caracteres','characters'))
+        c.Code:SetDescription(self:_tr('Opcional · até 64 caracteres.','Optional · up to 64 characters.'))
+        c.Steps:SetDescription(self:_tr('Opcional · até 400 caracteres.','Optional · up to 400 characters.'))
         self.Section:SetTitle(self:_tr('Diagnóstico do problema','Problem diagnostics'))
         for name,pair in pairs(self.Captions) do c[name]:SetTitle(self:_tr(pair[1],pair[2]));if c[name].Button then c[name].Button.Text=self:_tr(pair[1],pair[2]) end end
         c.Intro:SetText(self:_tr('Cole o erro e/ou carregue registros para marcar até 5. Nada é anexado sem ativar a opção abaixo.','Paste an error and/or load records to select up to 5. Nothing is attached unless you enable the option below.'))
@@ -11321,6 +11328,11 @@ do
         if not included and self.Capturing then self.Scope:Remove('console-capture');self.Capturing=false;c.Live:SetValue(false,true) end
         local snapshot,why=self:Snapshot();local formatted=self:Format(snapshot)
         c.Preview:SetValue(formatted,true)
+        if snapshot and self.Hub._ready then
+            local _,failure=self.Hub:BuildPayload()
+            if failure=='DiagnosticPayloadLarge' then why=failure end
+        end
+        self.Hub.Window:_bind(c.Note.TitleLabel,{TextColor3=why and 'Danger' or snapshot and snapshot.Redacted and 'Accent' or 'Muted'})
         c.Note:SetText(why and self.Hub:_message(why) or snapshot and (snapshot.Redacted and self:_tr('Padrões de segredo reconhecidos foram removidos. Revise esta prévia antes de enviar.','Recognized secret patterns were removed. Review this preview before sending.') or self:_tr('Somente este diagnóstico será anexado ao envio.','Only this diagnostic preview will be attached.')) or self:_tr('Diagnóstico opcional: desativado.','Optional diagnostics: disabled.'))
         c.CollectionStatus:SetText((self.Available==false and self:_tr('Histórico indisponível neste ambiente. Você pode colar o erro manualmente.','History unavailable in this environment. You can paste the error manually.') or self:_tr('Registros disponíveis: ','Available records: ')..#self.Records)..(self.Capturing and self:_tr(' · Captura ativa',' · Capture active') or '')..(self.Copied==false and self:_tr(' · Selecione e copie o texto da prévia.',' · Select and copy the preview text.') or self.Copied and self:_tr(' · Prévia copiada.',' · Preview copied.') or ''))
         self.Syncing=false
@@ -11779,7 +11791,7 @@ do
     end
     function Feedback:Refresh()
         if self.Destroyed or not self._ready or self._refreshing or self._syncing then return end
-        self._refreshing=true;self:_loadContext()
+        self._refreshing=true;if self.Diagnostics then self.Diagnostics:Refresh() end;self:_loadContext()
         local c=self.Controls;local draft=self:GetDraft();local preview,why=self:GetPreview();local status=self:GetStatus()
         local normalizedMessage=trim(draft.Message:gsub('\r\n','\n'):gsub('\r','\n'))
         local identity=self:_identity();local id=draft.Game=='current' and validId(game.PlaceId) or gameId(draft.Game)

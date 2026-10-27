@@ -417,7 +417,7 @@ do
     end
     function Feedback:Refresh()
         if self.Destroyed or not self._ready or self._refreshing or self._syncing then return end
-        self._refreshing=true;self:_loadContext()
+        self._refreshing=true;if self.Diagnostics then self.Diagnostics:Refresh() end;self:_loadContext()
         local c=self.Controls;local draft=self:GetDraft();local preview,why=self:GetPreview();local status=self:GetStatus()
         local normalizedMessage=trim(draft.Message:gsub('\r\n','\n'):gsub('\r','\n'))
         local identity=self:_identity();local id=draft.Game=='current' and validId(game.PlaceId) or gameId(draft.Game)

@@ -163,6 +163,13 @@ return function(Mock,Library,test)
         assert(h:GetStatus().State=='Sent' and h:GetDraft().Diagnostics.Text=='Edited trace while waiting' and h:GetStatus().Message:find('rascunho',1,true));finish()
     end)
 
+    test('editing diagnostic fields keeps existing console option rows stable',function()
+        local h,_,logs,finish=fixture();logs.History={{message='Stable option row',messageType='MessageError'}}
+        h:CollectDiagnostics();tick();local d=h.Diagnostics;local label=d.Controls.Records.Options[1];local row=d.Controls.Records._rows[label]
+        attach(h,'First pasted trace');h:SetDiagnosticText('Second pasted trace',true);h:SetMessage('Changed feedback message.')
+        assert(row and d.Controls.Records._rows[label]==row);finish()
+    end)
+
     local newsIndex=0
     local function news(options)
         newsIndex=newsIndex+1;Mock.Warnings={}

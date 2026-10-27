@@ -7,7 +7,7 @@
   "Channel": "stable",
   "Artifact": {
     "Path": "dist/releases/2.9.0/RetroBox.lua",
-    "SHA256": "6cad670352ba55b73be08dc168b8cace3af12273cae7a5038ccab83f4dc0b080",
-    "Bytes": 857495
+    "SHA256": "bfdb6540e866b0312bd2a6fcabeedc66cf7666368b3ddd4f264d7a0c7bb62211",
+    "Bytes": 858443
   }
 }
