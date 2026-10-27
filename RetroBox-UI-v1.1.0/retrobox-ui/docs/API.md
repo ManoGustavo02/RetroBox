@@ -474,3 +474,9 @@ APIs: GetUniversalScripts, GetUniversalScript, AddUniversalScript, UpdateUnivers
 ## Central de Ideias / Feedback Hub · 2.8
 
 `Library:CreateFeedbackHub(options)` cria a tela independente; `window:CreateFeedbackHub(options)` cria a guia nativa. Use GetDraft/SetDraft, GetPreview/BuildPayload, Validate, Submit, GetStatus, CancelSubmission e Destroy. HTTP é disparado somente por Submit/clique. [Opções, privacidade, transporte e estados](FEEDBACK-HUB.md).
+
+## Adições 2.9 / API 2
+
+[Novidades por origem, leitura e marcadores](NEWS.md) · [Diagnóstico opcional na Central de Ideias](FEEDBACK-HUB.md#diagnóstico-opcional--29)
+
+Todas as janelas incluem a categoria Novidades. ScriptUpdates é opcional; notas oficiais não aceitam substituição por opções do consumidor. CreateFeedbackHub continua compatível com as opções anteriores; Diagnostics=false desativa os novos campos, e nenhum registro é capturado ou anexado automaticamente.

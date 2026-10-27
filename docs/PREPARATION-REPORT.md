@@ -156,3 +156,7 @@ A 2.3.1 e seus resultados anteriores permanecem no histórico. A documentação 
 README bilíngue, banner, badges, MIT preservada e guias de contribuição/suporte/segurança permanecem. About/topics exigem configuração administrativa; o texto para copiar está em REPOSITORY-SETUP.md. Não se afirma que configurações da conta tenham sido alteradas.
 
 O backup inclui a árvore completa da library, artefatos, prompt integral, export do Hub e relatórios. Não contém o histórico Git da conta antiga nem os sete scripts remotos de gameplay.
+
+## RetroBox 2.9.0
+
+Diagnóstico opcional da Central de Ideias e Novidades por origem, distribuídos pelo bootstrap API 2 existente. Alterações por revisão no GitHub e validação pelo CI. Consulte [release](../RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.9.md), [Novidades](../RetroBox-UI-v1.1.0/retrobox-ui/docs/NEWS.md) e [validação](../RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md). Credenciais dos consumidores e releases anteriores preservadas.

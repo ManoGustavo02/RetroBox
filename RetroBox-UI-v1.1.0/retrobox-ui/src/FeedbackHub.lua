@@ -4,6 +4,10 @@ do
     local kinds={ScriptRequest={'Pedir script para um jogo','Request a game script'},Suggestion={'Sugerir melhoria','Suggest an improvement'},Feedback={'Enviar feedback','Share feedback'},BugReport={'Relatar problema','Report a problem'}}
     local order={'ScriptRequest','Suggestion','Feedback','BugReport'}
     local messages={
+        DiagnosticInvalid={'Confira os limites e o texto dos campos de diagnóstico.','Check the diagnostic text and field limits.'},
+        DiagnosticSelection={'Marque no máximo 5 registros para anexar.','Select at most 5 records to attach.'},
+        DiagnosticEmpty={'Cole um erro ou marque um registro para anexar.','Paste an error or select a record to attach.'},
+        DiagnosticPayloadLarge={'O diagnóstico excede o limite do Discord. Reduza o texto ou marque menos registros.','Diagnostics exceed the Discord limit. Shorten the text or select fewer records.'},
         Destroyed={'A Central de Ideias foi encerrada.','The Ideas Center has been closed.'},
         Idle={'Escreva sua ideia e confira a prévia antes de enviar.','Write your idea and review the preview before sending.'},
         Empty={'Escreva uma mensagem antes de enviar.','Write a message before sending.'},
@@ -87,6 +91,9 @@ do
         assert(seen[result.DefaultCategory],'DefaultCategory must be enabled')
         if options.Game~=nil then assert(options.Game=='current' or gameId(options.Game),'Invalid feedback Game') end
         result.Game=options.Game or 'current'
+        assert(options.Diagnostics==nil or type(options.Diagnostics)=='boolean','Diagnostics must be boolean')
+        result.Diagnostics=options.Diagnostics~=false
+        if options.ScriptVersion~=nil then assert(type(options.ScriptVersion)=='string' and #options.ScriptVersion<=64 and count(options.ScriptVersion) and not options.ScriptVersion:find('[%c]'),'Invalid ScriptVersion');result.ScriptVersion=options.ScriptVersion end
         return result
     end
     -- Session-only bounded ledger contains hashes/timing, never drafts or URLs.
@@ -177,15 +184,19 @@ do
         return entry(Library:SHA256((self.Options.URL or 'adapter:'..self.Options.CooldownKey)..'/'..tostring(identity.UserId)))
     end
     function Feedback:GetDraft()
-        return {Category=self.Category,Message=self.Controls.Message.Input.Text,Game=self.Controls.CurrentGame:GetValue() and 'current' or self.Controls.Target.Input.Text}
+        local result={Category=self.Category,Message=self.Controls.Message.Input.Text,Game=self.Controls.CurrentGame:GetValue() and 'current' or self.Controls.Target.Input.Text}
+        if self.Diagnostics then result.Diagnostics=self.Diagnostics:GetDraft() end
+        return result
     end
     function Feedback:SetDraft(value)
         assert(not self.Destroyed and type(value)=='table','Draft must be a table on a live Feedback Hub')
-        for key in pairs(value) do assert(key=='Category' or key=='Message' or key=='Game','Unknown feedback draft field') end
+        for key in pairs(value) do assert(key=='Category' or key=='Message' or key=='Game' or key=='Diagnostics','Unknown feedback draft field') end
         if value.Category~=nil then assert(table.find(self.Options.Categories,value.Category),'Unknown feedback category') end
         if value.Message~=nil then assert(type(value.Message)=='string' and #value.Message<=self.Options.MaxLength*4 and count(value.Message),'Invalid draft text') end
         if value.Game~=nil then assert(value.Game=='current' or gameId(value.Game),'Invalid feedback game') end
+        if value.Diagnostics~=nil then assert(self.Diagnostics,'Diagnostics are disabled');self.Diagnostics:CheckDraft(value.Diagnostics) end
         self._syncing=true
+        if value.Diagnostics then self.Diagnostics:SetDraft(value.Diagnostics) end
         if value.Category then self.Category=value.Category end
         if value.Message then self.Controls.Message:SetValue(value.Message,true) end
         if value.Game then
@@ -198,6 +209,14 @@ do
     function Feedback:SetCategory(value) return self:SetDraft({Category=value}) end
     function Feedback:SetGame(value) return self:SetDraft({Game=value}) end
     function Feedback:ClearDraft() self:SetMessage('');return self end
+    function Feedback:SetDiagnosticText(value,include)
+        assert(self.Diagnostics and not self.Destroyed,'Diagnostics are disabled or destroyed')
+        self.Diagnostics:SetDraft({Text=value,Include=include});return self
+    end
+    function Feedback:GetDiagnosticRecords() return self.Diagnostics and self.Diagnostics:GetRecords() or {} end
+    function Feedback:CollectDiagnostics() assert(self.Diagnostics,'Diagnostics are disabled');return self.Diagnostics:Collect() end
+    function Feedback:SetDiagnosticCapture(value) assert(self.Diagnostics,'Diagnostics are disabled');return self.Diagnostics:SetCapturing(value) end
+    function Feedback:ClearDiagnostics() if self.Diagnostics then self.Diagnostics:Clear() end;return self end
     function Feedback:GetPreview()
         if self.Destroyed then return nil,'Destroyed' end
         local draft=self:GetDraft();local message=trim(draft.Message:gsub('\r\n','\n'):gsub('\r','\n'))
@@ -209,18 +228,50 @@ do
         local id=draft.Game=='current' and validId(game.PlaceId) or gameId(draft.Game)
         if not id then return nil,'InvalidGame' end
         local identity=self:_identity();if not identity then return nil,'Identity' end
-        return {Category=self.Category,Message=message,Game={PlaceId=id,Name=self._game and self._game.Id==id and self._game.Name or 'Game '..string.format('%.0f',id),URL='https://www.roblox.com/games/'..string.format('%.0f',id)},
+        local result={Category=self.Category,Message=message,Game={PlaceId=id,Name=self._game and self._game.Id==id and self._game.Name or 'Game '..string.format('%.0f',id),URL='https://www.roblox.com/games/'..string.format('%.0f',id)},
             Player={Name=identity.Name,DisplayName=identity.DisplayName,AvatarURL=self.Options.IncludeAvatar and self._avatar and self._avatar.UserId==identity.UserId and self._avatar.URL or nil}}
+        if self.Diagnostics then
+            local diagnostic,why=self.Diagnostics:Snapshot();if why then return nil,why end
+            result.Diagnostics=diagnostic
+        end
+        return result
+    end
+    -- Discord counts the whole embed, with UTF-16 units used conservatively for emoji.
+    local function wireLength(value)
+        local n=0;for _,code in utf8.codes(value or '') do n=n+(code>65535 and 2 or 1) end;return n
+    end
+    local function chunks(value,limit)
+        local result,part,units={},{},0
+        for _,code in utf8.codes(value) do
+            local size=code>65535 and 2 or 1
+            if units+size>limit then result[#result+1]=table.concat(part);part={};units=0 end
+            part[#part+1]=utf8.char(code);units=units+size
+        end
+        if #part>0 then result[#result+1]=table.concat(part) end
+        return result
     end
     function Feedback:BuildPayload()
         local preview,reason=self:GetPreview();if not preview then return nil,reason end
         local pair=kinds[preview.Category]
         local function field(pt,en,value,inline) return {name=self:_tr(pt,en),value=value,inline=inline==true} end
-        local embed={title=self:_tr(pair[1],pair[2]),description=preview.Message,url=preview.Game.URL,color=4505476,
+        local embed={title=(preview.Category=='BugReport' and '[BUG] ' or '')..self:_tr(pair[1],pair[2]),description=preview.Message,url=preview.Game.URL,color=4505476,
             author={name=excerpt(preview.Player.DisplayName..' (@'..preview.Player.Name..')',120)},
             fields={field('Jogo','Game',preview.Game.Name),field('Link do jogo','Game link',preview.Game.URL),field('ID do jogo','Place ID',string.format('%.0f',preview.Game.PlaceId),true),
                 field('Nome do jogador','Player display name',preview.Player.DisplayName,true),field('Usuário','Username','@'..preview.Player.Name,true)}}
         if preview.Player.AvatarURL then embed.thumbnail={url=preview.Player.AvatarURL} end
+        if preview.Diagnostics then
+            if preview.Category~='BugReport' then embed.title='[DIAGNOSTIC] '..embed.title end
+            if preview.Diagnostics.Code~='' then embed.fields[#embed.fields+1]=field('Tag do erro','Error tag',preview.Diagnostics.Code) end
+            local formatted=self.Diagnostics:Format(preview.Diagnostics)
+            for i,part in ipairs(chunks(formatted,900)) do embed.fields[#embed.fields+1]=field('Diagnóstico '..i,'Diagnostics '..i,part) end
+        end
+        local total=wireLength(embed.title)+wireLength(embed.description)+wireLength(embed.author.name)
+        if #embed.fields>25 or wireLength(embed.title)>256 or wireLength(embed.description)>4096 then return nil,'DiagnosticPayloadLarge' end
+        for _,item in ipairs(embed.fields) do
+            if wireLength(item.name)>256 or wireLength(item.value)>1024 then return nil,'DiagnosticPayloadLarge' end
+            total=total+wireLength(item.name)+wireLength(item.value)
+        end
+        if total>6000 then return nil,'DiagnosticPayloadLarge' end
         return {embeds={embed},allowed_mentions={parse={}}},preview
     end
     function Feedback:Validate(options)
@@ -228,13 +279,20 @@ do
         if self.Destroyed then return false,'Destroyed' end
         if self._operation then return false,'Busy' end
         local preview,reason=self:GetPreview();if not preview then return false,reason end
+        local payload,payloadReason=self:BuildPayload();if not payload then return false,payloadReason end
         if not self.Options.Transport and not self.Options.URL then return false,'NotConfigured' end
         if not self.Options.Transport and not requester(self.Options.Request) then return false,'Unavailable' end
         local item=self:_entry(self:_identity());if not item then return false,'Busy' end
         local now=os.clock()
         if item.PendingUntil>now then return false,'Busy' end
         if item.Next>now then return false,'Cooldown',math.ceil(item.Next-now) end
-        local hash=Library:SHA256(preview.Category..'/'..tostring(preview.Game.PlaceId)..'/'..preview.Message)
+        local diagnosticKey=''
+        if preview.Diagnostics then
+            local d=preview.Diagnostics;local parts={d.LibraryVersion,d.ScriptVersion or '',d.Code,d.Text,d.Steps}
+            for _,record in ipairs(d.Records) do parts[#parts+1]=record.Source..'\0'..record.Level..'\0'..record.Message end
+            diagnosticKey='\0diagnostics\0'..table.concat(parts,'\0')
+        end
+        local hash=Library:SHA256(preview.Category..'/'..tostring(preview.Game.PlaceId)..'/'..preview.Message..diagnosticKey)
         local previous=item.Seen[hash]
         if previous and (previous.Code=='Sent' or previous.Code=='Unconfirmed' and options.RetryUnconfirmed~=true) then return false,previous.Code=='Sent' and 'Duplicate' or 'Unconfirmed' end
         return true,preview,hash,item
@@ -250,7 +308,11 @@ do
         self._operation=nil;self._last=copy(result)
         if result.Code=='Sent' then
             self._last.NewDraft=not same(self:GetDraft(),operation.Draft)
-            if self.Options.ClearOnSuccess and same(self:GetDraft(),operation.Draft) then self.Controls.Message:SetValue('',true) end
+            if self.Options.ClearOnSuccess and same(self:GetDraft(),operation.Draft) then
+                self.Controls.Message:SetValue('',true)
+                if self.Diagnostics then self.Diagnostics:Clear() end
+                self._last=copy(result);self._last.NewDraft=false
+            end
             if self.Options.OnSent then self.Window:_dispatch(self.Options.OnSent,{Phase='FeedbackSent'},copy(operation.Preview),copy(result)) end
         end
         self:Refresh()
@@ -350,6 +412,7 @@ do
         self.Controls.Clear.Button.Text=self:_tr('Limpar mensagem','Clear message')
         self.Controls.Cancel.Button.Text=self:_tr('Parar espera','Stop waiting')
         self.Controls.Retry.Button.Text=self:_tr('Reenviar com confirmação','Resend with confirmation')
+        if self.Diagnostics then self.Diagnostics:Refresh() end
         self._syncing=false;self:Refresh()
     end
     function Feedback:Refresh()
@@ -367,6 +430,9 @@ do
         c.MessagePreview:SetText(excerpt(normalizedMessage,320))
         c.MessagePreview:SetDescription((count(normalizedMessage) or 0)>320 and self:_tr('Prévia resumida; a mensagem completa será enviada.','Short preview; your complete message will be sent.') or '')
         c.Notice:SetText(self:_tr('Ao enviar, você compartilha o jogo, o link e ID, sua mensagem, nome, @usuário e avatar disponível com o responsável no Discord.','Sending shares the game, link and ID, your message, display name, @username and available avatar with the owner on Discord.'))
+        if preview and preview.Diagnostics then
+            c.Notice:SetText(self:_tr('Ao enviar, você compartilha jogo, link/ID, mensagem, nome/@, avatar disponível e o diagnóstico revisado com o responsável no Discord.','Sending shares the game, link/ID, message, name/@, available avatar and reviewed diagnostics with the owner on Discord.'))
+        end
         local label=status.Message
         if status.RetryAfter then label=label..' '..status.RetryAfter..'s' end
         c.Status:SetText(label);c.Submit:SetDisabled(not status.CanSubmit)
@@ -392,6 +458,7 @@ do
         if self._retryDialog and not self.Window.Destroyed and not self.Window._closing then self._retryDialog:Close('feedback destroyed') end
         self._retryDialog=nil
         if self._operation and self._operation.Handle then self._operation.Handle:Cancel('feedback destroyed') end
+        if self.Diagnostics then self.Diagnostics:Destroy();self.Diagnostics=nil end
         self.Scope:Destroy();self.Window._feedbackHubs[self.Id]=nil;self.Window._resources:Remove('feedback-hub:'..self.Id,true)
         if self.Tab and not self.Tab.Destroyed then self.Tab:Destroy() end
         self.Controls={};self._captions={};self._last=nil;self._operation=nil;self.Options={};self._avatar=nil;self._game=nil
@@ -451,6 +518,7 @@ do
             hub.Scope:Add(hub.Tab.Frame.Destroying:Connect(function() if not hub.Destroyed then hub:Destroy() end end),'Disconnect')
             hub.Scope:Add(function() if not hub.Destroyed then hub:Destroy() end end)
             self:_bind(hub.Controls.Submit.Button,{BackgroundColor3='Accent',TextColor3='AccentText'})
+            if settings.Diagnostics then hub.Diagnostics=self:_createFeedbackDiagnostics(hub,add) end
             hub._ready=true;identity();hub:_refreshLocale();hub.Tab:Select()
         end)
         if not ok then hub:Destroy();error(err,2) end
