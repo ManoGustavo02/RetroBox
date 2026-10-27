@@ -215,7 +215,7 @@ return function(Mock,Library,test)
     test('ordinary windows do not acquire a feedback tab or form automatically',function()
         local h=fixture();h:Destroy();tick()
         local w=Library:CreateWindow({Id='ordinary-no-feedback',Settings=false,LoadingScreen=false,FileStorage=false})
-        assert(#w.Tabs==0 and not w._feedbackHubs);w:Destroy();finish(h)
+        assert(#w.Tabs==1 and w.Tabs[1]==w.NewsTab and not w._feedbackHubs and next(w.Controls)==nil);w:Destroy();finish(h)
     end)
     test('executor request fallback is discovered only when submitting',function()
         local prior=request;local calls=0
