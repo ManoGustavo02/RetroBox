@@ -1,6 +1,6 @@
 # RetroBox UI
 
-**2.7.0:** acabamento geral, carregamento, RGB opcional e tema independente do Hub. [Detalhes](docs/RELEASE-2.7.md) · [Demonstração](examples/appearance-and-rgb.lua).
+**2.8.0:** Central de Ideias independente, com feedback, sugestões, prévia, PT/EN e envio Discord configurável. [Detalhes](docs/RELEASE-2.8.md) · [Demonstração](examples/feedback-hub.lua).
 
 Library de GUI em Luau para desenvolvedores de scripts executados no cliente Roblox por executores. Um arquivo independente, carregado pelo link **raw do GitHub**, com visual retrô e API para conectar componentes às funções do seu script.
 

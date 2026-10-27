@@ -30,6 +30,7 @@ def embed():
         ('RETRO230 HUB LAUNCHER', ['HubAppearance.lua', 'HubLauncher.lua'], '    function Window:CreateScriptHub(options)'),
         ('RETRO250 CATALOG DIAGNOSTICS', ['CatalogDiagnostics.lua'], '    function Window:CreateScriptHub(options)'),
         ('RETRO250 DEVELOPMENT TOOLS', ['DesignerCatalog.lua', 'DevelopmentComponents.lua', 'CardGrid.lua', 'FlowGraph.lua', 'Localization.lua', 'Appearance.lua'], 'return Library\n'),
+        ('RETRO280 FEEDBACK HUB', ['FeedbackHub.lua'], 'return Library\n'),
         ('RETRO220 COMPACT COMPONENTS', ['CompactViews.lua', 'Preview.lua', 'Stepper.lua'], 'return Library\n'),
     ]
     for name, modules, marker in additions:

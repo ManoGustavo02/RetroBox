@@ -1,6 +1,6 @@
 # RetroBox UI
 
-**2.7.0:** shared UI polish, loading and optional text RGB; independent Hub theme profiles. [Details](docs/RELEASE-2.7.md) · [Demo](examples/appearance-and-rgb.lua).
+**2.8.0:** independent Ideas Center with feedback, suggestions, preview, PT/EN and configurable Discord delivery. [Details](docs/RELEASE-2.8.md) · [Demo](examples/feedback-hub.lua).
 
 **New in 2.5:** [offline Designer with visual blocks](../../designer/README.md), automatic locale, transactional forms, reusable components, recycled CardGrid, native flow graphs and read-only catalog diagnostics. [APIs](docs/DEVELOPMENT-TOOLS.md).
 

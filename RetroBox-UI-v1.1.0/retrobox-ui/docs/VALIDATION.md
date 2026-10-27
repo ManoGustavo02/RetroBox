@@ -1,3 +1,20 @@
+# Validação · RetroBox UI 2.8.0
+
+- **573/573 testes de lógica**, com **42 exemplos** pelo bootstrap real, incluindo **34 regressões novas** da Central de Ideias.
+- Envio: nenhum POST na abertura; snapshot dos campos, confirmação válida, recusas, resposta inválida/204, 429, Retry-After, pausa local, duplicata entre Hubs e reenvio incerto explícito.
+- Segurança do contrato: hosts e caminhos do webhook, categorias/limites, UTF-8, mentions desativadas, campos públicos limitados, token/rascunho/identidade fora dos perfis, mensagens de erro sem credenciais, transporte customizado e fallback do executor.
+- Concorrência: resposta lenta/timeout, cancelamento antes e depois do início, edição durante envio, retenção/limpeza condicional do rascunho, respostas de metadados antigas, LocalPlayer tardio, fechamento de confirmação e reexecução com HTTP em andamento.
+- Interface: PT/EN e auto, título/ações/categorias, nomes literais, avatar desativado/indisponível, layouts desktop/mobile, Scale .75/1.5, TextScale 1.4, contraste, ciclos repetidos, descarte externo/deferido e globais do executor somente leitura.
+- **37/37 testes do Mano Gustavo Hub**; consumidor, sete jogos/IDs e URLs preservados. **24/24 Node**, **2/2 Python**, **20 manifests**, origem histórica e links/assets verificados. O CI inclui os oito testes Chromium antes da promoção.
+- **11/11 exemplos completos do prompt**, além do script standalone do usuário, conferidos com HTTP/transporte simulados e sem arquivos de executor obrigatórios.
+- Runtime: **807181 bytes**, SHA-256 **fb6d47c4ba3f43bd307fb5243beed35da0ac24349cae901c672683cbc1414a9b**. Stable/Preview 2.8.0; bootstrap, Designer e todas as releases anteriores preservados por bytes.
+
+Nenhuma mensagem foi publicada em Discord real nos testes; não foi fornecido um webhook de destino. Não há cliente/renderer Roblox neste ambiente. Estes resultados validam lógica, geometria, payloads e ciclo de vida simulados, não inspeção visual nativa nem compatibilidade universal com executores. [Contrato e limites](FEEDBACK-HUB.md) · [Release](RELEASE-2.8.md).
+
+---
+
+## Histórico da validação 2.7.0
+
 # Validação · RetroBox UI 2.7.0
 
 - **539/539 testes de lógica**, com **41 exemplos** executados pelo bootstrap real. Incluem **26 regressões novas** de acabamento, RGB, carregamento e perfis de aparência.
