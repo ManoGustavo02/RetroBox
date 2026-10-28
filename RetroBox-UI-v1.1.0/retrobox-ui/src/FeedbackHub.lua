@@ -91,6 +91,8 @@ do
         assert(seen[result.DefaultCategory],'DefaultCategory must be enabled')
         if options.Game~=nil then assert(options.Game=='current' or gameId(options.Game),'Invalid feedback Game') end
         result.Game=options.Game or 'current'
+        result.Layout=options.Layout or 'Launcher'
+        assert(result.Layout=='Launcher' or result.Layout=='Classic','Feedback Layout must be Launcher or Classic')
         assert(options.Diagnostics==nil or type(options.Diagnostics)=='boolean','Diagnostics must be boolean')
         result.Diagnostics=options.Diagnostics~=false
         if options.ScriptVersion~=nil then assert(type(options.ScriptVersion)=='string' and #options.ScriptVersion<=64 and count(options.ScriptVersion) and not options.ScriptVersion:find('[%c]'),'Invalid ScriptVersion');result.ScriptVersion=options.ScriptVersion end
@@ -209,6 +211,11 @@ do
     function Feedback:SetCategory(value) return self:SetDraft({Category=value}) end
     function Feedback:SetGame(value) return self:SetDraft({Game=value}) end
     function Feedback:ClearDraft() self:SetMessage('');return self end
+    function Feedback:GetPage() return self.Launcher and self.Launcher.Page or 'Compose' end
+    function Feedback:SetPage(page)
+        assert(self.Launcher and not self.Destroyed,'SetPage requires a live feedback launcher')
+        self.Launcher:SetPage(page);return self
+    end
     function Feedback:SetDiagnosticText(value,include)
         assert(self.Diagnostics and not self.Destroyed,'Diagnostics are disabled or destroyed')
         self.Diagnostics:SetDraft({Text=value,Include=include});return self
@@ -413,6 +420,7 @@ do
         self.Controls.Cancel.Button.Text=self:_tr('Parar espera','Stop waiting')
         self.Controls.Retry.Button.Text=self:_tr('Reenviar com confirmação','Resend with confirmation')
         if self.Diagnostics then self.Diagnostics:Refresh() end
+        if self.Launcher then self.Launcher:Refresh() end
         self._syncing=false;self:Refresh()
     end
     function Feedback:Refresh()
@@ -450,6 +458,7 @@ do
             self.Scope:Add(self._tick,function(t) if coroutine.status(t)=='suspended' then task.cancel(t) end end,'tick')
         end
         if not same(self.Status:Get(),status) then self.Status:Set(status) end
+        if self.Launcher then self.Launcher:Refresh() end
         self._refreshing=false
     end
     function Feedback:Destroy()
@@ -459,6 +468,7 @@ do
         self._retryDialog=nil
         if self._operation and self._operation.Handle then self._operation.Handle:Cancel('feedback destroyed') end
         if self.Diagnostics then self.Diagnostics:Destroy();self.Diagnostics=nil end
+        if self.Launcher then self.Launcher:Destroy();self.Launcher=nil end
         self.Scope:Destroy();self.Window._feedbackHubs[self.Id]=nil;self.Window._resources:Remove('feedback-hub:'..self.Id,true)
         if self.Tab and not self.Tab.Destroyed then self.Tab:Destroy() end
         self.Controls={};self._captions={};self._last=nil;self._operation=nil;self.Options={};self._avatar=nil;self._game=nil
@@ -474,9 +484,16 @@ do
         self._feedbackHubs[hub.Id]=hub
         local ok,err=pcall(function()
             hub.Tab=self:CreateTab({Title=hub:_tr('Central de Ideias','Ideas Center'),Icon='notification',Columns=2})
-            local form=hub.Tab:CreateSection({Title=hub:_tr('Compartilhe sua ideia','Share your idea'),Icon='spark'})
-            local review=hub.Tab:CreateSection({Title=hub:_tr('Prévia do envio','Submission preview'),Icon='eye',Side='Right'})
+            local form,review
+            if settings.Layout=='Launcher' then
+                hub.Launcher=self:_createFeedbackLauncher(hub)
+                form,review=hub.Launcher.Sections.Message,hub.Launcher.Sections.Review
+            else
+                form=hub.Tab:CreateSection({Title=hub:_tr('Compartilhe sua ideia','Share your idea'),Icon='spark'})
+                review=hub.Tab:CreateSection({Title=hub:_tr('Prévia do envio','Submission preview'),Icon='eye',Side='Right'})
+            end
             local function add(section,method,name,pt,en,extra)
+                if hub.Launcher then section=hub.Launcher:Route(name,section) end
                 local opts={Id='feedback/'..hub.Id..'/'..name,Title=hub:_tr(pt,en),Persist=false}
                 for key,value in pairs(extra or {}) do opts[key]=value end
                 local control=section[method](section,opts);hub.Controls[name]=control;hub._captions[control]={pt,en};return control
@@ -519,6 +536,7 @@ do
             hub.Scope:Add(function() if not hub.Destroyed then hub:Destroy() end end)
             self:_bind(hub.Controls.Submit.Button,{BackgroundColor3='Accent',TextColor3='AccentText'})
             if settings.Diagnostics then hub.Diagnostics=self:_createFeedbackDiagnostics(hub,add) end
+            if hub.Launcher then hub.Launcher:Finish(add) end
             hub._ready=true;identity();hub:_refreshLocale();hub.Tab:Select()
         end)
         if not ok then hub:Destroy();error(err,2) end
@@ -529,10 +547,11 @@ do
         checked(options)
         local settings={};for key,value in pairs(options) do settings[key]=value end
         settings.Id=options.WindowId or 'RetroBox-Feedback-'..(options.Id or 'feedback');settings.Title=options.Title or 'Central de Ideias';settings.Theme=options.Theme or 'Hacker';settings.Icon=options.Icon or 'notification';settings.Subtitle=options.Subtitle or 'Feedback e sugestões de scripts'
+        if (options.Layout or 'Launcher')=='Launcher' and options.Size==nil then settings.Size=Vector2.new(940,680) end
         local window=self:CreateWindow(settings)
         local ok,hub=pcall(window.CreateFeedbackHub,window,options)
         if not ok then window:Destroy();error(hub,2) end
-        hub.OwnsWindow=true;hub._defaultTitle=options.Title==nil;hub._defaultSubtitle=options.Subtitle==nil;hub:_refreshLocale();return hub
+        hub.OwnsWindow=true;hub._defaultTitle=options.Title==nil;hub._defaultSubtitle=options.Subtitle==nil;hub:_refreshLocale();window:_layout();return hub
     end
     for _,name in ipairs({'SetLocale','Show','Minimize'}) do
         local method=Window[name]

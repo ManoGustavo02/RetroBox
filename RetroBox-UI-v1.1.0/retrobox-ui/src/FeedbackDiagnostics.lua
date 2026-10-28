@@ -181,6 +181,7 @@ do
         if not included and self.Capturing then self.Scope:Remove('console-capture');self.Capturing=false;c.Live:SetValue(false,true) end
         local snapshot,why=self:Snapshot();local formatted=self:Format(snapshot)
         c.Preview:SetValue(formatted,true)
+        c.Preview.Input.TextEditable=false
         if snapshot and self.Hub._ready then
             local _,failure=self.Hub:BuildPayload()
             if failure=='DiagnosticPayloadLarge' then why=failure end
@@ -196,7 +197,7 @@ do
     end
     function Window:_createFeedbackDiagnostics(hub,add)
         local d=setmetatable({Hub=hub,Scope=hub.Scope:Child(),Controls={},Records={},ById={},Seen={},LabelIds={},Captions={},Seq=0},Diagnostic)
-        d.Section=hub.Tab:CreateSection({Title=hub:_tr('Diagnóstico do problema','Problem diagnostics'),Icon='warning'})
+        d.Section=hub.Launcher and hub.Launcher.Sections.Diagnostics or hub.Tab:CreateSection({Title=hub:_tr('Diagnóstico do problema','Problem diagnostics'),Icon='warning'})
         local function control(method,name,pt,en,opts)
             local c=add(d.Section,method,'Diagnostic'..name,pt,en,opts);d.Controls[name]=c;d.Captions[name]={pt,en};return c
         end

@@ -1,3 +1,19 @@
+# Validação · RetroBox UI 2.10.0
+
+- **625/625 testes de lógica**, incluindo **43 exemplos** pelo bootstrap real. As **17 novas regressões** da interface própria se somam aos 34 testes de comunicação e aos 35 de diagnóstico/novidades atualizados: **86/86 verificações focadas** passaram.
+- Central: Launcher padrão e Classic, categorias estáveis, etapas e rascunho, mensagem completa, diagnóstico exato e somente leitura, envio por clique nativo, cancelamento fora da revisão, foco e fechamento de dropdowns. Troca de páginas não captura logs nem envia relatos.
+- Navegação: Central standalone com área própria; anexada preserva o host; abrir ferramentas comuns restaura o layout normal. Temas, PixelIcons, PT/EN, perfis e reexecução liberam conexões/recursos sem erros de Parent bloqueado.
+- Matriz de geometria: 1280×720, 390×844 e 320×600; escala .75/1.5; TextScale 1.4; PT/EN e todas as etapas, verificando limites dos cartões, textos e navegação.
+- Novidades: sem badges, etiquetas, botão de leitura ou alertas após edição, idioma, importação de marcadores antigos e reexecução. Histórico oficial por cópia e feeds isolados mantidos; importação malformada permanece atômica.
+- **12/12 exemplos completos do prompt**, **24/24 testes Node**, **2/2 testes Python**, **22 manifests**, origem, links/assets e incorporação dos módulos conferidos. O Designer mantém seus 21 componentes/22 blocos; o CI também exige os oito testes Chromium antes da promoção.
+- Runtime: **876695 bytes**, SHA-256 **dd78359b2f4af178a3a511544059dfba6c8cd245afefc572bf514132821e411c**. Stable/Preview 2.10.0; bootstrap, Designer e releases anteriores preservados. O script privado da Central mantém o endereço permanente stable e não fixa uma versão anterior.
+
+Transporte, serviços e geometria são simulados; nenhuma mensagem foi enviada a um webhook real. Não há renderer Roblox neste ambiente. Estes resultados verificam lógica, payloads e ciclo de vida, sem comprovar a renderização ou a compatibilidade de um executor específico. [Relatório](RELEASE-2.10.md) · [Central](FEEDBACK-HUB.md) · [Novidades](NEWS.md).
+
+---
+
+## Histórico anterior de validação
+
 # Validação · RetroBox UI 2.8.0
 
 - **573/573 testes de lógica**, com **42 exemplos** pelo bootstrap real, incluindo **34 regressões novas** da Central de Ideias.

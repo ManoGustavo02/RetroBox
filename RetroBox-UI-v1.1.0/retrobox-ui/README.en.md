@@ -1,8 +1,8 @@
 # RetroBox UI
 
-**New in 2.9:** [separate library/script updates](docs/NEWS.md) in every window and [optional diagnostic bug reports](docs/FEEDBACK-HUB.md#diagnóstico-opcional--29).
+**New in 2.10:** [dedicated Ideas Center interface](docs/FEEDBACK-HUB.md) with category cards and message, diagnostics and review pages. [Updates](docs/NEWS.md) keeps both histories without unread alerts or read markers.
 
-**2.9.0:** independent Ideas Center with feedback, suggestions, preview, PT/EN and configurable Discord delivery. [Details](docs/RELEASE-2.8.md) · [Demo](examples/feedback-hub.lua).
+**2.10.0:** responsive layout, complete review, PT/EN and configurable delivery. [Details](docs/RELEASE-2.10.md) · [Demo](examples/feedback-hub.lua).
 
 **New in 2.5:** [offline Designer with visual blocks](../../designer/README.md), automatic locale, transactional forms, reusable components, recycled CardGrid, native flow graphs and read-only catalog diagnostics. [APIs](docs/DEVELOPMENT-TOOLS.md).
 

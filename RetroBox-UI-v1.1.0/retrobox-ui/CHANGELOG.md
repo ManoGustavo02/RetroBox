@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.10.0 · 2026-10-28
+
+- Novidades passa a ser somente histórico por origem, sem notificações, contagem, etiquetas ou marcação de leitura; perfis antigos não reativam avisos.
+- Central de Ideias recebe interface própria padrão com categorias, etapas Mensagem/Diagnóstico/Revisar, contexto e ações alinhadas, responsivas e traduzidas.
+- Revisão mostra a mensagem completa e o diagnóstico preparado; prévia do diagnóstico permanece somente leitura após atualizações.
+- Layout Classic opcional, handles e transporte existentes preservados; navegação/foco não envia relatos nem coleta logs.
+- Regressões de telas pequenas, escalas, temas, perfis, cancelamento, foco, limpeza e reexecução. API 2 e bootstrap permanente mantidos.
+
 ## 2.9.0 · 2026-10-27
 
 - Área Novidades em todas as janelas, com histórico oficial da RetroBox e updates opcionais do script em fontes separadas.
