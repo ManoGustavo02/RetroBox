@@ -477,6 +477,12 @@ APIs: GetUniversalScripts, GetUniversalScript, AddUniversalScript, UpdateUnivers
 
 ## Adições 2.9 / API 2
 
-[Novidades por origem, leitura e marcadores](NEWS.md) · [Diagnóstico opcional na Central de Ideias](FEEDBACK-HUB.md#diagnóstico-opcional--29)
+[Histórico de novidades por origem](NEWS.md) · [Diagnóstico opcional na Central de Ideias](FEEDBACK-HUB.md#diagnóstico-opcional--29)
 
 Todas as janelas incluem a categoria Novidades. ScriptUpdates é opcional; notas oficiais não aceitam substituição por opções do consumidor. CreateFeedbackHub continua compatível com as opções anteriores; Diagnostics=false desativa os novos campos, e nenhum registro é capturado ou anexado automaticamente.
+
+## Central com interface própria · 2.10 / API 2
+
+CreateFeedbackHub usa Layout='Launcher' por padrão: cartões de categoria, etapas Compose/Diagnostics/Review, contexto e ações. GetPage/SetPage selecionam etapas sem enviar ou coletar logs. Layout='Classic' preserva o formulário anterior. A tela independente usa navegação horizontal; anexar a Central a uma janela não altera as outras abas. Controles públicos e transporte existentes permanecem compatíveis. [Layout e opções](FEEDBACK-HUB.md).
+
+Novidades permanece como histórico separado da library e do script, sem alertas, badges ou marcação de leitura. GetUnreadUpdateCount valida a origem e retorna 0; MarkUpdateRead valida a entrada e retorna a janela, sem persistência. Perfis antigos têm NewsRead validado e descartado. [Contrato](NEWS.md).

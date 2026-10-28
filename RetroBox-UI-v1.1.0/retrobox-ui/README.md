@@ -1,8 +1,8 @@
 # RetroBox UI
 
-**Novo na 2.9:** [Novidades por origem](docs/NEWS.md) em todas as janelas e [diagnóstico opcional nos relatos](docs/FEEDBACK-HUB.md#diagnóstico-opcional--29).
+**Novo na 2.10:** [Central de Ideias com interface própria](docs/FEEDBACK-HUB.md), cartões de categoria e etapas de mensagem, diagnóstico e revisão. [Novidades](docs/NEWS.md) mantém os históricos, sem avisos ou marcação de leitura.
 
-**2.9.0:** Central de Ideias independente, com feedback, sugestões, prévia, PT/EN e envio Discord configurável. [Detalhes](docs/RELEASE-2.8.md) · [Demonstração](examples/feedback-hub.lua).
+**2.10.0:** tela responsiva, prévia completa, PT/EN e transporte configurável. [Detalhes](docs/RELEASE-2.10.md) · [Demonstração](examples/feedback-hub.lua).
 
 Library de GUI em Luau para desenvolvedores de scripts executados no cliente Roblox por executores. Um arquivo independente, carregado pelo link **raw do GitHub**, com visual retrô e API para conectar componentes às funções do seu script.
 

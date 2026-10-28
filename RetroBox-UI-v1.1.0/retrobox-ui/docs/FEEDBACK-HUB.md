@@ -1,11 +1,11 @@
-# Central de Ideias · Feedback Hub · RetroBox 2.8
+# Central de Ideias · Feedback Hub · RetroBox 2.10
 
 Componente opt-in separado do Script Hub. Permite pedir scripts para jogos, sugerir melhorias, compartilhar feedback e relatar problemas. Cria uma janela própria com `Library:CreateFeedbackHub` ou uma guia em uma janela existente com `window:CreateFeedbackHub`. Janelas normais e Script Hubs não recebem uma categoria extra automaticamente.
 
 ## Começar
 
 ```lua
-local Library=loadstring(game:HttpGet('https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua'))({Channel='stable',MinVersion='2.8.0'})
+local Library=loadstring(game:HttpGet('https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua'))({Channel='stable',MinVersion='2.10.0'})
 local feedback=Library:CreateFeedbackHub({
     Id='minha-central',Theme='Hacker',Locale='auto',
     WebhookURL='', -- coloque aqui seu webhook real; vazio mantém o envio desativado
@@ -20,7 +20,11 @@ local feedback=Library:CreateFeedbackHub({
 
 ## Tela e dados
 
-A tela tem formulário, escolha de categoria, jogo atual ou outro jogo por ID/link, contador de caracteres, prévia do envio, avatar disponível e status. Ações principais: enviar, parar a espera, limpar e reenviar com confirmação quando a entrega é incerta. Layout em duas colunas no desktop e empilhado em telas menores; usa os componentes, temas, acessibilidade, animações e rolagem da própria library.
+A apresentação padrão é uma interface própria de comunicação, Layout='Launcher'. O cabeçalho, os cartões de categoria e as etapas Mensagem, Diagnóstico e Revisar organizam o formulário. Dados de jogo/jogador e status ficam ao lado no desktop e abaixo em telas menores. Nomes e descrições quebram em linhas com altura medida; categorias e navegação se reorganizam conforme a largura e a escala de texto.
+
+Mensagem contém o jogo atual ou outro por ID/link, campo de texto e contador. Diagnóstico é opcional e não captura nem anexa registros ao navegar. Revisar mostra o texto completo e o diagnóstico preparado, quando incluído. Enviar, limpar e reenviar aparecem na revisão; cancelar uma espera em andamento permanece disponível nas outras etapas. A prévia do diagnóstico é selecionável e somente leitura, inclusive após atualizar texto, tema, idioma, escala ou perfil.
+
+Na janela independente, a navegação principal é horizontal e a Central ocupa a área útil, sem a pesquisa global do formulário. Ao abrir Novidades ou outras abas, o layout normal da janela é restaurado. Em uma janela existente, a Central não altera a navegação ou a pesquisa das outras abas. Layout='Classic' preserva a apresentação anterior em seções. Ambas usam os controles, temas, acessibilidade, animações, scopes e rolagem nativos.
 
 O jogo é consultado por PlaceId. Um link deve ser o HTTPS oficial `https://www.roblox.com/games/ID/...` ou `https://roblox.com/games/ID/...`. Links de compartilhamento sem `/games/ID` precisam ser convertidos para o link do jogo/ID. Se o nome não puder ser consultado, o ID e o link continuam disponíveis; a prévia informa a limitação.
 
@@ -28,7 +32,7 @@ O payload do Discord contém um embed com categoria, mensagem, nome do jogo, lin
 
 Identidade é lida do LocalPlayer real, com observação da chegada e de Name/DisplayName/UserId. O envio aguarda campos reais; não usa Player/@Player fictício ou a identidade de outro jogador. Dados do cliente não são autenticação: um executor alterado pode forjá-los, e um relay precisa tratar esse conteúdo como entrada não confiável.
 
-Não há envio ao abrir a tela, mudar categoria/idioma, carregar perfil ou editar texto. A prévia resume mensagens longas e avisa que o texto completo será enviado. Quebras de linha são normalizadas e espaços externos são removidos; o restante da mensagem não é reescrito nem traduzido. O payload não inclui JobId, dispositivo, HWID, identificação do executor ou coleta extra de IP. `allowed_mentions.parse` é vazio para impedir menções em massa.
+Não há envio ao abrir a tela, mudar categoria/idioma, carregar perfil ou editar texto. A etapa Revisar mostra a mensagem completa; a apresentação Classic mantém a prévia resumida com aviso de texto completo no envio. Quebras de linha são normalizadas e espaços externos são removidos; o restante da mensagem não é reescrito nem traduzido. O payload não inclui JobId, dispositivo, HWID, identificação do executor ou coleta extra de IP. `allowed_mentions.parse` é vazio para impedir menções em massa.
 
 ## Opções
 
@@ -41,6 +45,8 @@ Não há envio ao abrir a tela, mudar categoria/idioma, carregar perfil ou edita
 | `ThreadId` | String numérica com o ID do tópico de destino; adicionada como parâmetro separado. |
 | `Categories` | Array de 1–4 IDs: ScriptRequest, Suggestion, Feedback, BugReport. O texto mostrado é traduzido. |
 | `DefaultCategory` | Primeiro ID habilitado. |
+| `Layout` | `Launcher`; `Classic` mantém a apresentação anterior. Opção independente do Script Hub. |
+| `Size` | Na janela standalone Launcher, 940×680 quando omitido; uma dimensão fornecida pelo consumidor é preservada e o layout respeita os limites da janela. |
 | `Game` | `current`, número/ID numérico ou link oficial do jogo. Pode ser alterado pelo usuário. |
 | `MinLength`, `MaxLength` | 10 e 2000; inteiros entre 1 e 2000, medidos por caracteres Unicode. |
 | `Cooldown` | 30 segundos; 0–3600, intervalo local entre tentativas. |
@@ -76,6 +82,10 @@ Não há envio ao abrir a tela, mudar categoria/idioma, carregar perfil ou edita
 | `Status:Subscribe(callback)` | Estado observável da tela, liberado com o Hub. |
 | `Show()`, `Hide()`, `Destroy()` | Ciclo de vida nativo; Destroy é idempotente. |
 | `Window`, `Tab`, `Controls` | Janela, guia e controles existentes, para integração explícita. |
+| `GetPage()` | `Compose`, `Diagnostics` ou `Review` no Launcher; `Compose` no Classic. |
+| `SetPage(page)` | Seleciona uma etapa disponível no Launcher. Diagnostics=false remove a etapa Diagnostics. Não envia nem coleta logs. |
+
+Os handles e callbacks dos controles existentes permanecem disponíveis. Controls.ReviewDiagnostic acrescenta a prévia exata do diagnóstico na revisão. Window:FocusControl encaminha os campos da Central para sua etapa; trocar de etapa fecha dropdowns e conserva o rascunho. Não há envio por navegação.
 
 Categorias permanecem com IDs estáveis após trocar idioma. `Locale='auto'` usa o sistema existente da RetroBox, baseado no idioma configurado, não em nacionalidade/geolocalização. A interface, mensagens de erro, contador, ações, opções e prévia acompanham PT/EN. Texto enviado, nome do jogador e nome do jogo permanecem literais.
 
@@ -127,4 +137,4 @@ O envio confere o embed inteiro antes de chamar o transporte: até 25 fields, at
 
 Nenhuma dessas ações chama Submit automaticamente. Dados de diagnóstico não entram nos perfis. A detecção de duplicatas considera o conteúdo anexado e independe do idioma da interface. Falhas e respostas incertas preservam o diagnóstico; ClearOnSuccess só limpa se o rascunho completo ainda for igual ao enviado.
 
-[Notas da versão](RELEASE-2.9.md) · [Novidades por origem](NEWS.md)
+[Notas da versão](RELEASE-2.10.md) · [Novidades por origem](NEWS.md)

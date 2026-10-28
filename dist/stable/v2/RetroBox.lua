@@ -9,7 +9,7 @@ local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
 local TextService = game:GetService("TextService")
 
-local Library = { Version = "2.9.0", Themes = {}, Windows = {} }
+local Library = { Version = "2.10.0", Themes = {}, Windows = {} }
 local Window = {}; Window.__index = Window
 local Tab = {}; Tab.__index = Tab
 local Section = {}; Section.__index = Section
@@ -11145,6 +11145,241 @@ end
 -- END RETRO250 DEVELOPMENT TOOLS
 
 -- BEGIN RETRO280 FEEDBACK HUB
+-- Communication launcher. Keeps native control handles and the shared Window lifecycle.
+do
+    local View={};View.__index=View
+    local categories={
+        ScriptRequest={Title={'Pedir script','Request script'},Description={'Para um jogo do Roblox','For a Roblox game'},Icon='gamepad'},
+        Suggestion={Title={'Sugestão','Suggestion'},Description={'Melhorias e novas funções','Improvements and features'},Icon='spark'},
+        Feedback={Title={'Feedback','Feedback'},Description={'Conte sua experiência','Share your experience'},Icon='message'},
+        BugReport={Title={'Relatar bug','Report a bug'},Description={'Algo não funcionou?','Something went wrong?'},Icon='warning'},
+    }
+    local captions={Compose={'Mensagem','Message'},Diagnostics={'Diagnóstico','Diagnostics'},Review={'Revisar','Review'}}
+    local function rect(object,x,y,w,h) object.Position=U2(x,y);object.Size=U2(math.max(1,w),math.max(1,h)) end
+    function View:_tr(pair) return self.Hub:_tr(pair[1],pair[2]) end
+    function View:_alive() return not self.Destroyed and not self.Hub.Destroyed and not self.Window.Destroyed end
+    function View:Route(name,fallback)
+        if name=='Category' or name=='Intro' or name=='Message' or name=='Counter' then return self.Sections.Message end
+        if name=='CurrentGame' or name=='Target' then return self.Sections.Target end
+        if name=='MessagePreview' or name=='Notice' then return self.Sections.Review end
+        if name=='Submit' or name=='Cancel' or name=='Retry' or name=='Clear' then return self.Sections.Actions end
+        if name=='Status' then return self.Sections.Status end
+        if name=='GamePreview' or name=='GameLink' or name=='PlaceId' or name=='Metadata' or name=='Identity' or name=='Avatar' then return self.Sections.Context end
+        return fallback
+    end
+    function View:SetPage(page)
+        assert(self:_alive() and captions[page] and (page~='Diagnostics' or self.Hub.Diagnostics),'Unknown or unavailable feedback page')
+        if self.Page==page then return self end
+        local w=self.Window
+        if w._openDropdown then w._openDropdown:SetOpen(false) end
+        w:_hideTooltip()
+        local focused=UserInputService:GetFocusedTextBox()
+        local ancestor=focused
+        while ancestor and ancestor~=self.Tab.Frame do ancestor=ancestor.Parent end
+        if ancestor then focused:ReleaseFocus(false) end
+        self.Scroll[self.Page]=self.Tab.Frame.CanvasPosition;self.Page=page
+        self:Refresh();self.Tab.Frame.CanvasPosition=self.Scroll[page] or Vector2.new(0,0)
+        if w:_motionAllowed(self.Root) then w:_motion(self.Root,{Position=U2(0,0)},.12,'feedback-page',self) end
+        return self
+    end
+    function View:LayoutChrome()
+        if not self:_alive() or not self.Hub.OwnsWindow or self.Window.ActiveTab~=self.Tab then return end
+        local w=self.Window
+        w.Nav.Position=U2(12,76);w.Nav.Size=UDim2.new(1,-24,0,36)
+        w.NavLayout.FillDirection=Enum.FillDirection.Horizontal;w.Nav.AutomaticCanvasSize=Enum.AutomaticSize.X;w.Nav.ScrollingDirection=Enum.ScrollingDirection.X
+        for _,page in ipairs(w.Tabs) do
+            local measured=TextService:GetTextSize(page.Label.Text,page.Label.TextSize,page.Label.Font,Vector2.new(100000,100000))
+            page.Button.Size=U2(math.min(math.max(120,w._logicalSize.X-24),math.max(120,math.ceil(measured.X)+page.Label.Position.X.Offset+14)),34)
+        end
+        w.SearchContainer.Visible=false;w.Search.Visible=false
+        w.PageHost.Position=U2(12,120);w.PageHost.Size=UDim2.new(1,-24,1,-184)
+        if w.PixelMotif then w.PixelMotif.Visible=false end
+    end
+    function View:_styleActions()
+        local h=self.Hub;local scale=self.Window.TextScale or 1;local height=math.max(42,math.ceil(13*scale+22))
+        for _,name in ipairs({'Submit','Cancel','Retry','Clear'}) do
+            local c=h.Controls[name]
+            if c and not c.Destroyed then
+                c.TitleLabel.Visible=false;c.DescriptionLabel.Visible=false
+                c.Frame.Size=UDim2.new(1,0,0,height);c.Button.Position=U2(0,0);c.Button.Size=UDim2.new(1,0,0,height)
+                local layout=c._descriptionLayout
+                if layout then
+                    layout.Height=height
+                    local data=layout.Children[c.Button];if data then data.Position=U2(0,0);data.Size=UDim2.new(1,0,0,height) end
+                end
+                local icon=c._titleIcon
+                if icon and not icon.Destroyed and icon.Frame and icon.Frame.Parent then
+                    if icon.Frame.Parent~=c.Button then icon.Frame.Parent=c.Button end
+                    icon.Frame.Position=U2(10,math.floor((height-icon.Size)/2))
+                    icon:SetRole(name=='Submit' and 'AccentText' or 'Text')
+                end
+                c.Button.TextXAlignment=Enum.TextXAlignment.Center
+                local pad=c.Button:FindFirstChild('FeedbackPadding')
+                if not pad then pad=ui(self.Window,'UIPadding',{Name='FeedbackPadding',Parent=c.Button,PaddingLeft=UDim.new(0,32),PaddingRight=UDim.new(0,12)}) end
+            end
+        end
+    end
+    function View:Layout()
+        if not self:_alive() or self.LayingOut then return end;self.LayingOut=true
+        local w=self.Window;local scale=math.max(.01,w._actualScale or 1)
+        local measured=self.Tab.Frame.AbsoluteSize.X/scale
+        local width=math.max(240,(measured>1 and measured or (w._logicalSize and w._logicalSize.X-24 or 740))-10)
+        self.Width=width;local gap=12
+        local function height(object,text,size,available)
+            local bounds=TextService:GetTextSize(text,size,object.Font,Vector2.new(math.max(1,available),100000))
+            return math.max(size+3,bounds.Y+3)
+        end
+        local th=height(self.HeroTitle,self.HeroTitle.Text,self.HeroTitle.TextSize,width-24)
+        local sh=height(self.HeroDescription,self.HeroDescription.Text,self.HeroDescription.TextSize,width-24)
+        self.Hero.Size=UDim2.new(1,0,0,th+sh+28)
+        rect(self.HeroTitle,12,10,width-24,th);rect(self.HeroDescription,12,th+15,width-24,sh)
+        local columns=math.min(#self.Cards,width>=700 and 4 or width>=280 and 2 or 1)
+        local cardWidth=(width-gap*(columns-1))/math.max(1,columns);local cardHeight=66
+        for _,card in ipairs(self.Cards) do
+            card.TitleHeight=height(card.Title,card.Title.Text,card.Title.TextSize,cardWidth-44)
+            card.DescriptionHeight=height(card.Description,card.Description.Text,card.Description.TextSize,cardWidth-24)
+            cardHeight=math.max(cardHeight,card.TitleHeight+card.DescriptionHeight+24)
+        end
+        for i,card in ipairs(self.Cards) do
+            rect(card.Button,((i-1)%columns)*(cardWidth+gap),math.floor((i-1)/columns)*(cardHeight+gap),cardWidth,cardHeight)
+            rect(card.Title,34,10,cardWidth-44,card.TitleHeight)
+            rect(card.Description,12,card.TitleHeight+15,cardWidth-24,card.DescriptionHeight)
+        end
+        self.Categories.Size=UDim2.new(1,0,0,math.ceil(#self.Cards/math.max(1,columns))*(cardHeight+gap)-gap)
+        local pages=#self.PageOrder;local minimum=90
+        for _,key in ipairs(self.PageOrder) do
+            local b=self.Pages[key];local size=TextService:GetTextSize(b.Text,b.TextSize,b.Font,Vector2.new(100000,100000));minimum=math.max(minimum,size.X+24)
+        end
+        local navCols=math.max(1,math.min(pages,math.floor((width+8)/(minimum+8))));local navWidth=(width-(navCols-1)*8)/navCols
+        local navHeight=math.max(36,math.ceil(13*(w.TextScale or 1)+20))
+        for i,key in ipairs(self.PageOrder) do rect(self.Pages[key],((i-1)%navCols)*(navWidth+8),math.floor((i-1)/navCols)*(navHeight+8),navWidth,navHeight) end
+        self.Navigation.Size=UDim2.new(1,0,0,math.ceil(pages/navCols)*(navHeight+8)-8)
+        local wide=width>=660;self.Wide=wide
+        self.BodyLayout.FillDirection=wide and Enum.FillDirection.Horizontal or Enum.FillDirection.Vertical
+        self.Tab.Left.Size=wide and UDim2.new(.62,-6,0,0) or UDim2.new(1,0,0,0)
+        self.Tab.Right.Size=wide and UDim2.new(.38,-6,0,0) or UDim2.new(1,0,0,0);self.Tab.Right.Visible=true
+        local half=(width-8)/2;local footerHeight=math.max(42,math.ceil(13*(w.TextScale or 1)+22))
+        rect(self.Back,0,0,self.Page=='Review' and width or half,footerHeight)
+        rect(self.Next,half+8,0,half,footerHeight);self.Footer.Size=UDim2.new(1,0,0,footerHeight)
+        self:_styleActions()
+        self.LayingOut=false
+    end
+    function View:Finish(add)
+        self.Ready=true
+        self.Controls=self.Hub.Controls
+        if self.Hub.Diagnostics then
+            self.ReviewDiagnostic=add(self.Sections.DiagnosticReview,'AddLabel','ReviewDiagnostic','','',{Height=56})
+            self.Window:SetTextTranslation(self.ReviewDiagnostic.Frame,false)
+        end
+        self.Hub.Controls.Intro:SetVisible(false);self.Hub.Controls.Category:SetVisible(false)
+        local avatar=self.Hub.Controls.Avatar
+        avatar:SetIcon(false)
+        avatar.TitleLabel.Visible=false;avatar.DescriptionLabel.Visible=false
+        avatar.Frame.Size=UDim2.new(1,0,0,64);avatar.Image.Position=U2(0,0);avatar.Image.Size=U2(64,64)
+        if avatar._descriptionLayout then
+            avatar._descriptionLayout.Height=64
+            local data=avatar._descriptionLayout.Children[avatar.Image];if data then data.Position=U2(0,0);data.Size=U2(64,64) end
+        end
+        for name,control in pairs(self.Controls) do
+            control._feedbackHub=self.Hub
+            control._feedbackPage=name:sub(1,10)=='Diagnostic' and 'Diagnostics' or (name=='ReviewDiagnostic' or name=='MessagePreview' or name=='Notice' or name=='Submit' or name=='Retry' or name=='Cancel' or name=='Clear') and 'Review' or 'Compose'
+        end
+        self:Refresh()
+    end
+    function View:Refresh()
+        if not self:_alive() or self.Refreshing then return end;self.Refreshing=true
+        local h,w=self.Hub,self.Window
+        self.HeroTitle.Text=h:_tr('Central de Ideias','Ideas Center')
+        self.HeroDescription.Text=h:_tr('Sugira melhorias, peça um script ou relate um problema.','Suggest improvements, request a script or report a problem.')
+        for _,card in ipairs(self.Cards) do
+            local item=categories[card.Id];local selected=h.Category==card.Id
+            card.Title.Text=self:_tr(item.Title);card.Description.Text=self:_tr(item.Description)
+            w:_bind(card.Button,{BackgroundColor3=selected and 'Accent' or 'Surface',BorderColor3=selected and 'Accent' or 'Border'})
+            w:_bind(card.Title,{TextColor3=selected and 'AccentText' or 'Text'})
+            w:_bind(card.Description,{TextColor3=selected and 'AccentText' or 'Muted'})
+            card.Icon:SetRole(selected and 'AccentText' or 'Accent')
+        end
+        for key,b in pairs(self.Pages) do b.Text=self:_tr(captions[key]);w:_bind(b,{BackgroundColor3=self.Page==key and 'Accent' or 'Inset',TextColor3=self.Page==key and 'AccentText' or 'Text'}) end
+        local titles={Target={'Jogo do relato','Report game'},Message={'Escreva sua mensagem','Write your message'},Review={'Confira antes de enviar','Review before sending'},Diagnostics={'Diagnóstico opcional','Optional diagnostics'},DiagnosticReview={'Diagnóstico anexado','Attached diagnostics'},Context={'Jogo e jogador','Game and player'},Status={'Status do envio','Delivery status'},Actions={'Enviar relato','Send report'}}
+        for key,pair in pairs(titles) do self.Sections[key]:SetTitle(self:_tr(pair)) end
+        self.Hero.Visible=self.Page=='Compose';self.Categories.Visible=self.Page=='Compose'
+        if self.Ready then
+            local c=h.Controls;local active=self.Page
+            local included=h.Diagnostics and c.DiagnosticInclude:GetValue()
+            local visibility={Target=active=='Compose',Message=active=='Compose',Review=active=='Review',Diagnostics=active=='Diagnostics',DiagnosticReview=active=='Review' and included,Context=true,Status=true,Actions=active=='Review' or h._operation~=nil}
+            for key,section in pairs(self.Sections) do section._visible=visibility[key]==true;section.Frame.Visible=section._visible end
+            c.Submit:SetVisible(active=='Review');c.Clear:SetVisible(active=='Review')
+            c.Retry:SetVisible(active=='Review' and not h._operation and h:GetStatus().State=='Unconfirmed')
+            if active=='Review' then
+                local message=h:GetDraft().Message:gsub('\r\n','\n'):gsub('\r','\n'):gsub('^%s+',''):gsub('%s+$','')
+                c.MessagePreview:SetText(message);c.MessagePreview:SetDescription('')
+                if self.ReviewDiagnostic then local d=h.Diagnostics:Snapshot();self.ReviewDiagnostic:SetText(h.Diagnostics:Format(d)) end
+            end
+            c.Avatar.TitleLabel.Visible=false;c.Avatar.DescriptionLabel.Visible=false
+        end
+        self.Back.Visible=self.Page~='Compose';self.Back.Text=h:_tr('Editar mensagem','Edit message')
+        self.Next.Visible=self.Page~='Review';self.Next.Text=h:_tr('Revisar envio','Review submission')
+        self:Layout();self.Refreshing=false
+    end
+    function View:Destroy()
+        if self.Destroyed then return end;self.Destroyed=true
+        cleanup(self);self.Scope:Destroy();self.Cards={};self.Pages={};self.Controls=nil;self.Ready=false
+    end
+    function Window:_createFeedbackLauncher(hub)
+        local v=setmetatable({Hub=hub,Window=self,Tab=hub.Tab,Scope=hub.Scope:Child(),Page='Compose',PageOrder={'Compose'},Scroll={},Cards={},Pages={},Sections={},_connections={},Launcher=true},View)
+        if hub.Options.Diagnostics then v.PageOrder[#v.PageOrder+1]='Diagnostics' end;v.PageOrder[#v.PageOrder+1]='Review'
+        local tab=v.Tab;tab.Columns=2;tab.Container.Visible=false
+        v.Root=frame(self,tab.Frame,{Name='FeedbackLauncher',Size=UDim2.new(1,-10,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1})
+        list(self,v.Root,12)
+        v.Hero=frame(self,v.Root,{Name='FeedbackWelcome',LayoutOrder=1,Size=UDim2.new(1,0,0,80)},'Inset')
+        v.HeroTitle=label(self,v.Hero,'',{Name='FeedbackHeading',TextSize=19,TextWrapped=true,TextTruncate=Enum.TextTruncate.None},'Accent')
+        v.HeroDescription=label(self,v.Hero,'',{TextSize=12,TextWrapped=true,TextTruncate=Enum.TextTruncate.None},'Muted')
+        v.Categories=frame(self,v.Root,{Name='FeedbackCategories',LayoutOrder=2,Size=UDim2.new(1,0,0,150),BackgroundTransparency=1})
+        for _,id in ipairs(hub.Options.Categories) do
+            local item=categories[id];local card={Id=id}
+            card.Button=button(self,v,v.Categories,'',{Name='FeedbackCategory_'..id,Text='',BorderSizePixel=1},function() if v:_alive() then hub:SetCategory(id) end end)
+            card.Title=label(self,card.Button,'',{TextSize=13,TextWrapped=true,TextTruncate=Enum.TextTruncate.None},'Text')
+            card.Description=label(self,card.Button,'',{TextSize=11,TextWrapped=true,TextTruncate=Enum.TextTruncate.None},'Muted')
+            card.Icon=iconSlot(self,card.Button,item.Icon,nil,16,U2(10,11),'Accent')
+            v.Cards[#v.Cards+1]=card
+        end
+        v.Navigation=frame(self,v.Root,{Name='FeedbackPages',LayoutOrder=3,Size=UDim2.new(1,0,0,36),BackgroundTransparency=1})
+        for _,key in ipairs(v.PageOrder) do v.Pages[key]=button(self,v,v.Navigation,'',{Name='FeedbackPage_'..key,TextSize=12},function() if v:_alive() then v:SetPage(key) end end) end
+        v.Body=frame(self,v.Root,{Name='FeedbackWorkspace',LayoutOrder=4,Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1})
+        v.BodyLayout=list(self,v.Body,12,true);tab.Left.Parent=v.Body;tab.Right.Parent=v.Body
+        for _,item in ipairs({{'Target','Left'},{'Message','Left'},{'Diagnostics','Left'},{'Review','Left'},{'DiagnosticReview','Left'},{'Context','Right'},{'Status','Right'},{'Actions','Right'}}) do
+            v.Sections[item[1]]=tab:CreateSection({Title=item[1],Side=item[2]=='Right' and 'Right' or nil})
+        end
+        v.Footer=frame(self,v.Root,{Name='FeedbackNavigation',LayoutOrder=5,Size=UDim2.new(1,0,0,42),BackgroundTransparency=1})
+        v.Back=button(self,v,v.Footer,'',{Name='FeedbackBack'},function() if v:_alive() then v:SetPage('Compose') end end)
+        v.Next=button(self,v,v.Footer,'',{Name='FeedbackReview'},function() if v:_alive() then v:SetPage('Review') end end)
+        local oldLayout=tab._layout
+        tab._layout=function(page,...) oldLayout(page,...);if v:_alive() then v:Layout() end end
+        v.Scope:Add(tab.Frame:GetPropertyChangedSignal('AbsoluteSize'):Connect(function() if v:_alive() then v:Layout() end end),'Disconnect')
+        v.Scope:Add(tab.Frame:GetPropertyChangedSignal('Visible'):Connect(function() if v:_alive() then self:_layout();v:Refresh() end end),'Disconnect')
+        tab._toolManager=v
+        for _,object in ipairs({v.HeroTitle,v.HeroDescription}) do self:SetTextTranslation(object,false) end
+        return v
+    end
+    local layout=Window._layout
+    function Window:_layout(...)
+        layout(self,...)
+        for _,hub in pairs(self._feedbackHubs or {}) do if hub.Launcher and not hub.Destroyed then hub.Launcher:LayoutChrome();hub.Launcher:Layout() end end
+    end
+    local textScale=Window.SetTextScale
+    function Window:SetTextScale(...)
+        local result=textScale(self,...)
+        for _,hub in pairs(self._feedbackHubs or {}) do if hub.Launcher and not hub.Destroyed then hub.Launcher:Layout() end end
+        return result
+    end
+    local focus=Window.FocusControl
+    function Window:FocusControl(control)
+        local target=type(control)=='string' and self.Controls[control] or control
+        if target and target._feedbackHub and not target._feedbackHub.Destroyed and target._feedbackHub.Launcher then target._feedbackHub.Launcher:SetPage(target._feedbackPage) end
+        return focus(self,control)
+    end
+end
+
 -- Optional diagnostic attachments: explicit selection, preview, bounded data and scoped capture.
 do
     local Diagnostic={};Diagnostic.__index=Diagnostic
@@ -11328,6 +11563,7 @@ do
         if not included and self.Capturing then self.Scope:Remove('console-capture');self.Capturing=false;c.Live:SetValue(false,true) end
         local snapshot,why=self:Snapshot();local formatted=self:Format(snapshot)
         c.Preview:SetValue(formatted,true)
+        c.Preview.Input.TextEditable=false
         if snapshot and self.Hub._ready then
             local _,failure=self.Hub:BuildPayload()
             if failure=='DiagnosticPayloadLarge' then why=failure end
@@ -11343,7 +11579,7 @@ do
     end
     function Window:_createFeedbackDiagnostics(hub,add)
         local d=setmetatable({Hub=hub,Scope=hub.Scope:Child(),Controls={},Records={},ById={},Seen={},LabelIds={},Captions={},Seq=0},Diagnostic)
-        d.Section=hub.Tab:CreateSection({Title=hub:_tr('Diagnóstico do problema','Problem diagnostics'),Icon='warning'})
+        d.Section=hub.Launcher and hub.Launcher.Sections.Diagnostics or hub.Tab:CreateSection({Title=hub:_tr('Diagnóstico do problema','Problem diagnostics'),Icon='warning'})
         local function control(method,name,pt,en,opts)
             local c=add(d.Section,method,'Diagnostic'..name,pt,en,opts);d.Controls[name]=c;d.Captions[name]={pt,en};return c
         end
@@ -11465,6 +11701,8 @@ do
         assert(seen[result.DefaultCategory],'DefaultCategory must be enabled')
         if options.Game~=nil then assert(options.Game=='current' or gameId(options.Game),'Invalid feedback Game') end
         result.Game=options.Game or 'current'
+        result.Layout=options.Layout or 'Launcher'
+        assert(result.Layout=='Launcher' or result.Layout=='Classic','Feedback Layout must be Launcher or Classic')
         assert(options.Diagnostics==nil or type(options.Diagnostics)=='boolean','Diagnostics must be boolean')
         result.Diagnostics=options.Diagnostics~=false
         if options.ScriptVersion~=nil then assert(type(options.ScriptVersion)=='string' and #options.ScriptVersion<=64 and count(options.ScriptVersion) and not options.ScriptVersion:find('[%c]'),'Invalid ScriptVersion');result.ScriptVersion=options.ScriptVersion end
@@ -11583,6 +11821,11 @@ do
     function Feedback:SetCategory(value) return self:SetDraft({Category=value}) end
     function Feedback:SetGame(value) return self:SetDraft({Game=value}) end
     function Feedback:ClearDraft() self:SetMessage('');return self end
+    function Feedback:GetPage() return self.Launcher and self.Launcher.Page or 'Compose' end
+    function Feedback:SetPage(page)
+        assert(self.Launcher and not self.Destroyed,'SetPage requires a live feedback launcher')
+        self.Launcher:SetPage(page);return self
+    end
     function Feedback:SetDiagnosticText(value,include)
         assert(self.Diagnostics and not self.Destroyed,'Diagnostics are disabled or destroyed')
         self.Diagnostics:SetDraft({Text=value,Include=include});return self
@@ -11787,6 +12030,7 @@ do
         self.Controls.Cancel.Button.Text=self:_tr('Parar espera','Stop waiting')
         self.Controls.Retry.Button.Text=self:_tr('Reenviar com confirmação','Resend with confirmation')
         if self.Diagnostics then self.Diagnostics:Refresh() end
+        if self.Launcher then self.Launcher:Refresh() end
         self._syncing=false;self:Refresh()
     end
     function Feedback:Refresh()
@@ -11824,6 +12068,7 @@ do
             self.Scope:Add(self._tick,function(t) if coroutine.status(t)=='suspended' then task.cancel(t) end end,'tick')
         end
         if not same(self.Status:Get(),status) then self.Status:Set(status) end
+        if self.Launcher then self.Launcher:Refresh() end
         self._refreshing=false
     end
     function Feedback:Destroy()
@@ -11833,6 +12078,7 @@ do
         self._retryDialog=nil
         if self._operation and self._operation.Handle then self._operation.Handle:Cancel('feedback destroyed') end
         if self.Diagnostics then self.Diagnostics:Destroy();self.Diagnostics=nil end
+        if self.Launcher then self.Launcher:Destroy();self.Launcher=nil end
         self.Scope:Destroy();self.Window._feedbackHubs[self.Id]=nil;self.Window._resources:Remove('feedback-hub:'..self.Id,true)
         if self.Tab and not self.Tab.Destroyed then self.Tab:Destroy() end
         self.Controls={};self._captions={};self._last=nil;self._operation=nil;self.Options={};self._avatar=nil;self._game=nil
@@ -11848,9 +12094,16 @@ do
         self._feedbackHubs[hub.Id]=hub
         local ok,err=pcall(function()
             hub.Tab=self:CreateTab({Title=hub:_tr('Central de Ideias','Ideas Center'),Icon='notification',Columns=2})
-            local form=hub.Tab:CreateSection({Title=hub:_tr('Compartilhe sua ideia','Share your idea'),Icon='spark'})
-            local review=hub.Tab:CreateSection({Title=hub:_tr('Prévia do envio','Submission preview'),Icon='eye',Side='Right'})
+            local form,review
+            if settings.Layout=='Launcher' then
+                hub.Launcher=self:_createFeedbackLauncher(hub)
+                form,review=hub.Launcher.Sections.Message,hub.Launcher.Sections.Review
+            else
+                form=hub.Tab:CreateSection({Title=hub:_tr('Compartilhe sua ideia','Share your idea'),Icon='spark'})
+                review=hub.Tab:CreateSection({Title=hub:_tr('Prévia do envio','Submission preview'),Icon='eye',Side='Right'})
+            end
             local function add(section,method,name,pt,en,extra)
+                if hub.Launcher then section=hub.Launcher:Route(name,section) end
                 local opts={Id='feedback/'..hub.Id..'/'..name,Title=hub:_tr(pt,en),Persist=false}
                 for key,value in pairs(extra or {}) do opts[key]=value end
                 local control=section[method](section,opts);hub.Controls[name]=control;hub._captions[control]={pt,en};return control
@@ -11893,6 +12146,7 @@ do
             hub.Scope:Add(function() if not hub.Destroyed then hub:Destroy() end end)
             self:_bind(hub.Controls.Submit.Button,{BackgroundColor3='Accent',TextColor3='AccentText'})
             if settings.Diagnostics then hub.Diagnostics=self:_createFeedbackDiagnostics(hub,add) end
+            if hub.Launcher then hub.Launcher:Finish(add) end
             hub._ready=true;identity();hub:_refreshLocale();hub.Tab:Select()
         end)
         if not ok then hub:Destroy();error(err,2) end
@@ -11903,10 +12157,11 @@ do
         checked(options)
         local settings={};for key,value in pairs(options) do settings[key]=value end
         settings.Id=options.WindowId or 'RetroBox-Feedback-'..(options.Id or 'feedback');settings.Title=options.Title or 'Central de Ideias';settings.Theme=options.Theme or 'Hacker';settings.Icon=options.Icon or 'notification';settings.Subtitle=options.Subtitle or 'Feedback e sugestões de scripts'
+        if (options.Layout or 'Launcher')=='Launcher' and options.Size==nil then settings.Size=Vector2.new(940,680) end
         local window=self:CreateWindow(settings)
         local ok,hub=pcall(window.CreateFeedbackHub,window,options)
         if not ok then window:Destroy();error(hub,2) end
-        hub.OwnsWindow=true;hub._defaultTitle=options.Title==nil;hub._defaultSubtitle=options.Subtitle==nil;hub:_refreshLocale();return hub
+        hub.OwnsWindow=true;hub._defaultTitle=options.Title==nil;hub._defaultSubtitle=options.Subtitle==nil;hub:_refreshLocale();window:_layout();return hub
     end
     for _,name in ipairs({'SetLocale','Show','Minimize'}) do
         local method=Window[name]
@@ -11923,7 +12178,7 @@ end
 -- BEGIN RETRO290 NEWS
 -- Built-in release notes are owned by the library; consumers only set ScriptUpdates.
 do
-    local official=HttpService:JSONDecode([==[[{"Id":"retrobox-2.9.0","Version":"2.9.0","Date":"2026-10-27","Title":{"pt-BR":"Novidades e relatos com diagnóstico","en-US":"Updates and diagnostic bug reports"},"Description":{"pt-BR":"- Área Novidades em todas as janelas, com histórico oficial da RetroBox e updates opcionais do script em fontes separadas.\n- Marcação de leitura por conteúdo, idioma PT/EN e persistência no perfil; conteúdo oficial não aceita substituição pela API pública.\n- Diagnóstico opcional na Central de Ideias: erro colado, código/tag, reprodução e seleção de registros disponíveis.\n- Captura de console explícita e limitada, prévia, cópia e remoção de padrões reconhecidos de segredo; anexos não entram nos perfis.\n- Limites do embed conferidos antes do envio, preservação de rascunho e encerramento seguro de captura e respostas tardias.","en-US":"- Updates in every window, with official RetroBox history and optional script updates in separate sources.\n- Content-based read markers, PT/EN and saved read state; public consumer APIs cannot replace official notes.\n- Optional Ideas Center diagnostics: pasted error, error tag, reproduction steps and selected available records.\n- Explicit bounded console capture, preview, copy and recognized-secret redaction; attachments stay out of profiles.\n- Embed limits checked before sending, draft preservation and managed capture/request cleanup."}},{"Id":"retrobox-2.8.0","Version":"2.8.0","Date":"2026-10-27","Title":{"pt-BR":"Central de Ideias","en-US":"Ideas Center"},"Description":{"pt-BR":"- Central de Ideias opt-in e independente do Script Hub, com categorias, formulário, prévia e PT/EN.\n- Jogo atual ou outro por ID/link; nome automático, identidade real e avatar HTTPS opcional.\n- Webhook Discord ou transporte customizado, confirmação, limites e duplicatas; nenhum envio na abertura.\n- Falhas e timeout mantêm o texto; respostas tardias não alteram GUI nova. Rascunho/credencial fora dos perfis.\n- Regressões de comunicação, idioma, ciclo de vida e layouts. API 2, bootstrap, Designer e releases anteriores preservados.","en-US":"- Standalone or attached Ideas Center with requests, suggestions, feedback and bug reports.\n- Current or selected game, real player identity, optional avatar and PT/EN preview.\n- Explicit Discord webhook or custom transport, confirmed delivery, cooldown and duplicate handling.\n- Draft preservation, timeout handling and safe cleanup; no send when opening."}},{"Id":"retrobox-2.7.0","Version":"2.7.0","Date":"2026-10-26","Title":{"pt-BR":"Acabamento visual, RGB e tema do Hub","en-US":"Visual polish, RGB and Hub theme"},"Description":{"pt-BR":"- Acabamento compartilhado: entrada coordenada de textos nas páginas, tela de preparação opcional, skeletons nativos e SetLoading para controles comuns.\n- RGB opt-in para títulos, descrições, valores e botões; contraste contextual, preferências de movimento e agendador compartilhado com ColorPickers.\n- Perfil independente de aparência por Hub, preset Launcher, botão Tema e editor de cores; snapshots persistentes e importação atômica.\n- Capas e metadados com placeholders, falha observável e fade de imagem; menus, tooltips e ícones acompanham a paleta local.\n- Orçamentos de efeitos, encerramento seguro ao ocultar/destruir/reexecutar e regressões adicionais. API 2, consumidores, bootstrap, Designer e releases anteriores preservados.","en-US":"- Shared visual polish, coordinated entrances, optional loading screens and native skeletons.\n- Optional RGB for titles, descriptions, values and buttons, respecting contrast and motion preferences.\n- Independent Hub appearance profiles, Launcher preset and palette editor.\n- Image placeholders and status, local theme integration and bounded managed effects."}},{"Id":"retrobox-2.6.0","Version":"2.6.0","Date":"2026-10-26","Title":{"pt-BR":"Identidade e animações","en-US":"Identity and animations"},"Description":{"pt-BR":"- Perfil observa LocalPlayer e Name/DisplayName/UserId, recupera inicialização tardia e confere identidade ao reabrir; avatar e tradução não bloqueiam nomes.\n- Respostas de avatar antigas são invalidadas; observers e referências da interface são liberados na destruição.\n- Feedback de botões, foco, seleção, abas, listas/cards, menus, tooltips, estatísticas, gráficos, Hub/HUD e etapas usam o animador central.\n- Gráficos/StatCards animam por padrão; Animated=false desliga movimento por controle. Arraste suavizado passa a ser padrão, respeitando saves e acessibilidade.\n- Geometria dos gráficos usa unidades lógicas, máscaras de progresso acompanham a transição e há orçamento de 96 segmentos animados por gráfico.\n- Novas regressões de identidade/movimento e demonstração nativa com dados fictícios. API 2, bootstrap, Designer e releases anteriores preservados.","en-US":"- Player profile follows real LocalPlayer identity, including delayed initialization and changes.\n- Stale avatar responses are discarded and observers are cleaned up.\n- Central animation system covers interactions, charts, statistics, Hubs and compact views.\n- Smooth dragging and animated charts by default, with accessibility and explicit opt-outs."}},{"Id":"retrobox-2.5.2","Version":"2.5.2","Date":"2026-10-21","Title":{"pt-BR":"Layout e interação do launcher","en-US":"Launcher layout and interaction"},"Description":{"pt-BR":"- Ordenação do Hub usa a camada de ContextMenu já existente, fora de ancestrais com recorte; respeita a janela e abre para cima quando necessário.\n- Botões do launcher reservam espaço pelo texto, fonte, escala e ícone reais; ações e filtros quebram em linhas quando necessário.\n- Cabeçalhos tradicionais compartilham o cálculo de informação, fixação, Keybind integrado e controle principal, com altura responsiva.\n- Remoção/recriação de ajuda e fixação não acumula deslocamentos; callbacks, captura de teclas, preferências e IDs preservados.\n- Regressões de geometria/interação e compatibilidade com o Hub anexado. Sem redesign, mudança de API ou modificação dos consumidores.","en-US":"- Launcher sorting uses the existing context-menu overlay without clipping.\n- Action widths use actual text, font, scale and icons; rows wrap when needed.\n- Control headers reserve responsive room for help, pinning and keybinds.\n- Existing callbacks, IDs and saved preferences are preserved."}},{"Id":"retrobox-2.5.1","Version":"2.5.1","Date":"2026-10-20","Title":{"pt-BR":"Desempenho dos grafos","en-US":"Flow graph performance"},"Description":{"pt-BR":"- Avaliação memoizada por expressão nos grafos nativos e na prévia, evitando recálculo exponencial de subexpressões compartilhadas.\n- Cada leitura de entrada usa um cache novo, preservando mudanças de valores entre bindings e ações.\n- Comparação de registros na prévia independe da ordem das chaves, como no runtime.\n- Regressões com 28 operações compartilhadas e refresh; release 2.5.0 preservada por bytes.","en-US":"- Memoized flow expressions prevent exponential recalculation of shared inputs.\n- Every new evaluation gets a fresh cache so state changes remain visible.\n- Preview record comparisons ignore map-key order, matching the native runtime."}},{"Id":"retrobox-2.5.0","Version":"2.5.0","Date":"2026-10-20","Title":{"pt-BR":"Designer e ferramentas de desenvolvimento","en-US":"Designer and developer tools"},"Description":{"pt-BR":"- Designer HTML offline com 21 componentes, Row, 22 blocos tipados, prévia, PT/EN, JSON e compilador Luau real.\n- Localização automática por janela, dicionários, parâmetros, provider explícito e preferência em perfis.\n- Formulários transacionais, componentes reutilizáveis, CardGrid com pool limitado e grafos sem ciclos.\n- Diagnóstico de catálogo por download/compilação explícitos, sem executar o conteúdo.\n- Fontes do editor, catálogo compartilhado, exemplos, testes Chromium e integração contínua.\n- API 2, bootstrap, estrutura histórica, jogos/IDs dos consumidores e pins publicados preservados.","en-US":"- Offline HTML Designer with 21 components, rows, 22 typed blocks, preview and a real Luau compiler.\n- Automatic window localization, dictionaries, parameters and explicit translation provider.\n- Transactional forms, reusable components, bounded CardGrid and acyclic flows.\n- Explicit catalog diagnostics and Chromium tests; existing API 2 consumers preserved."}},{"Id":"retrobox-2.4.0","Version":"2.4.0","Date":"2026-10-20","Title":{"pt-BR":"Scripts universais","en-US":"Universal scripts"},"Description":{"pt-BR":"- UniversalScripts nativo e separado de Games, com categoria, tag UNIVERSAL e nome/descrição/URL ou Callback.\n- Id opcional, APIs de cadastro/edição/execução, perfis e ações independentes por categoria.\n- Raw do Pastefy aceito por URL HTTPS; download apenas na execução, com progresso, erros e cancelamento cooperativo.\n- Catálogos JSON continuam sem URL/código e atualizam universais de forma atômica por metadados/Actions locais.\n- Preserva API 2, estrutura histórica, tema/PixelIcons, jogos e artefatos até 2.3.1.","en-US":"- UniversalScripts live separately from game entries, with a UNIVERSAL tag and their own metadata.\n- Optional IDs, registration/editing APIs, profiles and independent actions.\n- HTTPS Pastefy raw URLs load only on explicit execution, with progress and cancellation.\n- Remote JSON catalogs remain metadata-only."}},{"Id":"retrobox-2.3.1","Version":"2.3.1","Date":"2026-10-20","Title":{"pt-BR":"Nova origem de distribuição","en-US":"New distribution origin"},"Description":{"pt-BR":"- Origem padrão do updater e bootstrap passam a ManoGustavo02/RetroBox.\n- Guias e exemplos ativos apontam para a conta nova; estrutura histórica, API 2 e temas preservados.\n- Nova release, sem reescrever os pins 2.0.0, 2.1.0, 2.2.0 e 2.3.0.\n- README bilíngue, banner e badges locais, guias de contribuição/segurança, formulários e CI de validação.\n- Canais Stable/Preview apontam para 2.3.1; resultados de publicação e acesso remoto ficam no relatório da release.","en-US":"- Default updater and bootstrap origin migrated to ManoGustavo02/RetroBox.\n- Active guides and examples point to the new account; historical releases are preserved.\n- Bilingual README, local artwork, contribution/security guides, issue forms and CI."}},{"Id":"retrobox-2.3.0","Version":"2.3.0","Date":"2026-10-19","Title":{"pt-BR":"Launcher padrão do Script Hub","en-US":"Standard Script Hub launcher"},"Description":{"pt-BR":"- Launcher padrão em CreateScriptHub, com catálogo, filtros, destaque, cards e barra fixa, compartilhado por todos os consumidores.\n- FallbackName/Notes nativos, SetCatalogFilter/GetCatalogFilter e compatibilidade dos IDs/perfis/API 2.\n- Temas, idioma, contraste dos cards, buscas/foco, detalhes completos e status de teleporte integrados.\n- Limpeza de Hold evita render em toggle/PixelIcon já destruído durante sinais diferidos.\n- Novo exemplo e regressões específicas de hubs genéricos e integração do consumidor.\n- GitHub retornou 403 de conta suspensa; este pacote não foi publicado.","en-US":"- Shared launcher layout for CreateScriptHub: filters, featured game, cards and fixed actions.\n- FallbackName, Notes and catalog filter APIs preserve existing IDs and API 2.\n- Improved themes, language, contrast, search, complete details and teleport status.\n- Historical note: publication from the old account was blocked; distribution later migrated in 2.3.1."}},{"Id":"retrobox-2.2.0","Version":"2.2.0","Date":"2026-10-19","Title":{"pt-BR":"Mini HUD, previews e etapas","en-US":"Mini HUD, previews and steppers"},"Description":{"pt-BR":"- Mini HUD com States compartilhados, valores/progresso/timers/status, arraste/trava, escala/opacidade, recolhimento e layout em perfis.\n- Fixar/Soltar de StatCard, Progress, ProgressChart, Label e Stepper; valores silenciosos e cleanup do controle preservados.\n- Barra compacta reutiliza FloatingButton e Press/Toggle/Hold, disabled/busy e liberação ao perder foco.\n- AddPreview com imagem/modelo clonado/WorldModel, câmera própria, zoom/rotação, Apply/Cancel, animações opcionais e renderer com scope.\n- AddStepper acompanha progressos/resultados de RunAction, com transições manuais e resumo fixável.\n- 32 regressões específicas e quatro exemplos novos; distribuição e bootstrap API 2 preservados.","en-US":"- Mini HUD with shared states, values, progress, timers, dragging, locking and profile layouts.\n- Pin/unpin existing components, compact action bar, image/model previews and operation stepper.\n- Scoped resources, explicit callbacks and additional regression examples."}},{"Id":"retrobox-2.1.0","Version":"2.1.0","Title":{"pt-BR":"Ícones, metadados e profiler","en-US":"Icons, metadata and profiler"},"Description":{"pt-BR":"- PixelIcon separa observação de Destroying da destruição explícita, com limpeza idempotente e soltura de referências, sem pcall de supressão.\n- Smart Game Metadata no Hub atual: campos manuais preservados, consulta assíncrona, provider opcional, cache/limite/deduplicação e integração com catálogos.\n- Profiler por tarefa/ação no Runtime Inspector existente, com tempos, contadores, espera instrumentada, histórico limitado e aviso de intervalo excedido.\n- Session Snapshots opcionais de States registrados, validados e independentes dos perfis.\n- CreateIntegration e cinco exemplos novos, incluindo operação cancelável de seis etapas.\n- API 2 e bootstrap permanente preservados; releases anteriores continuam imutáveis.","en-US":"- Idempotent PixelIcon lifecycle fixes and cleanup without suppressing destroyed-parent errors.\n- Smart game metadata with async providers, cache and field-level overrides.\n- Task/action profiler, optional registered session snapshots and integration helpers."}},{"Id":"retrobox-2.0.0","Version":"2.0.0","Title":{"pt-BR":"Bootstrap permanente e API 2","en-US":"Permanent bootstrap and API 2"},"Description":{"pt-BR":"- Bootstrap permanente de API 2; Stable/Preview/Pinned, SemVer, compatibilidade, SHA-256, cache opcional e rollback com histórico imutável.\n- Código do Hub por módulos Version/Start/LoadHub e catálogo JSON por CatalogUpdate/Actions, com origens explícitas e atualizações independentes.\n- Script Hub nativo com imagem ampla, sem rótulo Miniatura, listas adaptativas, seleção por jogo, um Executar script, cancelamento/feedback e panes responsivos.\n- Busca global passa a navegar ao pane correto; APIs, IDs/perfis, temas, ícones e componentes anteriores preservados.\n- Guias, migração, prompt completo, 24 exemplos, builders e verificação de distribuição. 256 testes de lógica e 2 de pipeline aprovados.","en-US":"- Permanent API 2 bootstrap with stable/preview/pinned channels, integrity checks and immutable releases.\n- Independent script hub modules and metadata catalogs.\n- Native Script Hub launcher with responsive lists, search, game selection and execution feedback.\n- Existing IDs, themes, profiles and controls retained."}}]]==])
+    local official=HttpService:JSONDecode([==[[{"Id":"retrobox-2.10.0","Version":"2.10.0","Date":"2026-10-28","Title":{"pt-BR":"Central de Ideias própria e Novidades sem avisos","en-US":"Dedicated Ideas Center and passive update history"},"Description":{"pt-BR":"- Central de Ideias com launcher próprio: cartões de categoria, mensagem, diagnóstico opcional e revisão do envio.\n- Painel de jogo, jogador e status; layout adaptável e nomes alinhados, preservando API, temas e traduções.\n- Novidades fica somente como histórico: sem contadores, etiquetas de não lida, botão de leitura ou avisos.\n- Perfis antigos não reativam indicadores; credenciais e rascunhos continuam fora dos perfis.\n- Prévia de diagnóstico permanece somente para leitura após atualizações da tela.","en-US":"- Dedicated Ideas Center launcher with category cards, message composer, optional diagnostics and submission review.\n- Game/player context and delivery status, adaptive layout and aligned labels; existing API, themes and localization retained.\n- Updates is a passive history: no unread counts, tags, mark-as-read buttons or alerts.\n- Legacy profiles cannot restore update badges; credentials and drafts remain outside profiles.\n- Diagnostic preview stays read-only after refresh."}},{"Id":"retrobox-2.9.0","Version":"2.9.0","Date":"2026-10-27","Title":{"pt-BR":"Novidades e relatos com diagnóstico","en-US":"Updates and diagnostic bug reports"},"Description":{"pt-BR":"- Área Novidades em todas as janelas, com histórico oficial da RetroBox e updates opcionais do script em fontes separadas.\n- Marcação de leitura por conteúdo, idioma PT/EN e persistência no perfil; conteúdo oficial não aceita substituição pela API pública.\n- Diagnóstico opcional na Central de Ideias: erro colado, código/tag, reprodução e seleção de registros disponíveis.\n- Captura de console explícita e limitada, prévia, cópia e remoção de padrões reconhecidos de segredo; anexos não entram nos perfis.\n- Limites do embed conferidos antes do envio, preservação de rascunho e encerramento seguro de captura e respostas tardias.","en-US":"- Updates in every window, with official RetroBox history and optional script updates in separate sources.\n- Content-based read markers, PT/EN and saved read state; public consumer APIs cannot replace official notes.\n- Optional Ideas Center diagnostics: pasted error, error tag, reproduction steps and selected available records.\n- Explicit bounded console capture, preview, copy and recognized-secret redaction; attachments stay out of profiles.\n- Embed limits checked before sending, draft preservation and managed capture/request cleanup."}},{"Id":"retrobox-2.8.0","Version":"2.8.0","Date":"2026-10-27","Title":{"pt-BR":"Central de Ideias","en-US":"Ideas Center"},"Description":{"pt-BR":"- Central de Ideias opt-in e independente do Script Hub, com categorias, formulário, prévia e PT/EN.\n- Jogo atual ou outro por ID/link; nome automático, identidade real e avatar HTTPS opcional.\n- Webhook Discord ou transporte customizado, confirmação, limites e duplicatas; nenhum envio na abertura.\n- Falhas e timeout mantêm o texto; respostas tardias não alteram GUI nova. Rascunho/credencial fora dos perfis.\n- Regressões de comunicação, idioma, ciclo de vida e layouts. API 2, bootstrap, Designer e releases anteriores preservados.","en-US":"- Standalone or attached Ideas Center with requests, suggestions, feedback and bug reports.\n- Current or selected game, real player identity, optional avatar and PT/EN preview.\n- Explicit Discord webhook or custom transport, confirmed delivery, cooldown and duplicate handling.\n- Draft preservation, timeout handling and safe cleanup; no send when opening."}},{"Id":"retrobox-2.7.0","Version":"2.7.0","Date":"2026-10-26","Title":{"pt-BR":"Acabamento visual, RGB e tema do Hub","en-US":"Visual polish, RGB and Hub theme"},"Description":{"pt-BR":"- Acabamento compartilhado: entrada coordenada de textos nas páginas, tela de preparação opcional, skeletons nativos e SetLoading para controles comuns.\n- RGB opt-in para títulos, descrições, valores e botões; contraste contextual, preferências de movimento e agendador compartilhado com ColorPickers.\n- Perfil independente de aparência por Hub, preset Launcher, botão Tema e editor de cores; snapshots persistentes e importação atômica.\n- Capas e metadados com placeholders, falha observável e fade de imagem; menus, tooltips e ícones acompanham a paleta local.\n- Orçamentos de efeitos, encerramento seguro ao ocultar/destruir/reexecutar e regressões adicionais. API 2, consumidores, bootstrap, Designer e releases anteriores preservados.","en-US":"- Shared visual polish, coordinated entrances, optional loading screens and native skeletons.\n- Optional RGB for titles, descriptions, values and buttons, respecting contrast and motion preferences.\n- Independent Hub appearance profiles, Launcher preset and palette editor.\n- Image placeholders and status, local theme integration and bounded managed effects."}},{"Id":"retrobox-2.6.0","Version":"2.6.0","Date":"2026-10-26","Title":{"pt-BR":"Identidade e animações","en-US":"Identity and animations"},"Description":{"pt-BR":"- Perfil observa LocalPlayer e Name/DisplayName/UserId, recupera inicialização tardia e confere identidade ao reabrir; avatar e tradução não bloqueiam nomes.\n- Respostas de avatar antigas são invalidadas; observers e referências da interface são liberados na destruição.\n- Feedback de botões, foco, seleção, abas, listas/cards, menus, tooltips, estatísticas, gráficos, Hub/HUD e etapas usam o animador central.\n- Gráficos/StatCards animam por padrão; Animated=false desliga movimento por controle. Arraste suavizado passa a ser padrão, respeitando saves e acessibilidade.\n- Geometria dos gráficos usa unidades lógicas, máscaras de progresso acompanham a transição e há orçamento de 96 segmentos animados por gráfico.\n- Novas regressões de identidade/movimento e demonstração nativa com dados fictícios. API 2, bootstrap, Designer e releases anteriores preservados.","en-US":"- Player profile follows real LocalPlayer identity, including delayed initialization and changes.\n- Stale avatar responses are discarded and observers are cleaned up.\n- Central animation system covers interactions, charts, statistics, Hubs and compact views.\n- Smooth dragging and animated charts by default, with accessibility and explicit opt-outs."}},{"Id":"retrobox-2.5.2","Version":"2.5.2","Date":"2026-10-21","Title":{"pt-BR":"Layout e interação do launcher","en-US":"Launcher layout and interaction"},"Description":{"pt-BR":"- Ordenação do Hub usa a camada de ContextMenu já existente, fora de ancestrais com recorte; respeita a janela e abre para cima quando necessário.\n- Botões do launcher reservam espaço pelo texto, fonte, escala e ícone reais; ações e filtros quebram em linhas quando necessário.\n- Cabeçalhos tradicionais compartilham o cálculo de informação, fixação, Keybind integrado e controle principal, com altura responsiva.\n- Remoção/recriação de ajuda e fixação não acumula deslocamentos; callbacks, captura de teclas, preferências e IDs preservados.\n- Regressões de geometria/interação e compatibilidade com o Hub anexado. Sem redesign, mudança de API ou modificação dos consumidores.","en-US":"- Launcher sorting uses the existing context-menu overlay without clipping.\n- Action widths use actual text, font, scale and icons; rows wrap when needed.\n- Control headers reserve responsive room for help, pinning and keybinds.\n- Existing callbacks, IDs and saved preferences are preserved."}},{"Id":"retrobox-2.5.1","Version":"2.5.1","Date":"2026-10-20","Title":{"pt-BR":"Desempenho dos grafos","en-US":"Flow graph performance"},"Description":{"pt-BR":"- Avaliação memoizada por expressão nos grafos nativos e na prévia, evitando recálculo exponencial de subexpressões compartilhadas.\n- Cada leitura de entrada usa um cache novo, preservando mudanças de valores entre bindings e ações.\n- Comparação de registros na prévia independe da ordem das chaves, como no runtime.\n- Regressões com 28 operações compartilhadas e refresh; release 2.5.0 preservada por bytes.","en-US":"- Memoized flow expressions prevent exponential recalculation of shared inputs.\n- Every new evaluation gets a fresh cache so state changes remain visible.\n- Preview record comparisons ignore map-key order, matching the native runtime."}},{"Id":"retrobox-2.5.0","Version":"2.5.0","Date":"2026-10-20","Title":{"pt-BR":"Designer e ferramentas de desenvolvimento","en-US":"Designer and developer tools"},"Description":{"pt-BR":"- Designer HTML offline com 21 componentes, Row, 22 blocos tipados, prévia, PT/EN, JSON e compilador Luau real.\n- Localização automática por janela, dicionários, parâmetros, provider explícito e preferência em perfis.\n- Formulários transacionais, componentes reutilizáveis, CardGrid com pool limitado e grafos sem ciclos.\n- Diagnóstico de catálogo por download/compilação explícitos, sem executar o conteúdo.\n- Fontes do editor, catálogo compartilhado, exemplos, testes Chromium e integração contínua.\n- API 2, bootstrap, estrutura histórica, jogos/IDs dos consumidores e pins publicados preservados.","en-US":"- Offline HTML Designer with 21 components, rows, 22 typed blocks, preview and a real Luau compiler.\n- Automatic window localization, dictionaries, parameters and explicit translation provider.\n- Transactional forms, reusable components, bounded CardGrid and acyclic flows.\n- Explicit catalog diagnostics and Chromium tests; existing API 2 consumers preserved."}},{"Id":"retrobox-2.4.0","Version":"2.4.0","Date":"2026-10-20","Title":{"pt-BR":"Scripts universais","en-US":"Universal scripts"},"Description":{"pt-BR":"- UniversalScripts nativo e separado de Games, com categoria, tag UNIVERSAL e nome/descrição/URL ou Callback.\n- Id opcional, APIs de cadastro/edição/execução, perfis e ações independentes por categoria.\n- Raw do Pastefy aceito por URL HTTPS; download apenas na execução, com progresso, erros e cancelamento cooperativo.\n- Catálogos JSON continuam sem URL/código e atualizam universais de forma atômica por metadados/Actions locais.\n- Preserva API 2, estrutura histórica, tema/PixelIcons, jogos e artefatos até 2.3.1.","en-US":"- UniversalScripts live separately from game entries, with a UNIVERSAL tag and their own metadata.\n- Optional IDs, registration/editing APIs, profiles and independent actions.\n- HTTPS Pastefy raw URLs load only on explicit execution, with progress and cancellation.\n- Remote JSON catalogs remain metadata-only."}},{"Id":"retrobox-2.3.1","Version":"2.3.1","Date":"2026-10-20","Title":{"pt-BR":"Nova origem de distribuição","en-US":"New distribution origin"},"Description":{"pt-BR":"- Origem padrão do updater e bootstrap passam a ManoGustavo02/RetroBox.\n- Guias e exemplos ativos apontam para a conta nova; estrutura histórica, API 2 e temas preservados.\n- Nova release, sem reescrever os pins 2.0.0, 2.1.0, 2.2.0 e 2.3.0.\n- README bilíngue, banner e badges locais, guias de contribuição/segurança, formulários e CI de validação.\n- Canais Stable/Preview apontam para 2.3.1; resultados de publicação e acesso remoto ficam no relatório da release.","en-US":"- Default updater and bootstrap origin migrated to ManoGustavo02/RetroBox.\n- Active guides and examples point to the new account; historical releases are preserved.\n- Bilingual README, local artwork, contribution/security guides, issue forms and CI."}},{"Id":"retrobox-2.3.0","Version":"2.3.0","Date":"2026-10-19","Title":{"pt-BR":"Launcher padrão do Script Hub","en-US":"Standard Script Hub launcher"},"Description":{"pt-BR":"- Launcher padrão em CreateScriptHub, com catálogo, filtros, destaque, cards e barra fixa, compartilhado por todos os consumidores.\n- FallbackName/Notes nativos, SetCatalogFilter/GetCatalogFilter e compatibilidade dos IDs/perfis/API 2.\n- Temas, idioma, contraste dos cards, buscas/foco, detalhes completos e status de teleporte integrados.\n- Limpeza de Hold evita render em toggle/PixelIcon já destruído durante sinais diferidos.\n- Novo exemplo e regressões específicas de hubs genéricos e integração do consumidor.\n- GitHub retornou 403 de conta suspensa; este pacote não foi publicado.","en-US":"- Shared launcher layout for CreateScriptHub: filters, featured game, cards and fixed actions.\n- FallbackName, Notes and catalog filter APIs preserve existing IDs and API 2.\n- Improved themes, language, contrast, search, complete details and teleport status.\n- Historical note: publication from the old account was blocked; distribution later migrated in 2.3.1."}},{"Id":"retrobox-2.2.0","Version":"2.2.0","Date":"2026-10-19","Title":{"pt-BR":"Mini HUD, previews e etapas","en-US":"Mini HUD, previews and steppers"},"Description":{"pt-BR":"- Mini HUD com States compartilhados, valores/progresso/timers/status, arraste/trava, escala/opacidade, recolhimento e layout em perfis.\n- Fixar/Soltar de StatCard, Progress, ProgressChart, Label e Stepper; valores silenciosos e cleanup do controle preservados.\n- Barra compacta reutiliza FloatingButton e Press/Toggle/Hold, disabled/busy e liberação ao perder foco.\n- AddPreview com imagem/modelo clonado/WorldModel, câmera própria, zoom/rotação, Apply/Cancel, animações opcionais e renderer com scope.\n- AddStepper acompanha progressos/resultados de RunAction, com transições manuais e resumo fixável.\n- 32 regressões específicas e quatro exemplos novos; distribuição e bootstrap API 2 preservados.","en-US":"- Mini HUD with shared states, values, progress, timers, dragging, locking and profile layouts.\n- Pin/unpin existing components, compact action bar, image/model previews and operation stepper.\n- Scoped resources, explicit callbacks and additional regression examples."}},{"Id":"retrobox-2.1.0","Version":"2.1.0","Title":{"pt-BR":"Ícones, metadados e profiler","en-US":"Icons, metadata and profiler"},"Description":{"pt-BR":"- PixelIcon separa observação de Destroying da destruição explícita, com limpeza idempotente e soltura de referências, sem pcall de supressão.\n- Smart Game Metadata no Hub atual: campos manuais preservados, consulta assíncrona, provider opcional, cache/limite/deduplicação e integração com catálogos.\n- Profiler por tarefa/ação no Runtime Inspector existente, com tempos, contadores, espera instrumentada, histórico limitado e aviso de intervalo excedido.\n- Session Snapshots opcionais de States registrados, validados e independentes dos perfis.\n- CreateIntegration e cinco exemplos novos, incluindo operação cancelável de seis etapas.\n- API 2 e bootstrap permanente preservados; releases anteriores continuam imutáveis.","en-US":"- Idempotent PixelIcon lifecycle fixes and cleanup without suppressing destroyed-parent errors.\n- Smart game metadata with async providers, cache and field-level overrides.\n- Task/action profiler, optional registered session snapshots and integration helpers."}},{"Id":"retrobox-2.0.0","Version":"2.0.0","Title":{"pt-BR":"Bootstrap permanente e API 2","en-US":"Permanent bootstrap and API 2"},"Description":{"pt-BR":"- Bootstrap permanente de API 2; Stable/Preview/Pinned, SemVer, compatibilidade, SHA-256, cache opcional e rollback com histórico imutável.\n- Código do Hub por módulos Version/Start/LoadHub e catálogo JSON por CatalogUpdate/Actions, com origens explícitas e atualizações independentes.\n- Script Hub nativo com imagem ampla, sem rótulo Miniatura, listas adaptativas, seleção por jogo, um Executar script, cancelamento/feedback e panes responsivos.\n- Busca global passa a navegar ao pane correto; APIs, IDs/perfis, temas, ícones e componentes anteriores preservados.\n- Guias, migração, prompt completo, 24 exemplos, builders e verificação de distribuição. 256 testes de lógica e 2 de pipeline aprovados.","en-US":"- Permanent API 2 bootstrap with stable/preview/pinned channels, integrity checks and immutable releases.\n- Independent script hub modules and metadata catalogs.\n- Native Script Hub launcher with responsive lists, search, game selection and execution feedback.\n- Existing IDs, themes, profiles and controls retained."}}]]==])
     local function text(value,limit)
         local function part(s) assert(type(s)=='string' and utf8.len(s) and #s<=limit*4 and utf8.len(s)<=limit and not s:find('[%z\1-\8\11\12\14-\31]'),'Invalid update text');return s end
         if type(value)=='string' then return part(value) end
@@ -11961,13 +12216,6 @@ do
     local function translated(window,value)
         return type(value)=='table' and (window:GetLocale()=='pt-BR' and value['pt-BR'] or value['en-US']) or value
     end
-    local hashCache=setmetatable({},{__mode='k'})
-    local function fingerprint(item)
-        if hashCache[item] then return hashCache[item] end
-        -- Hash stable explicit fields, rather than JSON map iteration order.
-        local function canonical(v) return type(v)=='table' and v['pt-BR']..'\0'..v['en-US'] or v or '' end
-        local value=Library:SHA256(item.Id..'\0'..canonical(item.Title)..'\0'..canonical(item.Description)..'\0'..(item.Version or '')..'\0'..(item.Date or ''));hashCache[item]=value;return value
-    end
     local function sourceName(value) assert(value=='Library' or value=='Script','Update source must be Library or Script');return value end
     local News={};News.__index=News
     function Library:GetReleaseNotes() return copy(official) end
@@ -11979,26 +12227,18 @@ do
         if self._news and not self._news.Destroyed then self._news:Refresh() end
         return self
     end
-    function Window:GetUnreadUpdateCount(source)
-        source=sourceName(source);local count=0;local markers=self._newsRead and self._newsRead[source] or {}
-        for _,item in ipairs(source=='Library' and official or self._scriptUpdates or {}) do if markers[item.Id]~=fingerprint(item) then count=count+1 end end
-        return count
-    end
+    -- Compatibility-only APIs. News is now a passive history with no unread state.
+    function Window:GetUnreadUpdateCount(source) sourceName(source);return 0 end
     function Window:MarkUpdateRead(source,id)
         assert(not self.Destroyed,'Window has been destroyed');source=sourceName(source)
         local found;for _,item in ipairs(source=='Library' and official or self._scriptUpdates or {}) do if item.Id==id then found=item;break end end
         assert(found,'Unknown update Id')
-        self._newsRead=self._newsRead or {Library={},Script={}};local markers=self._newsRead[source]
-        -- Prune markers no longer represented by this window's bounded feed.
-        local keep={};for _,item in ipairs(source=='Library' and official or self._scriptUpdates or {}) do if markers[item.Id] then keep[item.Id]=markers[item.Id] end end
-        keep[id]=fingerprint(found);self._newsRead[source]=keep;self:_scheduleSave()
-        if self._news and not self._news.Destroyed then self._news:Refresh() end
         return self
     end
     function News:_tr(pt,en) return self.Window:_t17(pt,en) end
     function News:_ensureView()
         if self.Controls or self.Destroyed then return end
-        local w=self.Window;local choose=self.Tab:CreateSection({Title=self:_tr('Histórico de atualizações','Update history'),Icon='notification'})
+        local w=self.Window;local choose=self.Tab:CreateSection({Title=self:_tr('Histórico de atualizações','Update history'),Icon='folder'})
         local detail=self.Tab:CreateSection({Title=self:_tr('Detalhes da atualização','Update details'),Icon='info'})
         self.Choose,self.Detail=choose,detail;self.Controls={}
         local function opts(id,title,more)
@@ -12014,15 +12254,13 @@ do
         self.Title=label(w,detail.Content,'',{LayoutOrder=1,Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextSize=15},'Accent')
         self.Meta=label(w,detail.Content,'',{LayoutOrder=2,Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextSize=12},'Muted')
         self.Body=label(w,detail.Content,'',{LayoutOrder=3,Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextSize=13},'Text')
-        self.Controls.Read=detail:AddButton(opts('read','',{Icon='check',Callback=function() if self.Selected then w:MarkUpdateRead(self.Source,self.Selected) end end}))
-        self.Controls.Read.Frame.LayoutOrder=4
         for _,object in ipairs({self.Title,self.Meta,self.Body}) do object.RichText=false;w:SetTextTranslation(object,false) end
         self.Controls.Source:SetValue(self.Source=='Library' and 'RetroBox' or 'Script',true)
     end
     function News:Refresh()
         if self.Destroyed or self.Refreshing then return end;self.Refreshing=true
-        local w=self.Window;local a,b=w:GetUnreadUpdateCount('Library'),w:GetUnreadUpdateCount('Script')
-        self.Tab:SetTitle(self:_tr('Novidades','Updates')..(a+b>0 and ' ('..(a+b)..')' or ''))
+        local w=self.Window
+        self.Tab:SetTitle(self:_tr('Novidades','Updates'))
         if self.Controls then
             local c=self.Controls;c.Source:SetTitle(self:_tr('Origem das novidades','Update source'))
             c.Source:SetOptions({'RetroBox',self:_tr('Este script','This script')},false);c.Source:SetValue(self.Source=='Library' and 'RetroBox' or self:_tr('Este script','This script'),true)
@@ -12030,8 +12268,7 @@ do
             self.Choose:SetTitle(self:_tr('Histórico de atualizações','Update history'));self.Detail:SetTitle(self:_tr('Detalhes da atualização','Update details'))
             local items=self.Source=='Library' and official or w._scriptUpdates or {};local selected;local labels={};self.LabelIds={}
             for i,item in ipairs(items) do
-                local unread=(w._newsRead[self.Source] or {})[item.Id]~=fingerprint(item)
-                local name=(unread and self:_tr('[NOVA] ','[NEW] ') or '')..tostring(i)..' · '..(item.Version and item.Version..' · ' or '')..translated(w,item.Title)
+                local name=tostring(i)..' · '..(item.Version and item.Version..' · ' or '')..translated(w,item.Title)
                 labels[#labels+1]=name;self.LabelIds[name]=item.Id
                 if item.Id==self.Selected then selected=item end
             end
@@ -12040,14 +12277,12 @@ do
             if selected then
                 for name,id in pairs(self.LabelIds) do if id==selected.Id then c.List:SetValue(name,true);break end end
                 self.Title.Text=translated(w,selected.Title)
-                local read=(w._newsRead[self.Source] or {})[selected.Id]==fingerprint(selected)
-                self.Meta.Text=(self.Source=='Library' and 'RETROBOX' or self:_tr('ESTE SCRIPT','THIS SCRIPT'))..' · '..(selected.Version or selected.Id)..(selected.Date and ' · '..selected.Date or '')..' · '..(read and self:_tr('Lida','Read') or self:_tr('Não lida','Unread'))
-                self.Body.Text=translated(w,selected.Description);c.Read:SetDisabled(read)
+                self.Meta.Text=(self.Source=='Library' and 'RETROBOX' or self:_tr('ESTE SCRIPT','THIS SCRIPT'))..' · '..(selected.Version or selected.Id)..(selected.Date and ' · '..selected.Date or '')
+                self.Body.Text=translated(w,selected.Description)
             else
                 self.Title.Text=self:_tr('Sem novidades cadastradas','No updates registered')
-                self.Meta.Text=self:_tr('ESTE SCRIPT','THIS SCRIPT');self.Body.Text=self:_tr('O desenvolvedor ainda não cadastrou atualizações deste script.','The developer has not registered updates for this script yet.');c.Read:SetDisabled(true)
+                self.Meta.Text=self:_tr('ESTE SCRIPT','THIS SCRIPT');self.Body.Text=self:_tr('O desenvolvedor ainda não cadastrou atualizações deste script.','The developer has not registered updates for this script yet.')
             end
-            c.Read:SetTitle(self:_tr('Marcar como lida','Mark as read'));c.Read.Button.Text=self:_tr('Marcar como lida','Mark as read')
         end
         self.Refreshing=false
     end
@@ -12059,7 +12294,7 @@ do
     function Window:_installNews()
         if self._news and not self._news.Destroyed then return self._news end
         local n=setmetatable({Window=self,Source='Library',Scope=self:CreateScope()},News)
-        n.Tab=self:CreateTab({Title=self:_t17('Novidades','Updates'),Icon='notification',Internal=true});n.Tab._passive=true;self._news=n;self.NewsTab=n.Tab
+        n.Tab=self:CreateTab({Title=self:_t17('Novidades','Updates'),Icon='folder',Internal=true});n.Tab._passive=true;self._news=n;self.NewsTab=n.Tab
         n.Tab._toolManager=n
         n.Scope:Add(n.Tab.Frame:GetPropertyChangedSignal('Visible'):Connect(function() if n.Tab.Frame.Visible and not n.Destroyed and not self.Destroyed and not self._closing then n:_ensureView();n:Refresh() end end),'Disconnect')
         self:Manage(n,'Destroy','news');n:Refresh();return n
@@ -12071,16 +12306,19 @@ do
     end
     local export=Window._exportAdvanced
     function Window:_exportAdvanced()
-        local result=export(self);result.NewsRead=copy(self._newsRead or {Library={},Script={}});return result
+        local result=export(self);result.NewsRead=nil;return result
     end
     local prepare=Window._prepareAdvanced
     function Window:_prepareAdvanced(value)
-        local result=prepare(self,value);if result and value.NewsRead~=nil then result.NewsRead=readState(value.NewsRead) end;return result
+        local result=prepare(self,value)
+        -- Validate old profiles atomically, then discard their obsolete markers.
+        if result and value.NewsRead~=nil then readState(value.NewsRead) end
+        return result
     end
     local apply=Window._applyAdvanced
     function Window:_applyAdvanced(value,deferUI)
         apply(self,value,deferUI)
-        if value and value.NewsRead then self._newsRead=copy(value.NewsRead);if self._news then self._news:Refresh() end end
+        self._newsRead=nil;if self._news then self._news:Refresh() end
     end
     local locale=Window.SetLocale
     function Window:SetLocale(...)
@@ -12091,7 +12329,7 @@ do
         options=options or {}
         assert(options.LibraryUpdates==nil and options.ReleaseNotes==nil,'Library release notes cannot be replaced by consumer options')
         local script=entries(options.ScriptUpdates or {})
-        local w=create(self,options);w._scriptUpdates=script;w._newsRead=w._newsRead or {Library={},Script={}}
+        local w=create(self,options);w._scriptUpdates=script
         w:_installNews();w._initial.Advanced=w:_exportAdvanced();return w
     end
 end

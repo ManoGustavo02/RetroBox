@@ -1,3 +1,15 @@
+# Preparação e publicação · RetroBox 2.10.0
+
+Central de Ideias com interface própria padrão para todos os consumidores: categorias em cartões, etapas Mensagem/Diagnóstico/Revisar, contexto e ações alinhadas. Novidades fica como histórico por origem, sem avisos ou marcação de leitura. [Relatório](../RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.10.md) · [Central](../RetroBox-UI-v1.1.0/retrobox-ui/docs/FEEDBACK-HUB.md) · [Validação](../RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
+
+Conferidos localmente: 625 testes de lógica, 43 exemplos, 86 verificações focadas, 12 exemplos completos do prompt, 24 Node, dois Python e 22 manifests. A promoção usa a árvore exata da revisão após os checks do GitHub, incluindo os oito testes Chromium.
+
+Runtime: 876695 bytes; SHA-256 `dd78359b2f4af178a3a511544059dfba6c8cd245afefc572bf514132821e411c`. API 2, bootstrap permanente, Designer e releases históricas preservados. O consumidor da Central já usa stable; basta reexecutar após a publicação, sem trocar o webhook ou o endereço. Fontes fixas/Pinned permanecem na edição escolhida. Nenhuma credencial privada é publicada ou mensagem de teste enviada ao Discord; renderer Roblox indisponível neste ambiente.
+
+---
+
+## Histórico anterior de publicação
+
 # Preparação e publicação · RetroBox 2.8.0
 
 Central de Ideias / Feedback Hub como módulo opt-in independente do catálogo de scripts. UI nativa com PT/EN, prévia, jogo/identidade e webhook ou transporte customizado. [Guia](../RetroBox-UI-v1.1.0/retrobox-ui/docs/FEEDBACK-HUB.md) · [Release](../RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.8.md) · [Validação](../RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
