@@ -60,6 +60,10 @@
     {
       "Version": "2.11.0",
       "Manifest": "dist/releases/2.11.0/manifest.json"
+    },
+    {
+      "Version": "2.12.0",
+      "Manifest": "dist/releases/2.12.0/manifest.json"
     }
   ]
 }

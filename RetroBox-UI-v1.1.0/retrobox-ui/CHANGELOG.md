@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.12.0 · 2026-11-01
+
+- Nova tela de boot padrão ao abrir a janela: emblema pixel que cresce, título digitado, log com [ OK ], barra de 24 blocos com percentual, cursor, varredura CRT e saída que fecha como monitor antigo.
+- Duração padrão de 2 s (`Duration` .6–8), `Title`, `Subtitle`, `Message`, até 8 `Steps`, `Skippable` e `OnComplete(skipped)`; clique, Enter, Espaço ou Esc pulam. `window:ShowBootScreen`/`GetBootScreen`.
+- `Style="Card"` preserva o carregamento anterior; Reduced Motion sem pedido explícito não mostra boot. O script nunca espera pela animação; timers pertencem ao escopo do boot.
+- Imagens da documentação regeneradas com a versão atual por `tools/build_docs_images.py`, mais as novas `boot-screen.png` e `refined-controls.png`.
+
 ## 2.11.0 · 2026-11-01
 
 - Novos componentes: AddSegmented (indicador deslizante), AddRangeSlider (dois polos, MinGap), AddNumber (-/+, digitação, repetição ao segurar), AddCallout (Info/Tip/Success/Warning/Danger, altura automática) e AddCodeBlock (números de linha, Copiar).

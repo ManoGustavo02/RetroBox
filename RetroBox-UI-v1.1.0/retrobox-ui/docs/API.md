@@ -497,3 +497,7 @@ Novidades permanece como histórico separado da library e do script, sem alertas
 - `window:Notify({..., Timer=false})` oculta a barra de tempo restante.
 
 Segmented, RangeSlider e Number persistem nos perfis e são campos de `CreateForm`; os cinco tipos funcionam em `RegisterComponent`. [Guia completo e movimento](REFINED-CONTROLS.md).
+
+## Tela de boot · 2.12 / API 2
+
+`CreateWindow({LoadingScreen = {Duration?, Title?, Subtitle?, Message?, Steps?, Skippable?, OnComplete?}})` mostra a sequência de boot (padrão quando as animações estão ativas, 2 s, clique/Enter/Espaço/Esc pulam). `Style = "Card"` mantém o cartão anterior; `false` desliga. `window:ShowBootScreen(options)` reproduz; `window:GetBootScreen()` retorna o handle (`Skip`, `Finish`, `SetProgress`, `Destroy`). [Guia](BOOT-SCREEN.md).

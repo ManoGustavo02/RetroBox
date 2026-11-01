@@ -362,13 +362,22 @@ do
     function Library:CreateWindow(options)
         options=options or {}
         assert(options.LoadingScreen==nil or type(options.LoadingScreen)=='boolean' or type(options.LoadingScreen)=='table','LoadingScreen must be boolean or table')
-        if type(options.LoadingScreen)=='table' then loadingOptions(options.LoadingScreen) end
+        if type(options.LoadingScreen)=='table' then
+            loadingOptions(options.LoadingScreen)
+            if Library._bootOptions then Library._bootOptions(options.LoadingScreen) end
+        end
         for _,key in ipairs({'TitleRGB','SubtitleRGB'}) do if options[key]~=nil then rgbOptions(options[key]) end end
         local window=createWindow(self,options)
         if options.TitleRGB then window:SetTitleRGB(options.TitleRGB) end
         if options.SubtitleRGB then window:SetSubtitleRGB(options.SubtitleRGB) end
         if options.LoadingScreen~=false and (options.LoadingScreen~=nil or window:_motionAllowed(window.Main)) then
             local startup=copy(type(options.LoadingScreen)=='table' and options.LoadingScreen or {})
+            if startup.Style~='Card' and window.ShowBootScreen then
+                startup.Blocking=nil;startup.Timeout=nil;startup.Style=nil
+                window:ShowBootScreen(startup)
+                return window
+            end
+            startup.Style=nil;startup.Duration=nil;startup.Steps=nil;startup.Subtitle=nil;startup.Skippable=nil;startup.OnComplete=nil
             if startup.Blocking==nil then startup.Blocking=false end
             local loading=window:ShowLoading(startup)
             local pending=task.defer(function()

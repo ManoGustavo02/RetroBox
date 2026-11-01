@@ -1,3 +1,11 @@
+# Preparação e publicação · RetroBox 2.12.0
+
+Tela de boot padrão ao abrir a janela (2 s, pular com clique/Enter/Espaço/Esc, saída CRT) e imagens da documentação atualizadas para a versão atual. [Relatório](../RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.12.md) · [Tela de boot](../RetroBox-UI-v1.1.0/retrobox-ui/docs/BOOT-SCREEN.md) · [Validação](../RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
+
+Conferidos localmente: 636 testes de lógica, 45 exemplos, 10 exemplos do prompt, dois Python e 24 manifests. Runtime: 925618 bytes; SHA-256 `d21af852c5363255a5eedb88d5e5cc89f7ae0b8ea0a633a9eb079a903c8ef2a0`. API 2 e bootstrap permanente preservados; consumidores Stable/Preview recebem o boot ao reexecutar.
+
+---
+
 # Preparação e publicação · RetroBox 2.11.0
 
 Movimento refinado no animador central (abertura CRT, pulso de clique, check com salto, seleção elástica, barra de tempo nas notificações) e cinco componentes nativos: Segmented, RangeSlider, Number, Callout e CodeBlock. [Relatório](../RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.11.md) · [Componentes](../RetroBox-UI-v1.1.0/retrobox-ui/docs/REFINED-CONTROLS.md) · [Validação](../RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).

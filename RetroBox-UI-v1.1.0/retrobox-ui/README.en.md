@@ -1,6 +1,10 @@
 # RetroBox UI
 
-**New in 2.11:** [Segmented, RangeSlider, Number, Callout and CodeBlock](docs/REFINED-CONTROLS.md), plus refined motion: CRT power-on, press pulse, bouncing check and notification countdown.
+**New in 2.12:** [retro boot screen](docs/BOOT-SCREEN.md) when a script runs, with configurable duration and click to skip. [Details](docs/RELEASE-2.12.md) · [Demo](examples/boot-screen.lua).
+
+![Boot screen](docs/boot-screen.png)
+
+**2.11:** [Segmented, RangeSlider, Number, Callout and CodeBlock](docs/REFINED-CONTROLS.md), plus refined motion: CRT power-on, press pulse, bouncing check and notification countdown.
 
 **2.11.0:** [Details](docs/RELEASE-2.11.md) · [Demo](examples/refined-controls.lua). In 2.10: [dedicated Ideas Center](docs/FEEDBACK-HUB.md) and passive [Updates](docs/NEWS.md).
 
