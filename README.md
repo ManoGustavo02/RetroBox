@@ -1,10 +1,10 @@
 <p align="center"><img src="assets/retrobox-banner.svg" alt="RetroBox — interfaces retrô, componentes e runtime em Luau" width="100%"></p>
 
-**Novo na 2.10:** [Central de Ideias com interface própria](RetroBox-UI-v1.1.0/retrobox-ui/docs/FEEDBACK-HUB.md), etapas de mensagem, diagnóstico e revisão. [Novidades](RetroBox-UI-v1.1.0/retrobox-ui/docs/NEWS.md) agora é somente histórico, sem avisos de leitura.
+**Novo na 2.11:** [cinco componentes nativos](RetroBox-UI-v1.1.0/retrobox-ui/docs/REFINED-CONTROLS.md) — Segmented, RangeSlider, Number, Callout e CodeBlock — e movimento refinado: abertura CRT, pulso de clique, check com salto e barra de tempo nas notificações.
 
 # RetroBox UI
 
-<p align="center"><img src="assets/retrobox-badges.svg" alt="RetroBox 2.10.0 · API 2 · 12 temas · 76 pixel icons · MIT" width="795"></p>
+<p align="center"><img src="assets/retrobox-badges.svg" alt="RetroBox 2.11.0 · API 2 · 12 temas · 76 pixel icons · MIT" width="795"></p>
 
 [![Validação](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml)
 
@@ -14,9 +14,9 @@ Biblioteca de GUI em Luau para scripts executados no cliente Roblox por executor
 
 [English](README.en.md) · [Começar](RetroBox-UI-v1.1.0/retrobox-ui/README.md) · [API](RetroBox-UI-v1.1.0/retrobox-ui/docs/API.md) · [Script Hub](RetroBox-UI-v1.1.0/retrobox-ui/docs/SCRIPT-HUB.md) · [Exemplos](RetroBox-UI-v1.1.0/retrobox-ui/examples) · [Segurança](SECURITY.md)
 
-> **RetroBox 2.10.0 · API 2** — distribuição da conta **ManoGustavo02**. Designer offline com blocos e exportação Luau; idiomas automáticos, formulários, componentes reutilizáveis, CardGrid e diagnóstico do catálogo. Os testes de lógica não substituem a conferência visual no executor. [Histórico e validação](RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
+> **RetroBox 2.11.0 · API 2** — distribuição da conta **ManoGustavo02**. Designer offline com blocos e exportação Luau; idiomas automáticos, formulários, componentes reutilizáveis, CardGrid e diagnóstico do catálogo. Os testes de lógica não substituem a conferência visual no executor. [Histórico e validação](RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
 
-**2.10.0:** categorias em cartões, prévia completa, layout responsivo e envio explícito. [Relatório](RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.10.md) · [Demonstração nativa](RetroBox-UI-v1.1.0/retrobox-ui/examples/feedback-hub.lua).
+**2.11.0:** componentes com temas, perfis, busca e formulários; preferências de movimento respeitadas. [Relatório](RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.11.md) · [Demonstração nativa](RetroBox-UI-v1.1.0/retrobox-ui/examples/refined-controls.lua). Na 2.10: [Central de Ideias com interface própria](RetroBox-UI-v1.1.0/retrobox-ui/docs/FEEDBACK-HUB.md).
 
 ## Designer visual: monte e conecte no navegador
 
@@ -54,7 +54,7 @@ Este endereço permanente resolve as próximas atualizações compatíveis da AP
 ```lua
 local RetroBox = loadstring(game:HttpGet(
     "https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua"
-))({Channel = "stable", MinVersion = "2.10.0"})
+))({Channel = "stable", MinVersion = "2.11.0"})
 ```
 
 Monte os componentes na sequência padrão da library:

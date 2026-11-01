@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.11.0 · 2026-11-01
+
+- Novos componentes: AddSegmented (indicador deslizante), AddRangeSlider (dois polos, MinGap), AddNumber (-/+, digitação, repetição ao segurar), AddCallout (Info/Tip/Success/Warning/Danger, altura automática) e AddCodeBlock (números de linha, Copiar).
+- Animador central com curvas por transição: abertura CRT, escala elástica, pulso de clique nos botões, check com salto e marcadores de seleção elásticos.
+- Notificações com barra de tempo restante em duração real; `Timer=false` oculta.
+- Reduced Motion, Subtle/Off e `Animated=false` continuam valendo; áreas clicáveis não se movem.
+- Novos tipos em perfis, busca, temas, RegisterComponent e CreateForm. Validação antes do registro evita Ids órfãos. API 2 e bootstrap permanente mantidos.
+
 ## 2.10.0 · 2026-10-28
 
 - Novidades passa a ser somente histórico por origem, sem notificações, contagem, etiquetas ou marcação de leitura; perfis antigos não reativam avisos.

@@ -1,3 +1,15 @@
+# Preparação e publicação · RetroBox 2.11.0
+
+Movimento refinado no animador central (abertura CRT, pulso de clique, check com salto, seleção elástica, barra de tempo nas notificações) e cinco componentes nativos: Segmented, RangeSlider, Number, Callout e CodeBlock. [Relatório](../RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.11.md) · [Componentes](../RetroBox-UI-v1.1.0/retrobox-ui/docs/REFINED-CONTROLS.md) · [Validação](../RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
+
+Conferidos localmente: 632 testes de lógica, 44 exemplos, 9 exemplos do prompt, dois Python e 23 manifests. Os testes Node/Chromium do Designer ficam a cargo do CI; o Designer não foi alterado.
+
+Runtime: 907414 bytes; SHA-256 `37fda4abeca683b59f6883ea17489c337eec01657dcace17f45dd1042115d977`. API 2, bootstrap permanente, Designer e releases históricas preservados. Consumidores Stable/Preview recebem a edição ao reexecutar; para usar os métodos novos, `MinVersion="2.11.0"`. Renderer Roblox indisponível neste ambiente.
+
+---
+
+## Histórico anterior de publicação
+
 # Preparação e publicação · RetroBox 2.10.0
 
 Central de Ideias com interface própria padrão para todos os consumidores: categorias em cartões, etapas Mensagem/Diagnóstico/Revisar, contexto e ações alinhadas. Novidades fica como histórico por origem, sem avisos ou marcação de leitura. [Relatório](../RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.10.md) · [Central](../RetroBox-UI-v1.1.0/retrobox-ui/docs/FEEDBACK-HUB.md) · [Validação](../RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).

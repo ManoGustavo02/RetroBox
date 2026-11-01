@@ -1,3 +1,17 @@
+# Validação · RetroBox UI 2.11.0
+
+- **632/632 testes de lógica**, incluindo **44 exemplos** pelo bootstrap real (novo `refined-controls`). As **7 novas regressões** cobrem Segmented, RangeSlider, Number, Callout, CodeBlock, integração com componentes/formulários e o movimento refinado.
+- Componentes: validação antes do registro (nenhum Id órfão após erro), clique/foco, desabilitado, troca de opções, tema e tinta sobre o indicador, Step/MinGap/ordem, polo mais próximo no arraste, repetição ao segurar e parada ao soltar, texto inválido, altura do Callout, normalização e cópia explícita do CodeBlock, perfis exportados/importados e ausência de persistência dos tipos informativos.
+- Movimento: linha CRT ao abrir, pulso de clique sem alterar a área clicável, barra de tempo com duração real independente de `Speed`, `Timer=false`, Subtle e Reduced Motion sem efeitos. Todos os testes anteriores de movimento, layout e ciclo de vida continuam passando com as novas curvas.
+- **9/9 exemplos do prompt** (`tests/prompt-runtime.lua` com o prompt 2.11.0), **2/2 testes Python** do pipeline, **23 manifests**, migração de origem, links/assets, incorporação estável dos módulos e Designer (`--check`) conferidos. O Designer não foi alterado e mantém 21 componentes/22 blocos.
+- Runtime: **907414 bytes**, SHA-256 **37fda4abeca683b59f6883ea17489c337eec01657dcace17f45dd1042115d977**. Stable/Preview 2.11.0; bootstrap e releases anteriores preservados.
+
+Tweens, serviços e geometria são simulados. Não há renderer Roblox neste ambiente: estes resultados verificam lógica e ciclo de vida, sem comprovar a aparência ou a compatibilidade de um executor específico. [Relatório](RELEASE-2.11.md) · [Componentes](REFINED-CONTROLS.md).
+
+---
+
+## Histórico anterior de validação
+
 # Validação · RetroBox UI 2.10.0
 
 - **625/625 testes de lógica**, incluindo **43 exemplos** pelo bootstrap real. As **17 novas regressões** da interface própria se somam aos 34 testes de comunicação e aos 35 de diagnóstico/novidades atualizados: **86/86 verificações focadas** passaram.
