@@ -1,5 +1,9 @@
 # Script Hub · RetroBox 2.4.0
 
+![Script Hub 2.13](script-hub.png)
+
+**Visual 2.13:** o status de cada script aparece em uma pílula colorida (Concluído em verde, Executando/Na fila em destaque, Falha em vermelho, Disponível discreto); o jogo desta sessão recebe o selo **AQUI** na biblioteca; e o painel de execução ganha uma luz de status ao lado do script selecionado. As cores seguem o perfil de aparência do hub e passam pela verificação de contraste da library.
+
 O hub é opcional. A sequência normal `HTTP → CreateWindow → CreateTab → CreateSection → controles` continua disponível. O modo usa a mesma janela, as listas virtuais, as flags, os perfis, os temas, os scopes e as ações da RetroBox.
 
 `Library:CreateScriptHub(options)` cria um hub com uma janela própria. `window:CreateScriptHub(options)` adiciona um hub a uma janela existente. Ambos retornam um manager com `Window`, `Tab`, `Id`, `GameList`, `ScriptList` e os métodos abaixo. Não execute funções vindas de perfis; o catálogo é definido pelo desenvolvedor em código.

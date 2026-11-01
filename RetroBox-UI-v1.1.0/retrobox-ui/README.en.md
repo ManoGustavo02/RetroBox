@@ -1,6 +1,8 @@
 # RetroBox UI
 
-**New in 2.12:** [retro boot screen](docs/BOOT-SCREEN.md) when a script runs, with configurable duration and click to skip. [Details](docs/RELEASE-2.12.md) · [Demo](examples/boot-screen.lua).
+**New in 2.13:** refined [Ideas Center](docs/FEEDBACK-HUB.md) and [Script Hub](docs/SCRIPT-HUB.md). [Details](docs/RELEASE-2.13.md).
+
+**2.12:** [retro boot screen](docs/BOOT-SCREEN.md) when a script runs, with configurable duration and click to skip. [Details](docs/RELEASE-2.12.md) · [Demo](examples/boot-screen.lua).
 
 ![Boot screen](docs/boot-screen.png)
 

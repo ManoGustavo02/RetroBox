@@ -1,3 +1,14 @@
+# Validação · RetroBox UI 2.13.0
+
+- **641/641 testes de lógica**, incluindo os 45 exemplos pelo bootstrap real. As **5 novas regressões** cobrem cabeçalho, cartões e etapas (estado ativo/concluído/próximo, ✓, trilho, contraste do texto contra o fundo real), barra de caracteres nos três estados, painel de confirmação e **Escrever outra**, geometria do painel e das etapas em 1280×720 e 320×600 com escala .75, TextScale 1.4 e PT/EN, e no Script Hub as pílulas de status, o selo AQUI e a luz de execução com contraste em todos os temas.
+- Os 17 testes anteriores da Central e os testes de layout/contraste do Script Hub continuam passando sem alteração.
+- **11/11 exemplos do prompt** com o prompt 2.13.0, **2/2 testes Python** do pipeline, **25 manifests**, migração de origem, links/assets, incorporação estável e Designer (`--check`) conferidos.
+- Runtime: **936463 bytes**, SHA-256 **9e39410f7410bcd568e0289f379105e2bf29f40406c9e8c445098746e5e2c74a**. Stable/Preview 2.13.0; bootstrap e releases anteriores preservados.
+
+Geometria, tweens e transporte são simulados; nenhuma mensagem foi enviada a um Discord real e não há renderer Roblox neste ambiente. [Relatório](RELEASE-2.13.md).
+
+---
+
 # Validação · RetroBox UI 2.12.0
 
 - **636/636 testes de lógica**, incluindo **45 exemplos** pelo bootstrap real (novo `boot-screen`). As **4 novas regressões** cobrem a sequência padrão (título digitado, progresso que nunca recua, contagem real de abas/controles, término em `Duration`), pular por clique/Enter/ocultar, `Skippable=false`, Reduced Motion, `Style="Card"`, validação das opções, troca de tema durante o boot, substituição e destruição no meio da sequência sem conexões pendentes.

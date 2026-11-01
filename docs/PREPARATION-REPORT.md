@@ -1,3 +1,11 @@
+# Preparação e publicação · RetroBox 2.13.0
+
+Central de Ideias e Script Hub refinados, sem mudança de API. [Relatório](../RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.13.md) · [Validação](../RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
+
+Conferidos localmente: 641 testes de lógica, 45 exemplos, 11 exemplos do prompt, dois Python e 25 manifests. Runtime: 936463 bytes; SHA-256 `9e39410f7410bcd568e0289f379105e2bf29f40406c9e8c445098746e5e2c74a`. Consumidores Stable/Preview recebem o visual novo ao reexecutar.
+
+---
+
 # Preparação e publicação · RetroBox 2.12.0
 
 Tela de boot padrão ao abrir a janela (2 s, pular com clique/Enter/Espaço/Esc, saída CRT) e imagens da documentação atualizadas para a versão atual. [Relatório](../RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.12.md) · [Tela de boot](../RetroBox-UI-v1.1.0/retrobox-ui/docs/BOOT-SCREEN.md) · [Validação](../RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).

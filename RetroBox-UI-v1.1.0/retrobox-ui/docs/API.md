@@ -501,3 +501,7 @@ Segmented, RangeSlider e Number persistem nos perfis e são campos de `CreateFor
 ## Tela de boot · 2.12 / API 2
 
 `CreateWindow({LoadingScreen = {Duration?, Title?, Subtitle?, Message?, Steps?, Skippable?, OnComplete?}})` mostra a sequência de boot (padrão quando as animações estão ativas, 2 s, clique/Enter/Espaço/Esc pulam). `Style = "Card"` mantém o cartão anterior; `false` desliga. `window:ShowBootScreen(options)` reproduz; `window:GetBootScreen()` retorna o handle (`Skip`, `Finish`, `SetProgress`, `Destroy`). [Guia](BOOT-SCREEN.md).
+
+## Central de Ideias e Script Hub · 2.13 / API 2
+
+Somente apresentação: a Central (`Layout='Launcher'`) ganhou cabeçalho, cartões com ✓, etapas numeradas, barra de caracteres e painel de confirmação com **Escrever outra**; o Script Hub ganhou pílulas de status, selo AQUI e luz de execução. Nenhum método, opção ou ID mudou. [Central](FEEDBACK-HUB.md) · [Script Hub](SCRIPT-HUB.md).
