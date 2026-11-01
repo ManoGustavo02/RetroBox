@@ -32,7 +32,11 @@ do
         if ancestor then focused:ReleaseFocus(false) end
         self.Scroll[self.Page]=self.Tab.Frame.CanvasPosition;self.Page=page
         self:Refresh();self.Tab.Frame.CanvasPosition=self.Scroll[page] or Vector2.new(0,0)
-        if w:_motionAllowed(self.Root) then w:_motion(self.Root,{Position=U2(0,0)},.12,'feedback-page',self) end
+        if w:_motionAllowed(self.Root) then
+            self.Root.Position=U2(0,10)
+            w:_motion(self.Root,{Position=U2(0,0)},.22,'feedback-page',self,nil,{Easing='Quint'})
+            for _,section in pairs(self.Sections) do if section.Frame.Visible and section.TitleLabel then w:_revealText(section.TitleLabel,self,'feedback-section') end end
+        end
         return self
     end
     function View:LayoutChrome()
@@ -82,31 +86,58 @@ do
             local bounds=TextService:GetTextSize(text,size,object.Font,Vector2.new(math.max(1,available),100000))
             return math.max(size+3,bounds.Y+3)
         end
-        local th=height(self.HeroTitle,self.HeroTitle.Text,self.HeroTitle.TextSize,width-24)
-        local sh=height(self.HeroDescription,self.HeroDescription.Text,self.HeroDescription.TextSize,width-24)
-        self.Hero.Size=UDim2.new(1,0,0,th+sh+28)
-        rect(self.HeroTitle,12,10,width-24,th);rect(self.HeroDescription,12,th+15,width-24,sh)
+        -- Header: accent rail, icon tile and wrapped copy beside it.
+        local tile=width>=300 and 44 or 0;local textX=tile>0 and 18+tile+14 or 16
+        local th=height(self.HeroTitle,self.HeroTitle.Text,self.HeroTitle.TextSize,width-textX-14)
+        local sh=height(self.HeroDescription,self.HeroDescription.Text,self.HeroDescription.TextSize,width-textX-14)
+        local heroHeight=math.max(tile+28,th+sh+30)
+        self.Hero.Size=UDim2.new(1,0,0,heroHeight)
+        rect(self.HeroBar,0,0,4,heroHeight);self.HeroTile.Visible=tile>0
+        if tile>0 then rect(self.HeroTile,18,math.floor((heroHeight-tile)/2),tile,tile) end
+        rect(self.HeroTitle,textX,12,width-textX-14,th);rect(self.HeroDescription,textX,th+17,width-textX-14,sh)
         local columns=math.min(#self.Cards,width>=700 and 4 or width>=280 and 2 or 1)
-        local cardWidth=(width-gap*(columns-1))/math.max(1,columns);local cardHeight=66
+        local cardWidth=(width-gap*(columns-1))/math.max(1,columns);local cardHeight=74
         for _,card in ipairs(self.Cards) do
-            card.TitleHeight=height(card.Title,card.Title.Text,card.Title.TextSize,cardWidth-44)
-            card.DescriptionHeight=height(card.Description,card.Description.Text,card.Description.TextSize,cardWidth-24)
-            cardHeight=math.max(cardHeight,card.TitleHeight+card.DescriptionHeight+24)
+            card.TitleHeight=height(card.Title,card.Title.Text,card.Title.TextSize,cardWidth-74)
+            card.DescriptionHeight=height(card.Description,card.Description.Text,card.Description.TextSize,cardWidth-26)
+            card.Top=math.max(44,card.TitleHeight+20)
+            cardHeight=math.max(cardHeight,card.Top+card.DescriptionHeight+12)
         end
         for i,card in ipairs(self.Cards) do
             rect(card.Button,((i-1)%columns)*(cardWidth+gap),math.floor((i-1)/columns)*(cardHeight+gap),cardWidth,cardHeight)
-            rect(card.Title,34,10,cardWidth-44,card.TitleHeight)
-            rect(card.Description,12,card.TitleHeight+15,cardWidth-24,card.DescriptionHeight)
+            rect(card.Tile,12,12,28,28);rect(card.Bar,0,0,cardWidth,3)
+            rect(card.Title,50,14,cardWidth-74,card.TitleHeight)
+            rect(card.Description,13,card.Top,cardWidth-26,card.DescriptionHeight)
+            if card.Check.Frame then card.Check.Frame.Position=U2(cardWidth-24,10) end
         end
         self.Categories.Size=UDim2.new(1,0,0,math.ceil(#self.Cards/math.max(1,columns))*(cardHeight+gap)-gap)
         local pages=#self.PageOrder;local minimum=90
         for _,key in ipairs(self.PageOrder) do
-            local b=self.Pages[key];local size=TextService:GetTextSize(b.Text,b.TextSize,b.Font,Vector2.new(100000,100000));minimum=math.max(minimum,size.X+24)
+            local b=self.Pages[key];local size=TextService:GetTextSize(b.Text,b.TextSize,b.Font,Vector2.new(100000,100000));minimum=math.max(minimum,size.X+52)
         end
         local navCols=math.max(1,math.min(pages,math.floor((width+8)/(minimum+8))));local navWidth=(width-(navCols-1)*8)/navCols
-        local navHeight=math.max(36,math.ceil(13*(w.TextScale or 1)+20))
-        for i,key in ipairs(self.PageOrder) do rect(self.Pages[key],((i-1)%navCols)*(navWidth+8),math.floor((i-1)/navCols)*(navHeight+8),navWidth,navHeight) end
+        local navHeight=math.max(38,math.ceil(13*(w.TextScale or 1)+22))
+        for i,key in ipairs(self.PageOrder) do
+            local b=self.Pages[key];rect(b,((i-1)%navCols)*(navWidth+8),math.floor((i-1)/navCols)*(navHeight+8),navWidth,navHeight)
+            local badge=self.Badges[key];rect(badge.Frame,-31,math.floor((navHeight-22)/2),22,22)
+        end
+        self.Rail.Visible=navCols==pages and pages>1
+        rect(self.Rail,math.floor(navWidth/2),math.floor(navHeight/2)-1,math.max(1,width-navWidth),2)
         self.Navigation.Size=UDim2.new(1,0,0,math.ceil(pages/navCols)*(navHeight+8)-8)
+        local done=self.Success.Visible and self.SuccessTitle
+        if done then
+            local textW=width-90-math.min(190,width*.36)
+            local sh2=height(self.SuccessMessage,self.SuccessMessage.Text,self.SuccessMessage.TextSize,math.max(80,textW))
+            local successHeight=math.max(76,sh2+44)
+            local stacked=width<420
+            if stacked then successHeight=successHeight+48 end
+            self.Success.Size=UDim2.new(1,0,0,successHeight)
+            rect(self.SuccessBar,0,0,4,successHeight);rect(self.SuccessTile,18,14,40,40)
+            local tw=stacked and width-90 or textW
+            rect(self.SuccessTitle,72,12,tw,22);rect(self.SuccessMessage,72,36,tw,sh2)
+            local bw=stacked and width-90 or math.min(190,width*.36)-16
+            rect(self.Again,stacked and 72 or width-bw-14,stacked and successHeight-46 or math.floor((successHeight-38)/2),bw,36)
+        end
         local wide=width>=660;self.Wide=wide
         self.BodyLayout.FillDirection=wide and Enum.FillDirection.Horizontal or Enum.FillDirection.Vertical
         self.Tab.Left.Size=wide and UDim2.new(.62,-6,0,0) or UDim2.new(1,0,0,0)
@@ -133,6 +164,9 @@ do
             avatar._descriptionLayout.Height=64
             local data=avatar._descriptionLayout.Children[avatar.Image];if data then data.Position=U2(0,0);data.Size=U2(64,64) end
         end
+        local counter=self.Hub.Controls.Counter
+        self.CounterTrack=frame(self.Window,counter.Frame,{Name='FeedbackLengthTrack',Position=UDim2.new(0,0,1,-4),Size=UDim2.new(1,0,0,3)},'Border')
+        self.CounterFill=frame(self.Window,self.CounterTrack,{Name='FeedbackLengthFill',Size=UDim2.new(0,0,1,0)},'Muted')
         for name,control in pairs(self.Controls) do
             control._feedbackHub=self.Hub
             control._feedbackPage=name:sub(1,10)=='Diagnostic' and 'Diagnostics' or (name=='ReviewDiagnostic' or name=='MessagePreview' or name=='Notice' or name=='Submit' or name=='Retry' or name=='Cancel' or name=='Clear') and 'Review' or 'Compose'
@@ -147,15 +181,52 @@ do
         for _,card in ipairs(self.Cards) do
             local item=categories[card.Id];local selected=h.Category==card.Id
             card.Title.Text=self:_tr(item.Title);card.Description.Text=self:_tr(item.Description)
-            w:_bind(card.Button,{BackgroundColor3=selected and 'Accent' or 'Surface',BorderColor3=selected and 'Accent' or 'Border'})
-            w:_bind(card.Title,{TextColor3=selected and 'AccentText' or 'Text'})
-            w:_bind(card.Description,{TextColor3=selected and 'AccentText' or 'Muted'})
+            w:_bind(card.Button,{BackgroundColor3='Surface',BorderColor3=selected and 'Accent' or 'Border'})
+            card.Button.BorderSizePixel=selected and 2 or 1
+            w:_bind(card.Tile,{BackgroundColor3=selected and 'Accent' or 'Inset'})
+            w:_bind(card.Title,{TextColor3=selected and 'Accent' or 'Text'})
+            w:_bind(card.Description,{TextColor3='Muted'})
             card.Icon:SetRole(selected and 'AccentText' or 'Accent')
+            if card.Selected~=selected then
+                card.Selected=selected
+                card.Check:Set(selected and 'check' or false)
+                if selected and card.Check.Frame then card.Check:SetRole('Accent') end
+                if selected and w:_motionAllowed(card.Bar) then card.Bar.Size=UDim2.new(0,0,0,3);card.Bar.Visible=true;w:_motion(card.Bar,{Size=UDim2.new(1,0,0,3)},.24,'feedback-card',self,nil,{Easing='Quint'})
+                else card.Bar.Visible=selected;card.Bar.Size=UDim2.new(1,0,0,3) end
+            end
         end
-        for key,b in pairs(self.Pages) do b.Text=self:_tr(captions[key]);w:_bind(b,{BackgroundColor3=self.Page==key and 'Accent' or 'Inset',TextColor3=self.Page==key and 'AccentText' or 'Text'}) end
+        local current=table.find(self.PageOrder,self.Page) or 1
+        for index,key in ipairs(self.PageOrder) do
+            local b=self.Pages[key];local badge=self.Badges[key];local state=index==current and 'Active' or index<current and 'Done' or 'Next'
+            b.Text=self:_tr(captions[key])
+            w:_bind(b,{BackgroundColor3=state=='Active' and 'Accent' or state=='Done' and 'Surface' or 'Inset',TextColor3=state=='Active' and 'AccentText' or state=='Done' and 'Text' or 'Muted',BorderColor3=state=='Next' and 'Border' or 'Accent'})
+            w:_bind(badge.Frame,{BackgroundColor3=state=='Active' and 'AccentText' or state=='Done' and 'Success' or 'Border'})
+            badge.Digit.Text=state=='Done' and '' or tostring(index)
+            w:_bind(badge.Digit,{TextColor3=state=='Active' and 'Accent' or 'Text'})
+            badge.Check:Set(state=='Done' and 'check' or false)
+        end
+        w:_bind(self.Rail,{BackgroundColor3=current>1 and 'Accent' or 'Border'})
         local titles={Target={'Jogo do relato','Report game'},Message={'Escreva sua mensagem','Write your message'},Review={'Confira antes de enviar','Review before sending'},Diagnostics={'Diagnóstico opcional','Optional diagnostics'},DiagnosticReview={'Diagnóstico anexado','Attached diagnostics'},Context={'Jogo e jogador','Game and player'},Status={'Status do envio','Delivery status'},Actions={'Enviar relato','Send report'}}
         for key,pair in pairs(titles) do self.Sections[key]:SetTitle(self:_tr(pair)) end
         self.Hero.Visible=self.Page=='Compose';self.Categories.Visible=self.Page=='Compose'
+        local status=h._ready and h:GetStatus()
+        local sent=status and status.State=='Sent' or false
+        if sent and not self.Success.Visible then
+            self.Success.Visible=true
+            if w:_motionAllowed(self.SuccessScale) then self.SuccessScale.Scale=.6;w:_motion(self.SuccessScale,{Scale=1},.32,'feedback-success',self,nil,{Easing='Back'}) end
+            w:_revealText(self.SuccessTitle,self,'feedback-success-text')
+        elseif not sent then self.Success.Visible=false end
+        if sent then
+            self.SuccessTitle.Text=h:_tr('Mensagem enviada!','Message sent!');self.SuccessMessage.Text=status.Message
+            self.Again.Text=h:_tr('Escrever outra','Write another')
+        end
+        if self.CounterFill and h.Controls and h.Controls.Message then
+            local text=h:GetDraft().Message:gsub('^%s+',''):gsub('%s+$','')
+            local n=utf8.len(text) or #text;local o=h.Options
+            local role=n>o.MaxLength and 'Danger' or n<o.MinLength and 'Muted' or 'Accent'
+            w:_bind(self.CounterFill,{BackgroundColor3=role})
+            w:_motion(self.CounterFill,{Size=UDim2.new(math.min(1,n/math.max(1,o.MaxLength)),0,1,0)},.14,'feedback-length',self)
+        end
         if self.Ready then
             local c=h.Controls;local active=self.Page
             local included=h.Diagnostics and c.DiagnosticInclude:GetValue()
@@ -172,6 +243,7 @@ do
         end
         self.Back.Visible=self.Page~='Compose';self.Back.Text=h:_tr('Editar mensagem','Edit message')
         self.Next.Visible=self.Page~='Review';self.Next.Text=h:_tr('Revisar envio','Review submission')
+        w:_bind(self.Next,{BackgroundColor3='Accent',TextColor3='AccentText'})
         self:Layout();self.Refreshing=false
     end
     function View:Destroy()
@@ -184,20 +256,49 @@ do
         local tab=v.Tab;tab.Columns=2;tab.Container.Visible=false
         v.Root=frame(self,tab.Frame,{Name='FeedbackLauncher',Size=UDim2.new(1,-10,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1})
         list(self,v.Root,12)
-        v.Hero=frame(self,v.Root,{Name='FeedbackWelcome',LayoutOrder=1,Size=UDim2.new(1,0,0,80)},'Inset')
-        v.HeroTitle=label(self,v.Hero,'',{Name='FeedbackHeading',TextSize=19,TextWrapped=true,TextTruncate=Enum.TextTruncate.None},'Accent')
+        -- Delivery confirmation: shown only after a confirmed Sent result.
+        v.Success=frame(self,v.Root,{Name='FeedbackSent',LayoutOrder=0,Size=UDim2.new(1,0,0,76),BorderSizePixel=1,Visible=false},'Surface')
+        self:_bind(v.Success,{BackgroundColor3='Surface',BorderColor3='Success'})
+        v.SuccessBar=frame(self,v.Success,{Name='SuccessRail'},'Success')
+        v.SuccessTile=frame(self,v.Success,{Name='SuccessTile'},'Success')
+        v.SuccessScale=ui(self,'UIScale',{Parent=v.SuccessTile,Scale=1})
+        v.SuccessIcon=iconSlot(self,v.SuccessTile,'check',nil,24,U2(8,8),'AccentText')
+        v.SuccessTitle=label(self,v.Success,'',{Name='SuccessTitle',TextSize=16,TextTruncate=Enum.TextTruncate.AtEnd},'Success')
+        v.SuccessMessage=label(self,v.Success,'',{Name='SuccessMessage',TextSize=12,TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top},'Muted')
+        v.Again=button(self,v,v.Success,'',{Name='FeedbackWriteAnother',TextSize=12},function()
+            if v:_alive() then hub:ClearDraft();v:SetPage('Compose') end
+        end)
+        v.Hero=frame(self,v.Root,{Name='FeedbackWelcome',LayoutOrder=1,Size=UDim2.new(1,0,0,80),BorderSizePixel=1},'Surface')
+        self:_bind(v.Hero,{BackgroundColor3='Surface',BorderColor3='Border'})
+        v.HeroBar=frame(self,v.Hero,{Name='HeroRail'},'Accent')
+        v.HeroTile=frame(self,v.Hero,{Name='HeroTile'},'Accent')
+        v.HeroIcon=iconSlot(self,v.HeroTile,'notification',nil,24,U2(10,10),'AccentText')
+        v.HeroTitle=label(self,v.Hero,'',{Name='FeedbackHeading',TextSize=19,TextWrapped=true,TextTruncate=Enum.TextTruncate.None},'Text')
         v.HeroDescription=label(self,v.Hero,'',{TextSize=12,TextWrapped=true,TextTruncate=Enum.TextTruncate.None},'Muted')
         v.Categories=frame(self,v.Root,{Name='FeedbackCategories',LayoutOrder=2,Size=UDim2.new(1,0,0,150),BackgroundTransparency=1})
         for _,id in ipairs(hub.Options.Categories) do
             local item=categories[id];local card={Id=id}
             card.Button=button(self,v,v.Categories,'',{Name='FeedbackCategory_'..id,Text='',BorderSizePixel=1},function() if v:_alive() then hub:SetCategory(id) end end)
+            card.Bar=frame(self,card.Button,{Name='SelectedRail',Size=UDim2.new(1,0,0,3),Visible=false,ZIndex=card.Button.ZIndex+2},'Accent')
+            card.Tile=frame(self,card.Button,{Name='IconTile',ZIndex=card.Button.ZIndex+1},'Inset')
             card.Title=label(self,card.Button,'',{TextSize=13,TextWrapped=true,TextTruncate=Enum.TextTruncate.None},'Text')
             card.Description=label(self,card.Button,'',{TextSize=11,TextWrapped=true,TextTruncate=Enum.TextTruncate.None},'Muted')
-            card.Icon=iconSlot(self,card.Button,item.Icon,nil,16,U2(10,11),'Accent')
+            card.Icon=iconSlot(self,card.Tile,item.Icon,nil,16,U2(6,6),'Accent')
+            card.Check=iconSlot(self,card.Button,false,nil,12,U2(0,10),'Accent')
             v.Cards[#v.Cards+1]=card
         end
         v.Navigation=frame(self,v.Root,{Name='FeedbackPages',LayoutOrder=3,Size=UDim2.new(1,0,0,36),BackgroundTransparency=1})
-        for _,key in ipairs(v.PageOrder) do v.Pages[key]=button(self,v,v.Navigation,'',{Name='FeedbackPage_'..key,TextSize=12},function() if v:_alive() then v:SetPage(key) end end) end
+        v.Rail=frame(self,v.Navigation,{Name='StepRail',Size=UDim2.new(1,0,0,2)},'Border')
+        v.Badges={}
+        for _,key in ipairs(v.PageOrder) do
+            local b=button(self,v,v.Navigation,'',{Name='FeedbackPage_'..key,TextSize=12,BorderSizePixel=1,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=3},function() if v:_alive() then v:SetPage(key) end end)
+            ui(self,'UIPadding',{Name='StepPadding',Parent=b,PaddingLeft=UDim.new(0,40),PaddingRight=UDim.new(0,8)})
+            local badge={Frame=frame(self,b,{Name='StepBadge',Size=U2(22,22),ZIndex=5},'Border')}
+            badge.Frame.Position=U2(-31,8)
+            badge.Digit=label(self,badge.Frame,'',{Name='StepNumber',Size=UDim2.fromScale(1,1),TextSize=12,TextXAlignment=Enum.TextXAlignment.Center,ZIndex=6})
+            badge.Check=iconSlot(self,badge.Frame,false,nil,12,U2(5,5),'AccentText')
+            v.Pages[key]=b;v.Badges[key]=badge
+        end
         v.Body=frame(self,v.Root,{Name='FeedbackWorkspace',LayoutOrder=4,Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1})
         v.BodyLayout=list(self,v.Body,12,true);tab.Left.Parent=v.Body;tab.Right.Parent=v.Body
         for _,item in ipairs({{'Target','Left'},{'Message','Left'},{'Diagnostics','Left'},{'Review','Left'},{'DiagnosticReview','Left'},{'Context','Right'},{'Status','Right'},{'Actions','Right'}}) do

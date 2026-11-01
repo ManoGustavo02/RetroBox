@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.13.0 · 2026-11-01
+
+- Central de Ideias: cabeçalho com faixa e ícone em bloco; cartões de categoria com ícone em bloco, borda de destaque, faixa superior animada e ✓ no selecionado.
+- Etapas numeradas (Mensagem, Diagnóstico, Revisar) com ✓ nas concluídas, trilho de progresso, botão Revisar envio primário e transição suave entre etapas.
+- Barra de caracteres sob a mensagem e painel de confirmação após entrega confirmada, com Escrever outra.
+- Script Hub: pílulas de status coloridas, selo AQUI no jogo da sessão e luz de status no painel de execução.
+- Nenhuma API, opção ou ID alterado; cores do tema com ajuste de contraste; ilustrações novas em docs/.
+
 ## 2.12.0 · 2026-11-01
 
 - Nova tela de boot padrão ao abrir a janela: emblema pixel que cresce, título digitado, log com [ OK ], barra de 24 blocos com percentual, cursor, varredura CRT e saída que fecha como monitor antigo.

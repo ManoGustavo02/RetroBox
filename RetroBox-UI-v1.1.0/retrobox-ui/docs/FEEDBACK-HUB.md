@@ -1,4 +1,8 @@
-# Central de Ideias · Feedback Hub · RetroBox 2.10
+# Central de Ideias · Feedback Hub · RetroBox 2.13
+
+![Central de Ideias 2.13](feedback-center.png)
+
+**Visual 2.13:** cabeçalho próprio com faixa e ícone em bloco; cartões de categoria com ícone em bloco, borda de destaque, faixa superior e ✓ no selecionado; etapas numeradas (Mensagem, Diagnóstico, Revisar) com ✓ nas concluídas, trilho de progresso e botão **Revisar envio** primário; barra de caracteres sob a mensagem (cinza abaixo de `MinLength`, destaque dentro do limite, vermelho acima de `MaxLength`); transição suave entre etapas; e um **painel de confirmação** que aparece só quando o Discord confirma a entrega, com **Escrever outra** (limpa a mensagem e volta para a primeira etapa). Contratos, IDs, `GetPage`/`SetPage`, `Layout='Classic'` e o transporte não mudaram. Elementos internos: `hub.Launcher.Hero`, `Cards`, `Pages`, `Badges`, `CounterFill`, `Success`, `Again`.
 
 Componente opt-in separado do Script Hub. Permite pedir scripts para jogos, sugerir melhorias, compartilhar feedback e relatar problemas. Cria uma janela própria com `Library:CreateFeedbackHub` ou uma guia em uma janela existente com `window:CreateFeedbackHub`. Janelas normais e Script Hubs não recebem uma categoria extra automaticamente.
 

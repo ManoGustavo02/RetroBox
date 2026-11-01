@@ -1,12 +1,14 @@
 <p align="center"><img src="assets/retrobox-banner.svg" alt="RetroBox — retro interfaces, Luau components and runtime" width="100%"></p>
 
-**New in 2.12:** [retro boot screen](RetroBox-UI-v1.1.0/retrobox-ui/docs/BOOT-SCREEN.md) when a script opens — pixel emblem, typed title, `[ OK ]` log, block progress bar and CRT exit; click to skip.
+**New in 2.13:** a product-grade [Ideas Center](RetroBox-UI-v1.1.0/retrobox-ui/docs/FEEDBACK-HUB.md) — own header, category cards, numbered steps, length bar and delivery confirmation — plus a [Script Hub](RetroBox-UI-v1.1.0/retrobox-ui/docs/SCRIPT-HUB.md) with status pills, a HERE tag and an execution light. [Report](RetroBox-UI-v1.1.0/retrobox-ui/docs/RELEASE-2.13.md).
+
+**2.12:** [retro boot screen](RetroBox-UI-v1.1.0/retrobox-ui/docs/BOOT-SCREEN.md) when a script opens — pixel emblem, typed title, `[ OK ]` log, block progress bar and CRT exit; click to skip.
 
 **2.11:** [five native components](RetroBox-UI-v1.1.0/retrobox-ui/docs/REFINED-CONTROLS.md) — Segmented, RangeSlider, Number, Callout and CodeBlock — plus refined motion: CRT power-on, press pulse, bouncing check and notification countdown.
 
 # RetroBox UI
 
-<p align="center"><img src="assets/retrobox-badges.svg" alt="RetroBox 2.12.0 · API 2 · 12 temas · 76 pixel icons · MIT" width="795"></p>
+<p align="center"><img src="assets/retrobox-badges.svg" alt="RetroBox 2.13.0 · API 2 · 12 temas · 76 pixel icons · MIT" width="795"></p>
 
 [![Validation](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/ManoGustavo02/RetroBox/actions/workflows/validate.yml)
 
@@ -16,7 +18,7 @@ A standalone Luau GUI library for scripts running through compatible Roblox clie
 
 [Português](README.md) · [Getting started](RetroBox-UI-v1.1.0/retrobox-ui/README.en.md) · [API](RetroBox-UI-v1.1.0/retrobox-ui/docs/API.md) · [Examples](RetroBox-UI-v1.1.0/retrobox-ui/examples) · [Security](SECURITY.md)
 
-> **RetroBox 2.12.0 · API 2** — distribution maintained by **ManoGustavo02**. Offline visual Designer with typed blocks and Luau export; automatic locales, forms, reusable components, CardGrid and catalog diagnostics. Logic tests do not replace native Roblox rendering checks. [Validation](RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
+> **RetroBox 2.13.0 · API 2** — distribution maintained by **ManoGustavo02**. Offline visual Designer with typed blocks and Luau export; automatic locales, forms, reusable components, CardGrid and catalog diagnostics. Logic tests do not replace native Roblox rendering checks. [Validation](RetroBox-UI-v1.1.0/retrobox-ui/docs/VALIDATION.md).
 
 <p align="center"><img src="RetroBox-UI-v1.1.0/retrobox-ui/docs/boot-screen.png" alt="RetroBox 2.12 boot screen sequence" width="100%"></p>
 
@@ -53,7 +55,7 @@ This notice explains the project's purpose. It does not grant access to third-pa
 Load the permanent API 2 bootstrap:
 
 ```lua
-local RetroBox = loadstring(game:HttpGet("https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua"))({Channel="stable", MinVersion="2.12.0"})
+local RetroBox = loadstring(game:HttpGet("https://raw.githubusercontent.com/ManoGustavo02/RetroBox/main/dist/bootstrap/v2.lua"))({Channel="stable", MinVersion="2.13.0"})
 ```
 
 Read [distribution](RetroBox-UI-v1.1.0/retrobox-ui/docs/AUTO-UPDATE.md) and the [component guide](RetroBox-UI-v1.1.0/retrobox-ui/README.en.md). For a catalog, start with the [native launcher example](RetroBox-UI-v1.1.0/retrobox-ui/examples/native-hub-launcher.lua).

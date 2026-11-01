@@ -202,6 +202,126 @@ def refined_controls():
     c.image.save(ROOT / "docs/refined-controls.png", optimize=True)
 
 
+def feedback_center():
+    colors = theme("Hacker")
+    c = Canvas((1280, 860), colors, colors["Shadow"])
+    c.icon("notification", 40, 30, 4, "Accent")
+    c.text(104, 34, "RETROBOX / CENTRAL DE IDEIAS", "Accent", 26)
+    c.text(106, 72, f"v{VERSION}  /  cabeçalho, categorias, etapas, contador e confirmação de envio", "Muted", 13)
+    c.window((40, 112, 1240, 820), "Central de Ideias", "notification")
+    x1, x2 = 64, 1216
+    # Header card.
+    c.rect((x1, 168, x2, 236), "Surface", outline="Border")
+    c.rect((x1, 168, x1 + 4, 236), "Accent")
+    c.rect((x1 + 18, 180, x1 + 62, 224), "Accent")
+    c.icon("notification", x1 + 28, 190, 2, "AccentText")
+    c.text(x1 + 76, 180, "Central de Ideias", "Text", 19)
+    c.text(x1 + 76, 208, "Sugira melhorias, peça um script ou relate um problema.", "Muted", 12)
+    # Category cards.
+    cards = [("gamepad", "Pedir script", "Para um jogo do Roblox"), ("spark", "Sugestão", "Melhorias e novas funções"),
+             ("notification", "Feedback", "Conte sua experiência"), ("warning", "Relatar bug", "Algo não funcionou?")]
+    width = (x2 - x1 - 36) // 4
+    for index, (icon, title, desc) in enumerate(cards):
+        cx = x1 + index * (width + 12)
+        selected = index == 1
+        c.rect((cx, 250, cx + width, 326), "Surface", outline="Accent" if selected else "Border", width=2 if selected else 1)
+        if selected:
+            c.rect((cx, 250, cx + width, 253), "Accent")
+            c.icon("check", cx + width - 24, 262, 1, "Accent")
+        c.rect((cx + 12, 262, cx + 40, 290), "Accent" if selected else "Inset")
+        c.icon(icon, cx + 20, 270, 1, "AccentText" if selected else "Accent")
+        c.text(cx + 50, 266, title, "Accent" if selected else "Text", 13)
+        c.text(cx + 13, 300, desc, "Muted", 11)
+    # Stepper.
+    steps = [("Mensagem", "Done"), ("Diagnóstico", "Active"), ("Revisar", "Next")]
+    sw = (x2 - x1 - 16) // 3
+    c.rect((x1 + sw // 2, 359, x2 - sw // 2, 361), "Accent")
+    for index, (name, state) in enumerate(steps):
+        sx = x1 + index * (sw + 8)
+        fill = {"Active": "Accent", "Done": "Surface", "Next": "Inset"}[state]
+        c.rect((sx, 341, sx + sw, 379), fill, outline="Border" if state == "Next" else "Accent")
+        c.rect((sx + 9, 349, sx + 31, 371), {"Active": "AccentText", "Done": "Success", "Next": "Border"}[state])
+        if state == "Done":
+            c.icon("check", sx + 14, 354, 1, "AccentText")
+        else:
+            c.text(sx + 20, 352, str(index + 1), "Accent" if state == "Active" else "Text", 12, anchor="ma")
+        c.text(sx + 42, 352, name, {"Active": "AccentText", "Done": "Text", "Next": "Muted"}[state], 13)
+    # Body: message + context column.
+    c.rect((x1, 396, 820, 640), "Surface", outline="Border")
+    c.text(x1 + 14, 408, "ESCREVA SUA MENSAGEM", "Muted", 12)
+    c.rect((x1 + 14, 434, 806, 566), "Inset", outline="Accent")
+    c.text(x1 + 26, 446, "Seria ótimo ter um modo escuro mais contrastado", "Text", 13)
+    c.text(x1 + 26, 466, "e um atalho para abrir as configurações.", "Text", 13)
+    c.text(x1 + 14, 580, "84 / 2000 caracteres", "Muted", 12)
+    c.rect((x1 + 14, 604, 806, 607), "Border")
+    c.rect((x1 + 14, 604, x1 + 14 + 40, 607), "Accent")
+    c.rect((836, 396, x2, 640), "Surface", outline="Border")
+    c.text(850, 408, "JOGO E JOGADOR", "Muted", 12)
+    c.rect((850, 436, 914, 500), "Inset", outline="Border")
+    c.icon("user", 870, 456, 2, "Muted")
+    c.text(926, 444, "Jogo de demonstração", "Text", 13)
+    c.text(926, 466, "Seu nome (@usuario)", "Muted", 12)
+    c.text(850, 520, "STATUS DO ENVIO", "Muted", 12)
+    c.text(850, 544, "Escreva sua ideia e confira a", "Muted", 12)
+    c.text(850, 562, "prévia antes de enviar.", "Muted", 12)
+    # Footer and success panel.
+    c.bevel((x1, 656, 636, 698)); c.text(350, 670, "Editar mensagem", "Text", 13, anchor="ma")
+    c.bevel((646, 656, x2, 698), "Accent"); c.text(931, 670, "Revisar envio", "AccentText", 13, anchor="ma")
+    c.rect((x1, 714, x2, 796), "Surface", outline="Success")
+    c.rect((x1, 714, x1 + 4, 796), "Success")
+    c.rect((x1 + 18, 728, x1 + 58, 768), "Success")
+    c.icon("check", x1 + 26, 736, 2, "AccentText")
+    c.text(x1 + 72, 728, "Mensagem enviada!", "Success", 16)
+    c.text(x1 + 72, 752, "Mensagem enviada. Obrigado por compartilhar sua ideia!", "Muted", 12)
+    c.bevel((x2 - 190, 736, x2 - 14, 772)); c.text(x2 - 102, 747, "Escrever outra", "Text", 12, anchor="ma")
+    c.text(40, 836, "Composição ilustrativa (tema Hacker). O painel verde aparece só após a confirmação do Discord.", "Muted", 12)
+    c.image.save(ROOT / "docs/feedback-center.png", optimize=True)
+
+
+def script_hub():
+    colors = theme("Retro98")
+    c = Canvas((1280, 560), colors, "#F0EDDF")
+    c.icon("gamepad", 40, 30, 4)
+    c.text(104, 34, "RETROBOX / SCRIPT HUB", "Accent", 26)
+    c.text(106, 72, f"v{VERSION}  /  pílulas de status, selo do jogo atual e luz de execução", "Muted", 13)
+    c.window((40, 112, 1240, 520), "Meu Hub", "gamepad")
+    c.rect((60, 160, 420, 500), "Inset", outline="Border")
+    c.text(74, 172, "BIBLIOTECA", "Text", 13)
+    games = [("Jogo de exemplo", "2 scripts · jogo desta sessão", True), ("Outro jogo", "1 script", False), ("Simulador", "3 scripts", False)]
+    for index, (name, meta, here) in enumerate(games):
+        y = 204 + index * 66
+        c.rect((70, y, 410, y + 58), "Surface" if index == 0 else "Inset", outline="Accent" if index == 0 else "Border")
+        if index == 0:
+            c.rect((70, y + 8, 73, y + 50), "Accent")
+        c.rect((82, y + 9, 122, y + 49), "Background")
+        c.icon("gamepad", 90, y + 17, 2, "Muted")
+        c.text(134, y + 10, name, "Accent" if index == 0 else "Text", 13)
+        c.text(134, y + 34, meta, "Muted", 10)
+        if here:
+            c.rect((360, y + 12, 400, y + 28), "Success")
+            c.text(380, y + 14, "AQUI", "AccentText", 9, anchor="ma")
+    scripts = [("Auto demonstração", "v1.0 · Developer", "Concluído", "Success"), ("Visual local", "v2.1 · Developer", "Executando", "Accent"), ("Ferramenta", "v0.9 · Developer", "Disponível", "Inset")]
+    for index, (name, credit, state, role) in enumerate(scripts):
+        y = 160 + index * 86
+        c.rect((436, y, 1220, y + 78), "Surface" if index == 0 else "Inset", outline="Accent" if index == 0 else "Border")
+        c.icon("code", 450, y + 12, 2, "Accent" if index == 0 else "Text")
+        c.text(484, y + 10, name, "Accent" if index == 0 else "Text", 14)
+        c.text(484, y + 34, credit, "Muted", 10)
+        c.text(450, y + 54, "Descrição curta do script para o usuário.", "Muted", 11)
+        width = len(state) * 7 + 14
+        c.rect((1206 - width, y + 33, 1206, y + 51), role)
+        c.text(1206 - width // 2, y + 36, state, "Accent" if role == "Inset" else "AccentText", 10, anchor="ma")
+    c.rect((436, 424, 1220, 500), "Surface", outline="Border")
+    c.rect((436, 424, 1220, 426), "Accent")
+    c.rect((452, 446, 460, 454), "Success")
+    c.text(470, 440, "Auto demonstração", "Text", 14)
+    c.text(452, 466, "Pronto para executar · v1.0", "Muted", 11)
+    c.bevel((940, 444, 1090, 482), "Accent"); c.text(1015, 455, "Executar script", "AccentText", 13, anchor="ma")
+    c.bevel((1100, 444, 1206, 482)); c.text(1153, 455, "Informações", "Text", 11, anchor="ma")
+    c.text(40, 536, "Composição ilustrativa (tema Retro98); o hub usa o próprio perfil de aparência.", "Muted", 12)
+    c.image.save(ROOT / "docs/script-hub.png", optimize=True)
+
+
 if __name__ == "__main__":
     PACKAGE.pixel_catalog()
     PACKAGE.visual_concept()
@@ -209,4 +329,6 @@ if __name__ == "__main__":
     runpy.run_path(str(ROOT / "tools/build_contrast_preview.py"), run_name="__main__")
     boot_screen()
     refined_controls()
+    feedback_center()
+    script_hub()
     print(f"Documentation images regenerated for RetroBox {VERSION}")

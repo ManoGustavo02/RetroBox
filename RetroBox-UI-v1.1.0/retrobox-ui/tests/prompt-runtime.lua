@@ -76,5 +76,14 @@ if bootStart then
  assert(created.Controls['rever-boot']:Press());Mock.pump();assert(created:GetBootScreen());Mock.pump(3);assert(created:GetBootScreen()==nil)
  clean(created);print('PASS prompt 2.12 example: boot screen, custom steps, skip and replay')
 end
-local total=8+(start and 1 or 0)+(bootStart and 1 or 0)
+local centerStart=prompt:find('Exemplo funcional da Central de Ideias da 2.13.0',1,true)
+if centerStart then
+ code=example('Exemplo funcional da Central de Ideias da 2.13.0')
+ local hub=assert(load(code..'\nreturn feedback','@prompt-feedback'))();Mock.pump()
+ assert(hub.Launcher and hub:GetDraft().Category=='Suggestion' and hub.Launcher.Cards[2].Button.BorderSizePixel==2)
+ hub:SetMessage('Uma sugestão completa para a central.');hub:SetPage('Review');assert(hub:Submit());Mock.pump()
+ assert(hub:GetStatus().State=='Sent' and hub.Launcher.Success.Visible)
+ clean(hub.Window);print('PASS prompt 2.13 example: ideas center launcher, explicit transport and confirmation')
+end
+local total=8+(start and 1 or 0)+(bootStart and 1 or 0)+(centerStart and 1 or 0)
 print(total..'/'..total..' prompt examples passed with mocked HTTP and no executor files')

@@ -364,6 +364,7 @@ dofile("tests/development-tools.lua")(Mock,Library,test)
 dofile("tests/designer-exports.lua")(Mock,Library,test)
 dofile("tests/refined-controls.lua")(Mock,Library,test)
 dofile("tests/boot-screen.lua")(Mock,Library,test)
+dofile("tests/interface-polish.lua")(Mock,Library,test)
 test("diagnostic loader reports HTTP, compile and library errors",function()
     loadstring=load
     for _,response in ipairs({function() error("HTTP failed") end,function() return "local" end,function() return "return {}" end,function() return "" end}) do

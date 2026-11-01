@@ -1,6 +1,10 @@
 # RetroBox UI
 
-**Novo na 2.12:** [tela de boot retrô](docs/BOOT-SCREEN.md) ao executar o script, com duração configurável e clique para pular. [Detalhes](docs/RELEASE-2.12.md) · [Demonstração](examples/boot-screen.lua).
+**Novo na 2.13:** [Central de Ideias](docs/FEEDBACK-HUB.md) e [Script Hub](docs/SCRIPT-HUB.md) refinados. [Detalhes](docs/RELEASE-2.13.md).
+
+![Central de Ideias](docs/feedback-center.png)
+
+**2.12:** [tela de boot retrô](docs/BOOT-SCREEN.md) ao executar o script, com duração configurável e clique para pular. [Detalhes](docs/RELEASE-2.12.md) · [Demonstração](examples/boot-screen.lua).
 
 ![Tela de boot](docs/boot-screen.png)
 

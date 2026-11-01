@@ -134,6 +134,7 @@ function Hub:_installLauncher(options)
     ui.Dock=panel(ui.Root,'ExecutionBar','Surface',true); ui.Dock.ZIndex=10
     ui.DockAccent=panel(ui.Dock,'DockAccent','Accent'); ui.DockAccent.ZIndex=11
     ui.SelectedScript=label(ui.Dock,'SelectedScript','',14,'Text'); ui.SelectedScript.ZIndex=11
+    ui.StatusLed=panel(ui.Dock,'StatusLed','Muted'); ui.StatusLed.ZIndex=12
     ui.Status=label(ui.Dock,'ExecutionStatus','',11,'Muted'); ui.Status.TextWrapped=true; ui.Status.TextYAlignment=Enum.TextYAlignment.Top; ui.Status.ZIndex=11
     ui.ProgressTrack=panel(ui.Dock,'ProgressTrack','Border'); ui.ProgressTrack.ZIndex=11
     ui.ProgressFill=panel(ui.ProgressTrack,'ProgressFill','Accent'); ui.ProgressFill.ZIndex=12
@@ -293,21 +294,28 @@ function Hub:_installLauncher(options)
             row.LauncherTitle=label(row.Button,'GameName','',13,'Text')
             row.LauncherMeta=label(row.Button,'GameSummary','',10,'Muted')
             row.LauncherMark=panel(row.Button,'SelectionMark','Accent')
+            row.HereTag=label(row.Button,'CurrentGameTag','',9,'AccentText')
+            row.HereTag.TextXAlignment=Enum.TextXAlignment.Center;row.HereTag.BackgroundTransparency=0
+            bind(row.HereTag,{BackgroundColor3='Success',TextColor3='AccentText'})
         end
         row.Labels[1].Visible=false
         rect(row.Thumb,12,12,40,40)
         if row.Fallback and row.Fallback.Frame then row.Fallback.Frame.Position=U2(20,20) end
         local width=math.max(100,row.Button.Size.X.Offset)
-        rect(row.LauncherTitle,64,10,width-78,23); rect(row.LauncherMeta,64,36,width-78,18)
+        local here=hub:IsCurrentGame(record.Id)
+        row.HereTag.Text=tr('AQUI','HERE');row.HereTag.Visible=here
+        local tagWidth=here and math.ceil(textService:GetTextSize(row.HereTag.Text,row.HereTag.TextSize,window.Font,Vector2.new(1000,100)).X)+12 or 0
+        if here then rect(row.HereTag,width-tagWidth-10,12,tagWidth,math.ceil(16*(window.TextScale or 1))) end
+        rect(row.LauncherTitle,64,10,width-78-(here and tagWidth+8 or 0),23); rect(row.LauncherMeta,64,36,width-78,18)
         row.LauncherMark.Position=U2(0,8)
         if not row._markReady then row.LauncherMark.Size=U2(3,0);row._markReady=true end
         window:_selectionMotion(row.LauncherMark,selected,U2(3,self.RowHeight-18),U2(3,0),self)
         row.LauncherTitle.Text=(hub:IsFavorite(record.Id) and '★ ' or '')..displayName(record)
-        row.LauncherMeta.Text=#record.Scripts..(#record.Scripts==1 and ' script' or ' scripts')..(hub:IsCurrentGame(record.Id) and tr(' · VOCÊ ESTÁ AQUI',' · YOU ARE HERE') or '')
+        row.LauncherMeta.Text=#record.Scripts..(#record.Scripts==1 and ' script' or ' scripts')..(here and tr(' · jogo desta sessão',' · this session’s game') or '')
         row.Button.BorderSizePixel=1
         bind(row.Button,{BackgroundColor3=selected and 'Surface' or 'Inset',BorderColor3=selected and 'Accent' or 'Border'})
         bind(row.LauncherTitle,{TextColor3=selected and 'Accent' or 'Text'})
-        window:_refreshInk(row.LauncherMeta)
+        window:_refreshInk(row.LauncherMeta); window:_refreshInk(row.HereTag)
     end
     local states={Available='Disponível',Unavailable=tr('Indisponível','Unavailable'),Queued='Na fila',Running='Executando',Cancelling='Cancelando',Completed='Concluído',Failed='Falha',Cancelled='Cancelado'}
     function hub.ScriptList:_renderNode(row,index)
@@ -322,7 +330,8 @@ function Hub:_installLauncher(options)
             row.LauncherTitle=label(row.Button,'ScriptName','',14,'Text')
             row.LauncherCredit=label(row.Button,'ScriptCredit','',10,'Muted')
             row.LauncherDescription=label(row.Button,'ScriptDescription','',11,'Muted'); row.LauncherDescription.TextWrapped=true; row.LauncherDescription.TextYAlignment=Enum.TextYAlignment.Top
-            row.LauncherState=label(row.Button,'ScriptState','',10,'Accent'); row.LauncherState.TextXAlignment=Enum.TextXAlignment.Right
+            row.LauncherState=label(row.Button,'ScriptState','',10,'Accent'); row.LauncherState.TextXAlignment=Enum.TextXAlignment.Center
+            row.LauncherState.BackgroundTransparency=0
             row.LauncherMark=panel(row.Button,'SelectionMark','Accent')
             row.UniversalTag=label(row.Button,'UniversalTag','UNIVERSAL',9,'AccentText')
             row.UniversalTag.TextXAlignment=Enum.TextXAlignment.Center;row.UniversalTag.BackgroundTransparency=0
@@ -336,7 +345,9 @@ function Hub:_installLauncher(options)
         rect(row.LauncherTitle,44,10,math.max(20,width-56-(badgeWidth>0 and badgeWidth+8 or 0)),22*scale)
         rect(row.LauncherCredit,44,34*scale,width-56,16*scale)
         rect(row.LauncherDescription,14,55*scale,width-28,32*scale)
-        rect(row.LauncherState,width-140,34*scale,126,16*scale)
+        local stateText=tr(states[status.Status] or status.Status,status.Status)
+        local stateWidth=math.min(126,math.ceil(textService:GetTextSize(stateText,row.LauncherState.TextSize,window.Font,Vector2.new(1000,100)).X)+14)
+        rect(row.LauncherState,width-14-stateWidth,33*scale,stateWidth,18*scale)
         row.LauncherMark.Position=U2(0,8)
         if not row._markReady then row.LauncherMark.Size=U2(3,0);row._markReady=true end
         window:_selectionMotion(row.LauncherMark,selected,U2(3,self.RowHeight-18),U2(3,0),self)
@@ -346,8 +357,10 @@ function Hub:_installLauncher(options)
         row.LauncherCredit.Size=UDim2.new(0,math.max(40,width-200),0,16*scale)
         row.LauncherDescription.Text=spec.Description~='' and spec.Description or tr('Selecione para executar este script.','Select to run this script.')
         row.LauncherState.Text=tr(states[status.Status] or status.Status,status.Status)
-        local role=status.Status=='Failed' and 'Danger' or (status.Status=='Unavailable' or status.Status=='Cancelled') and 'Muted' or 'Accent'
-        bind(row.LauncherState,{TextColor3=role}); bind(row.LauncherTitle,{TextColor3=selected and 'Accent' or 'Text'})
+        local busy=status.Status=='Running' or status.Status=='Queued' or status.Status=='Cancelling'
+        local fill=status.Status=='Failed' and 'Danger' or status.Status=='Completed' and 'Success' or busy and 'Accent' or 'Inset'
+        local ink=fill=='Inset' and ((status.Status=='Unavailable' or status.Status=='Cancelled') and 'Muted' or 'Accent') or 'AccentText'
+        bind(row.LauncherState,{BackgroundColor3=fill,TextColor3=ink}); bind(row.LauncherTitle,{TextColor3=selected and 'Accent' or 'Text'})
         row.Button.BorderSizePixel=1
         for _,object in ipairs({row.LauncherTitle,row.LauncherCredit,row.LauncherDescription,row.LauncherState,row.UniversalTag}) do window:_refreshInk(object) end
     end
@@ -492,14 +505,16 @@ function Hub:_installLauncher(options)
         ui.Activity.Visible=sideBySide; ui.Status.Visible=true
         if not sideBySide then
             local yButton=math.max(0,dockHeight-actionsHeight-12)
-            rect(ui.SelectedScript,12,8,width-24,math.min(titleHeight,math.max(0,yButton-12)))
+            rect(ui.StatusLed,12,8+math.floor(math.max(0,titleHeight-8)/2),8,8)
+            rect(ui.SelectedScript,26,8,width-38,math.min(titleHeight,math.max(0,yButton-12)))
             local statusY=12+titleHeight
             rect(ui.Status,12,statusY,width-24,math.max(0,math.min(statusHeight,yButton-statusY-6)))
             ui.Status.Visible=ui.Status.Size.Y.Offset>0
             placeButtons(dockRows,12,yButton,width-24,buttonHeight,true)
         else
             local right=dockRows[1].Width
-            rect(ui.SelectedScript,16,12,width-right-48,24*ts)
+            rect(ui.StatusLed,16,12+math.floor((24*ts-8)/2),8,8)
+            rect(ui.SelectedScript,32,12,width-right-64,24*ts)
             rect(ui.Status,16,40*ts,width-right-48,30*ts)
             rect(ui.Activity,16,dockHeight-22,width-right-48,14)
             placeButtons(dockRows,width-right-16,16,right,buttonHeight,false)
@@ -566,6 +581,11 @@ function Hub:_installLauncher(options)
         if spec and status.Status=='Available' then ui.Status.Text=tr('Pronto para executar','Ready to run')..(spec.Version~='' and ' · v'..spec.Version or '') end
         if status.Status=='Unavailable' and record and spec then local _,reason=hub:IsScriptAvailable(record.Id,spec.Id); ui.Status.Text=tostring(reason or tr('Indisponível','Unavailable')) end
         bind(ui.Status,{TextColor3=status.Status=='Failed' and 'Danger' or busy and 'Accent' or 'Muted'})
+        local led=status.Status=='Failed' and 'Danger' or status.Status=='Completed' and 'Success' or busy and 'Accent' or spec and status.Status=='Available' and 'Success' or 'Muted'
+        if self._led~=led then
+            self._led=led; bind(ui.StatusLed,{BackgroundColor3=led})
+            if window:_motionAllowed(ui.StatusLed) then ui.StatusLed.BackgroundTransparency=.7; window:_motion(ui.StatusLed,{BackgroundTransparency=0},.3,'status-led',hub,nil,{Easing='Quint'}) end
+        end
         ui.Activity.Text=running>0 and (running..(running==1 and tr(' execução em andamento',' active run') or tr(' execuções em andamento',' active runs'))) or tr('Selecionar e pesquisar não executa scripts.','Selecting and searching do not run scripts.')
         local progress=(busy or status.Status=='Completed') and status.Progress or 0
         window:_motion(ui.ProgressFill,{Size=UDim2.new(bounded(progress or 0,1),0,1,0)},.16,'execution-progress',hub)
