@@ -1,4 +1,4 @@
--- RetroBox UI 2.11.0 | Mano Gustavo | MIT License
+-- RetroBox UI 2.12.0 | Mano Gustavo | MIT License
 -- Standalone GUI library for Roblox client executors.
 -- Load the raw GitHub source with loadstring(game:HttpGet(URL))().
 
@@ -9,7 +9,7 @@ local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
 local TextService = game:GetService("TextService")
 
-local Library = { Version = "2.11.0", Themes = {}, Windows = {} }
+local Library = { Version = "2.12.0", Themes = {}, Windows = {} }
 local Window = {}; Window.__index = Window
 local Tab = {}; Tab.__index = Tab
 local Section = {}; Section.__index = Section
@@ -11183,13 +11183,22 @@ do
     function Library:CreateWindow(options)
         options=options or {}
         assert(options.LoadingScreen==nil or type(options.LoadingScreen)=='boolean' or type(options.LoadingScreen)=='table','LoadingScreen must be boolean or table')
-        if type(options.LoadingScreen)=='table' then loadingOptions(options.LoadingScreen) end
+        if type(options.LoadingScreen)=='table' then
+            loadingOptions(options.LoadingScreen)
+            if Library._bootOptions then Library._bootOptions(options.LoadingScreen) end
+        end
         for _,key in ipairs({'TitleRGB','SubtitleRGB'}) do if options[key]~=nil then rgbOptions(options[key]) end end
         local window=createWindow(self,options)
         if options.TitleRGB then window:SetTitleRGB(options.TitleRGB) end
         if options.SubtitleRGB then window:SetSubtitleRGB(options.SubtitleRGB) end
         if options.LoadingScreen~=false and (options.LoadingScreen~=nil or window:_motionAllowed(window.Main)) then
             local startup=copy(type(options.LoadingScreen)=='table' and options.LoadingScreen or {})
+            if startup.Style~='Card' and window.ShowBootScreen then
+                startup.Blocking=nil;startup.Timeout=nil;startup.Style=nil
+                window:ShowBootScreen(startup)
+                return window
+            end
+            startup.Style=nil;startup.Duration=nil;startup.Steps=nil;startup.Subtitle=nil;startup.Skippable=nil;startup.OnComplete=nil
             if startup.Blocking==nil then startup.Blocking=false end
             local loading=window:ShowLoading(startup)
             local pending=task.defer(function()
@@ -12238,7 +12247,7 @@ end
 -- BEGIN RETRO290 NEWS
 -- Built-in release notes are owned by the library; consumers only set ScriptUpdates.
 do
-    local official=HttpService:JSONDecode([==[[{"Id":"retrobox-2.11.0","Version":"2.11.0","Date":"2026-11-01","Title":{"pt-BR":"Movimento refinado e novos componentes","en-US":"Refined motion and new components"},"Description":{"pt-BR":"- Novos componentes: Segmented com indicador deslizante, RangeSlider de dois polos, Number com -/+ e repetição ao segurar, Callout informativo e CodeBlock com números de linha e Copiar.\n- Animador central com curvas Back/Quint: abertura com linha CRT, pulso de clique nos botões, check com salto e seleção com elasticidade.\n- Notificações ganham barra de tempo restante, independente da velocidade das animações; Timer=false a oculta.\n- Movimento respeita Reduced Motion, intensidade Discreta/Desativada e Animated=false; hit boxes não mudam.\n- Novos tipos funcionam em perfis, busca, temas, formulários e componentes reutilizáveis. API 2 preservada.","en-US":"- New components: Segmented with sliding indicator, two-thumb RangeSlider, Number with -/+ and hold-to-repeat, informative Callout and CodeBlock with line numbers and Copy.\n- Central animator gains Back/Quint curves: CRT power-on line, button press pulse, bouncing check and elastic selection.\n- Notifications show a remaining-time bar that ignores animation speed; Timer=false hides it.\n- Motion honours Reduced Motion, Subtle/Off intensity and Animated=false without moving hit boxes.\n- New types support profiles, search, themes, forms and reusable components. API 2 preserved."}},{"Id":"retrobox-2.10.0","Version":"2.10.0","Date":"2026-10-28","Title":{"pt-BR":"Central de Ideias própria e Novidades sem avisos","en-US":"Dedicated Ideas Center and passive update history"},"Description":{"pt-BR":"- Central de Ideias com launcher próprio: cartões de categoria, mensagem, diagnóstico opcional e revisão do envio.\n- Painel de jogo, jogador e status; layout adaptável e nomes alinhados, preservando API, temas e traduções.\n- Novidades fica somente como histórico: sem contadores, etiquetas de não lida, botão de leitura ou avisos.\n- Perfis antigos não reativam indicadores; credenciais e rascunhos continuam fora dos perfis.\n- Prévia de diagnóstico permanece somente para leitura após atualizações da tela.","en-US":"- Dedicated Ideas Center launcher with category cards, message composer, optional diagnostics and submission review.\n- Game/player context and delivery status, adaptive layout and aligned labels; existing API, themes and localization retained.\n- Updates is a passive history: no unread counts, tags, mark-as-read buttons or alerts.\n- Legacy profiles cannot restore update badges; credentials and drafts remain outside profiles.\n- Diagnostic preview stays read-only after refresh."}},{"Id":"retrobox-2.9.0","Version":"2.9.0","Date":"2026-10-27","Title":{"pt-BR":"Novidades e relatos com diagnóstico","en-US":"Updates and diagnostic bug reports"},"Description":{"pt-BR":"- Área Novidades em todas as janelas, com histórico oficial da RetroBox e updates opcionais do script em fontes separadas.\n- Marcação de leitura por conteúdo, idioma PT/EN e persistência no perfil; conteúdo oficial não aceita substituição pela API pública.\n- Diagnóstico opcional na Central de Ideias: erro colado, código/tag, reprodução e seleção de registros disponíveis.\n- Captura de console explícita e limitada, prévia, cópia e remoção de padrões reconhecidos de segredo; anexos não entram nos perfis.\n- Limites do embed conferidos antes do envio, preservação de rascunho e encerramento seguro de captura e respostas tardias.","en-US":"- Updates in every window, with official RetroBox history and optional script updates in separate sources.\n- Content-based read markers, PT/EN and saved read state; public consumer APIs cannot replace official notes.\n- Optional Ideas Center diagnostics: pasted error, error tag, reproduction steps and selected available records.\n- Explicit bounded console capture, preview, copy and recognized-secret redaction; attachments stay out of profiles.\n- Embed limits checked before sending, draft preservation and managed capture/request cleanup."}},{"Id":"retrobox-2.8.0","Version":"2.8.0","Date":"2026-10-27","Title":{"pt-BR":"Central de Ideias","en-US":"Ideas Center"},"Description":{"pt-BR":"- Central de Ideias opt-in e independente do Script Hub, com categorias, formulário, prévia e PT/EN.\n- Jogo atual ou outro por ID/link; nome automático, identidade real e avatar HTTPS opcional.\n- Webhook Discord ou transporte customizado, confirmação, limites e duplicatas; nenhum envio na abertura.\n- Falhas e timeout mantêm o texto; respostas tardias não alteram GUI nova. Rascunho/credencial fora dos perfis.\n- Regressões de comunicação, idioma, ciclo de vida e layouts. API 2, bootstrap, Designer e releases anteriores preservados.","en-US":"- Standalone or attached Ideas Center with requests, suggestions, feedback and bug reports.\n- Current or selected game, real player identity, optional avatar and PT/EN preview.\n- Explicit Discord webhook or custom transport, confirmed delivery, cooldown and duplicate handling.\n- Draft preservation, timeout handling and safe cleanup; no send when opening."}},{"Id":"retrobox-2.7.0","Version":"2.7.0","Date":"2026-10-26","Title":{"pt-BR":"Acabamento visual, RGB e tema do Hub","en-US":"Visual polish, RGB and Hub theme"},"Description":{"pt-BR":"- Acabamento compartilhado: entrada coordenada de textos nas páginas, tela de preparação opcional, skeletons nativos e SetLoading para controles comuns.\n- RGB opt-in para títulos, descrições, valores e botões; contraste contextual, preferências de movimento e agendador compartilhado com ColorPickers.\n- Perfil independente de aparência por Hub, preset Launcher, botão Tema e editor de cores; snapshots persistentes e importação atômica.\n- Capas e metadados com placeholders, falha observável e fade de imagem; menus, tooltips e ícones acompanham a paleta local.\n- Orçamentos de efeitos, encerramento seguro ao ocultar/destruir/reexecutar e regressões adicionais. API 2, consumidores, bootstrap, Designer e releases anteriores preservados.","en-US":"- Shared visual polish, coordinated entrances, optional loading screens and native skeletons.\n- Optional RGB for titles, descriptions, values and buttons, respecting contrast and motion preferences.\n- Independent Hub appearance profiles, Launcher preset and palette editor.\n- Image placeholders and status, local theme integration and bounded managed effects."}},{"Id":"retrobox-2.6.0","Version":"2.6.0","Date":"2026-10-26","Title":{"pt-BR":"Identidade e animações","en-US":"Identity and animations"},"Description":{"pt-BR":"- Perfil observa LocalPlayer e Name/DisplayName/UserId, recupera inicialização tardia e confere identidade ao reabrir; avatar e tradução não bloqueiam nomes.\n- Respostas de avatar antigas são invalidadas; observers e referências da interface são liberados na destruição.\n- Feedback de botões, foco, seleção, abas, listas/cards, menus, tooltips, estatísticas, gráficos, Hub/HUD e etapas usam o animador central.\n- Gráficos/StatCards animam por padrão; Animated=false desliga movimento por controle. Arraste suavizado passa a ser padrão, respeitando saves e acessibilidade.\n- Geometria dos gráficos usa unidades lógicas, máscaras de progresso acompanham a transição e há orçamento de 96 segmentos animados por gráfico.\n- Novas regressões de identidade/movimento e demonstração nativa com dados fictícios. API 2, bootstrap, Designer e releases anteriores preservados.","en-US":"- Player profile follows real LocalPlayer identity, including delayed initialization and changes.\n- Stale avatar responses are discarded and observers are cleaned up.\n- Central animation system covers interactions, charts, statistics, Hubs and compact views.\n- Smooth dragging and animated charts by default, with accessibility and explicit opt-outs."}},{"Id":"retrobox-2.5.2","Version":"2.5.2","Date":"2026-10-21","Title":{"pt-BR":"Layout e interação do launcher","en-US":"Launcher layout and interaction"},"Description":{"pt-BR":"- Ordenação do Hub usa a camada de ContextMenu já existente, fora de ancestrais com recorte; respeita a janela e abre para cima quando necessário.\n- Botões do launcher reservam espaço pelo texto, fonte, escala e ícone reais; ações e filtros quebram em linhas quando necessário.\n- Cabeçalhos tradicionais compartilham o cálculo de informação, fixação, Keybind integrado e controle principal, com altura responsiva.\n- Remoção/recriação de ajuda e fixação não acumula deslocamentos; callbacks, captura de teclas, preferências e IDs preservados.\n- Regressões de geometria/interação e compatibilidade com o Hub anexado. Sem redesign, mudança de API ou modificação dos consumidores.","en-US":"- Launcher sorting uses the existing context-menu overlay without clipping.\n- Action widths use actual text, font, scale and icons; rows wrap when needed.\n- Control headers reserve responsive room for help, pinning and keybinds.\n- Existing callbacks, IDs and saved preferences are preserved."}},{"Id":"retrobox-2.5.1","Version":"2.5.1","Date":"2026-10-20","Title":{"pt-BR":"Desempenho dos grafos","en-US":"Flow graph performance"},"Description":{"pt-BR":"- Avaliação memoizada por expressão nos grafos nativos e na prévia, evitando recálculo exponencial de subexpressões compartilhadas.\n- Cada leitura de entrada usa um cache novo, preservando mudanças de valores entre bindings e ações.\n- Comparação de registros na prévia independe da ordem das chaves, como no runtime.\n- Regressões com 28 operações compartilhadas e refresh; release 2.5.0 preservada por bytes.","en-US":"- Memoized flow expressions prevent exponential recalculation of shared inputs.\n- Every new evaluation gets a fresh cache so state changes remain visible.\n- Preview record comparisons ignore map-key order, matching the native runtime."}},{"Id":"retrobox-2.5.0","Version":"2.5.0","Date":"2026-10-20","Title":{"pt-BR":"Designer e ferramentas de desenvolvimento","en-US":"Designer and developer tools"},"Description":{"pt-BR":"- Designer HTML offline com 21 componentes, Row, 22 blocos tipados, prévia, PT/EN, JSON e compilador Luau real.\n- Localização automática por janela, dicionários, parâmetros, provider explícito e preferência em perfis.\n- Formulários transacionais, componentes reutilizáveis, CardGrid com pool limitado e grafos sem ciclos.\n- Diagnóstico de catálogo por download/compilação explícitos, sem executar o conteúdo.\n- Fontes do editor, catálogo compartilhado, exemplos, testes Chromium e integração contínua.\n- API 2, bootstrap, estrutura histórica, jogos/IDs dos consumidores e pins publicados preservados.","en-US":"- Offline HTML Designer with 21 components, rows, 22 typed blocks, preview and a real Luau compiler.\n- Automatic window localization, dictionaries, parameters and explicit translation provider.\n- Transactional forms, reusable components, bounded CardGrid and acyclic flows.\n- Explicit catalog diagnostics and Chromium tests; existing API 2 consumers preserved."}},{"Id":"retrobox-2.4.0","Version":"2.4.0","Date":"2026-10-20","Title":{"pt-BR":"Scripts universais","en-US":"Universal scripts"},"Description":{"pt-BR":"- UniversalScripts nativo e separado de Games, com categoria, tag UNIVERSAL e nome/descrição/URL ou Callback.\n- Id opcional, APIs de cadastro/edição/execução, perfis e ações independentes por categoria.\n- Raw do Pastefy aceito por URL HTTPS; download apenas na execução, com progresso, erros e cancelamento cooperativo.\n- Catálogos JSON continuam sem URL/código e atualizam universais de forma atômica por metadados/Actions locais.\n- Preserva API 2, estrutura histórica, tema/PixelIcons, jogos e artefatos até 2.3.1.","en-US":"- UniversalScripts live separately from game entries, with a UNIVERSAL tag and their own metadata.\n- Optional IDs, registration/editing APIs, profiles and independent actions.\n- HTTPS Pastefy raw URLs load only on explicit execution, with progress and cancellation.\n- Remote JSON catalogs remain metadata-only."}},{"Id":"retrobox-2.3.1","Version":"2.3.1","Date":"2026-10-20","Title":{"pt-BR":"Nova origem de distribuição","en-US":"New distribution origin"},"Description":{"pt-BR":"- Origem padrão do updater e bootstrap passam a ManoGustavo02/RetroBox.\n- Guias e exemplos ativos apontam para a conta nova; estrutura histórica, API 2 e temas preservados.\n- Nova release, sem reescrever os pins 2.0.0, 2.1.0, 2.2.0 e 2.3.0.\n- README bilíngue, banner e badges locais, guias de contribuição/segurança, formulários e CI de validação.\n- Canais Stable/Preview apontam para 2.3.1; resultados de publicação e acesso remoto ficam no relatório da release.","en-US":"- Default updater and bootstrap origin migrated to ManoGustavo02/RetroBox.\n- Active guides and examples point to the new account; historical releases are preserved.\n- Bilingual README, local artwork, contribution/security guides, issue forms and CI."}},{"Id":"retrobox-2.3.0","Version":"2.3.0","Date":"2026-10-19","Title":{"pt-BR":"Launcher padrão do Script Hub","en-US":"Standard Script Hub launcher"},"Description":{"pt-BR":"- Launcher padrão em CreateScriptHub, com catálogo, filtros, destaque, cards e barra fixa, compartilhado por todos os consumidores.\n- FallbackName/Notes nativos, SetCatalogFilter/GetCatalogFilter e compatibilidade dos IDs/perfis/API 2.\n- Temas, idioma, contraste dos cards, buscas/foco, detalhes completos e status de teleporte integrados.\n- Limpeza de Hold evita render em toggle/PixelIcon já destruído durante sinais diferidos.\n- Novo exemplo e regressões específicas de hubs genéricos e integração do consumidor.\n- GitHub retornou 403 de conta suspensa; este pacote não foi publicado.","en-US":"- Shared launcher layout for CreateScriptHub: filters, featured game, cards and fixed actions.\n- FallbackName, Notes and catalog filter APIs preserve existing IDs and API 2.\n- Improved themes, language, contrast, search, complete details and teleport status.\n- Historical note: publication from the old account was blocked; distribution later migrated in 2.3.1."}},{"Id":"retrobox-2.2.0","Version":"2.2.0","Date":"2026-10-19","Title":{"pt-BR":"Mini HUD, previews e etapas","en-US":"Mini HUD, previews and steppers"},"Description":{"pt-BR":"- Mini HUD com States compartilhados, valores/progresso/timers/status, arraste/trava, escala/opacidade, recolhimento e layout em perfis.\n- Fixar/Soltar de StatCard, Progress, ProgressChart, Label e Stepper; valores silenciosos e cleanup do controle preservados.\n- Barra compacta reutiliza FloatingButton e Press/Toggle/Hold, disabled/busy e liberação ao perder foco.\n- AddPreview com imagem/modelo clonado/WorldModel, câmera própria, zoom/rotação, Apply/Cancel, animações opcionais e renderer com scope.\n- AddStepper acompanha progressos/resultados de RunAction, com transições manuais e resumo fixável.\n- 32 regressões específicas e quatro exemplos novos; distribuição e bootstrap API 2 preservados.","en-US":"- Mini HUD with shared states, values, progress, timers, dragging, locking and profile layouts.\n- Pin/unpin existing components, compact action bar, image/model previews and operation stepper.\n- Scoped resources, explicit callbacks and additional regression examples."}},{"Id":"retrobox-2.1.0","Version":"2.1.0","Title":{"pt-BR":"Ícones, metadados e profiler","en-US":"Icons, metadata and profiler"},"Description":{"pt-BR":"- PixelIcon separa observação de Destroying da destruição explícita, com limpeza idempotente e soltura de referências, sem pcall de supressão.\n- Smart Game Metadata no Hub atual: campos manuais preservados, consulta assíncrona, provider opcional, cache/limite/deduplicação e integração com catálogos.\n- Profiler por tarefa/ação no Runtime Inspector existente, com tempos, contadores, espera instrumentada, histórico limitado e aviso de intervalo excedido.\n- Session Snapshots opcionais de States registrados, validados e independentes dos perfis.\n- CreateIntegration e cinco exemplos novos, incluindo operação cancelável de seis etapas.\n- API 2 e bootstrap permanente preservados; releases anteriores continuam imutáveis.","en-US":"- Idempotent PixelIcon lifecycle fixes and cleanup without suppressing destroyed-parent errors.\n- Smart game metadata with async providers, cache and field-level overrides.\n- Task/action profiler, optional registered session snapshots and integration helpers."}},{"Id":"retrobox-2.0.0","Version":"2.0.0","Title":{"pt-BR":"Bootstrap permanente e API 2","en-US":"Permanent bootstrap and API 2"},"Description":{"pt-BR":"- Bootstrap permanente de API 2; Stable/Preview/Pinned, SemVer, compatibilidade, SHA-256, cache opcional e rollback com histórico imutável.\n- Código do Hub por módulos Version/Start/LoadHub e catálogo JSON por CatalogUpdate/Actions, com origens explícitas e atualizações independentes.\n- Script Hub nativo com imagem ampla, sem rótulo Miniatura, listas adaptativas, seleção por jogo, um Executar script, cancelamento/feedback e panes responsivos.\n- Busca global passa a navegar ao pane correto; APIs, IDs/perfis, temas, ícones e componentes anteriores preservados.\n- Guias, migração, prompt completo, 24 exemplos, builders e verificação de distribuição. 256 testes de lógica e 2 de pipeline aprovados.","en-US":"- Permanent API 2 bootstrap with stable/preview/pinned channels, integrity checks and immutable releases.\n- Independent script hub modules and metadata catalogs.\n- Native Script Hub launcher with responsive lists, search, game selection and execution feedback.\n- Existing IDs, themes, profiles and controls retained."}}]]==])
+    local official=HttpService:JSONDecode([==[[{"Id":"retrobox-2.12.0","Version":"2.12.0","Date":"2026-11-01","Title":{"pt-BR":"Nova tela de inicialização","en-US":"New boot screen"},"Description":{"pt-BR":"- Tela de boot estilo terminal retrô ao abrir: emblema pixel que se materializa, título digitado, log com [ OK ], barra em blocos, varredura CRT e cursor piscando.\n- Duração padrão de 2 s (LoadingScreen={Duration=.6–8}); clique, Enter, Espaço ou Esc pulam; a saída fecha a tela como um monitor CRT e revela a janela.\n- Personalize Title, Subtitle, Message e até 8 Steps; OnComplete(skipped) avisa o fim; window:ShowBootScreen reproduz a sequência.\n- Style='Card' mantém o carregamento anterior; Reduced Motion mostra uma versão estática curta. O script nunca espera pela animação.\n- Imagens da documentação atualizadas para a versão atual, com novas ilustrações do boot e dos componentes 2.11.","en-US":"- Retro terminal boot screen on open: materializing pixel emblem, typed title, [ OK ] log, block progress bar, CRT sweep and blinking cursor.\n- 2 s default (LoadingScreen={Duration=.6–8}); click, Enter, Space or Esc skip it; the exit folds like a CRT monitor and reveals the window.\n- Customize Title, Subtitle, Message and up to 8 Steps; OnComplete(skipped) reports the end; window:ShowBootScreen replays it.\n- Style='Card' keeps the previous loader; Reduced Motion shows a short static version. Scripts never wait for the animation.\n- Documentation images refreshed for the current version, with new boot and 2.11 component illustrations."}},{"Id":"retrobox-2.11.0","Version":"2.11.0","Date":"2026-11-01","Title":{"pt-BR":"Movimento refinado e novos componentes","en-US":"Refined motion and new components"},"Description":{"pt-BR":"- Novos componentes: Segmented com indicador deslizante, RangeSlider de dois polos, Number com -/+ e repetição ao segurar, Callout informativo e CodeBlock com números de linha e Copiar.\n- Animador central com curvas Back/Quint: abertura com linha CRT, pulso de clique nos botões, check com salto e seleção com elasticidade.\n- Notificações ganham barra de tempo restante, independente da velocidade das animações; Timer=false a oculta.\n- Movimento respeita Reduced Motion, intensidade Discreta/Desativada e Animated=false; hit boxes não mudam.\n- Novos tipos funcionam em perfis, busca, temas, formulários e componentes reutilizáveis. API 2 preservada.","en-US":"- New components: Segmented with sliding indicator, two-thumb RangeSlider, Number with -/+ and hold-to-repeat, informative Callout and CodeBlock with line numbers and Copy.\n- Central animator gains Back/Quint curves: CRT power-on line, button press pulse, bouncing check and elastic selection.\n- Notifications show a remaining-time bar that ignores animation speed; Timer=false hides it.\n- Motion honours Reduced Motion, Subtle/Off intensity and Animated=false without moving hit boxes.\n- New types support profiles, search, themes, forms and reusable components. API 2 preserved."}},{"Id":"retrobox-2.10.0","Version":"2.10.0","Date":"2026-10-28","Title":{"pt-BR":"Central de Ideias própria e Novidades sem avisos","en-US":"Dedicated Ideas Center and passive update history"},"Description":{"pt-BR":"- Central de Ideias com launcher próprio: cartões de categoria, mensagem, diagnóstico opcional e revisão do envio.\n- Painel de jogo, jogador e status; layout adaptável e nomes alinhados, preservando API, temas e traduções.\n- Novidades fica somente como histórico: sem contadores, etiquetas de não lida, botão de leitura ou avisos.\n- Perfis antigos não reativam indicadores; credenciais e rascunhos continuam fora dos perfis.\n- Prévia de diagnóstico permanece somente para leitura após atualizações da tela.","en-US":"- Dedicated Ideas Center launcher with category cards, message composer, optional diagnostics and submission review.\n- Game/player context and delivery status, adaptive layout and aligned labels; existing API, themes and localization retained.\n- Updates is a passive history: no unread counts, tags, mark-as-read buttons or alerts.\n- Legacy profiles cannot restore update badges; credentials and drafts remain outside profiles.\n- Diagnostic preview stays read-only after refresh."}},{"Id":"retrobox-2.9.0","Version":"2.9.0","Date":"2026-10-27","Title":{"pt-BR":"Novidades e relatos com diagnóstico","en-US":"Updates and diagnostic bug reports"},"Description":{"pt-BR":"- Área Novidades em todas as janelas, com histórico oficial da RetroBox e updates opcionais do script em fontes separadas.\n- Marcação de leitura por conteúdo, idioma PT/EN e persistência no perfil; conteúdo oficial não aceita substituição pela API pública.\n- Diagnóstico opcional na Central de Ideias: erro colado, código/tag, reprodução e seleção de registros disponíveis.\n- Captura de console explícita e limitada, prévia, cópia e remoção de padrões reconhecidos de segredo; anexos não entram nos perfis.\n- Limites do embed conferidos antes do envio, preservação de rascunho e encerramento seguro de captura e respostas tardias.","en-US":"- Updates in every window, with official RetroBox history and optional script updates in separate sources.\n- Content-based read markers, PT/EN and saved read state; public consumer APIs cannot replace official notes.\n- Optional Ideas Center diagnostics: pasted error, error tag, reproduction steps and selected available records.\n- Explicit bounded console capture, preview, copy and recognized-secret redaction; attachments stay out of profiles.\n- Embed limits checked before sending, draft preservation and managed capture/request cleanup."}},{"Id":"retrobox-2.8.0","Version":"2.8.0","Date":"2026-10-27","Title":{"pt-BR":"Central de Ideias","en-US":"Ideas Center"},"Description":{"pt-BR":"- Central de Ideias opt-in e independente do Script Hub, com categorias, formulário, prévia e PT/EN.\n- Jogo atual ou outro por ID/link; nome automático, identidade real e avatar HTTPS opcional.\n- Webhook Discord ou transporte customizado, confirmação, limites e duplicatas; nenhum envio na abertura.\n- Falhas e timeout mantêm o texto; respostas tardias não alteram GUI nova. Rascunho/credencial fora dos perfis.\n- Regressões de comunicação, idioma, ciclo de vida e layouts. API 2, bootstrap, Designer e releases anteriores preservados.","en-US":"- Standalone or attached Ideas Center with requests, suggestions, feedback and bug reports.\n- Current or selected game, real player identity, optional avatar and PT/EN preview.\n- Explicit Discord webhook or custom transport, confirmed delivery, cooldown and duplicate handling.\n- Draft preservation, timeout handling and safe cleanup; no send when opening."}},{"Id":"retrobox-2.7.0","Version":"2.7.0","Date":"2026-10-26","Title":{"pt-BR":"Acabamento visual, RGB e tema do Hub","en-US":"Visual polish, RGB and Hub theme"},"Description":{"pt-BR":"- Acabamento compartilhado: entrada coordenada de textos nas páginas, tela de preparação opcional, skeletons nativos e SetLoading para controles comuns.\n- RGB opt-in para títulos, descrições, valores e botões; contraste contextual, preferências de movimento e agendador compartilhado com ColorPickers.\n- Perfil independente de aparência por Hub, preset Launcher, botão Tema e editor de cores; snapshots persistentes e importação atômica.\n- Capas e metadados com placeholders, falha observável e fade de imagem; menus, tooltips e ícones acompanham a paleta local.\n- Orçamentos de efeitos, encerramento seguro ao ocultar/destruir/reexecutar e regressões adicionais. API 2, consumidores, bootstrap, Designer e releases anteriores preservados.","en-US":"- Shared visual polish, coordinated entrances, optional loading screens and native skeletons.\n- Optional RGB for titles, descriptions, values and buttons, respecting contrast and motion preferences.\n- Independent Hub appearance profiles, Launcher preset and palette editor.\n- Image placeholders and status, local theme integration and bounded managed effects."}},{"Id":"retrobox-2.6.0","Version":"2.6.0","Date":"2026-10-26","Title":{"pt-BR":"Identidade e animações","en-US":"Identity and animations"},"Description":{"pt-BR":"- Perfil observa LocalPlayer e Name/DisplayName/UserId, recupera inicialização tardia e confere identidade ao reabrir; avatar e tradução não bloqueiam nomes.\n- Respostas de avatar antigas são invalidadas; observers e referências da interface são liberados na destruição.\n- Feedback de botões, foco, seleção, abas, listas/cards, menus, tooltips, estatísticas, gráficos, Hub/HUD e etapas usam o animador central.\n- Gráficos/StatCards animam por padrão; Animated=false desliga movimento por controle. Arraste suavizado passa a ser padrão, respeitando saves e acessibilidade.\n- Geometria dos gráficos usa unidades lógicas, máscaras de progresso acompanham a transição e há orçamento de 96 segmentos animados por gráfico.\n- Novas regressões de identidade/movimento e demonstração nativa com dados fictícios. API 2, bootstrap, Designer e releases anteriores preservados.","en-US":"- Player profile follows real LocalPlayer identity, including delayed initialization and changes.\n- Stale avatar responses are discarded and observers are cleaned up.\n- Central animation system covers interactions, charts, statistics, Hubs and compact views.\n- Smooth dragging and animated charts by default, with accessibility and explicit opt-outs."}},{"Id":"retrobox-2.5.2","Version":"2.5.2","Date":"2026-10-21","Title":{"pt-BR":"Layout e interação do launcher","en-US":"Launcher layout and interaction"},"Description":{"pt-BR":"- Ordenação do Hub usa a camada de ContextMenu já existente, fora de ancestrais com recorte; respeita a janela e abre para cima quando necessário.\n- Botões do launcher reservam espaço pelo texto, fonte, escala e ícone reais; ações e filtros quebram em linhas quando necessário.\n- Cabeçalhos tradicionais compartilham o cálculo de informação, fixação, Keybind integrado e controle principal, com altura responsiva.\n- Remoção/recriação de ajuda e fixação não acumula deslocamentos; callbacks, captura de teclas, preferências e IDs preservados.\n- Regressões de geometria/interação e compatibilidade com o Hub anexado. Sem redesign, mudança de API ou modificação dos consumidores.","en-US":"- Launcher sorting uses the existing context-menu overlay without clipping.\n- Action widths use actual text, font, scale and icons; rows wrap when needed.\n- Control headers reserve responsive room for help, pinning and keybinds.\n- Existing callbacks, IDs and saved preferences are preserved."}},{"Id":"retrobox-2.5.1","Version":"2.5.1","Date":"2026-10-20","Title":{"pt-BR":"Desempenho dos grafos","en-US":"Flow graph performance"},"Description":{"pt-BR":"- Avaliação memoizada por expressão nos grafos nativos e na prévia, evitando recálculo exponencial de subexpressões compartilhadas.\n- Cada leitura de entrada usa um cache novo, preservando mudanças de valores entre bindings e ações.\n- Comparação de registros na prévia independe da ordem das chaves, como no runtime.\n- Regressões com 28 operações compartilhadas e refresh; release 2.5.0 preservada por bytes.","en-US":"- Memoized flow expressions prevent exponential recalculation of shared inputs.\n- Every new evaluation gets a fresh cache so state changes remain visible.\n- Preview record comparisons ignore map-key order, matching the native runtime."}},{"Id":"retrobox-2.5.0","Version":"2.5.0","Date":"2026-10-20","Title":{"pt-BR":"Designer e ferramentas de desenvolvimento","en-US":"Designer and developer tools"},"Description":{"pt-BR":"- Designer HTML offline com 21 componentes, Row, 22 blocos tipados, prévia, PT/EN, JSON e compilador Luau real.\n- Localização automática por janela, dicionários, parâmetros, provider explícito e preferência em perfis.\n- Formulários transacionais, componentes reutilizáveis, CardGrid com pool limitado e grafos sem ciclos.\n- Diagnóstico de catálogo por download/compilação explícitos, sem executar o conteúdo.\n- Fontes do editor, catálogo compartilhado, exemplos, testes Chromium e integração contínua.\n- API 2, bootstrap, estrutura histórica, jogos/IDs dos consumidores e pins publicados preservados.","en-US":"- Offline HTML Designer with 21 components, rows, 22 typed blocks, preview and a real Luau compiler.\n- Automatic window localization, dictionaries, parameters and explicit translation provider.\n- Transactional forms, reusable components, bounded CardGrid and acyclic flows.\n- Explicit catalog diagnostics and Chromium tests; existing API 2 consumers preserved."}},{"Id":"retrobox-2.4.0","Version":"2.4.0","Date":"2026-10-20","Title":{"pt-BR":"Scripts universais","en-US":"Universal scripts"},"Description":{"pt-BR":"- UniversalScripts nativo e separado de Games, com categoria, tag UNIVERSAL e nome/descrição/URL ou Callback.\n- Id opcional, APIs de cadastro/edição/execução, perfis e ações independentes por categoria.\n- Raw do Pastefy aceito por URL HTTPS; download apenas na execução, com progresso, erros e cancelamento cooperativo.\n- Catálogos JSON continuam sem URL/código e atualizam universais de forma atômica por metadados/Actions locais.\n- Preserva API 2, estrutura histórica, tema/PixelIcons, jogos e artefatos até 2.3.1.","en-US":"- UniversalScripts live separately from game entries, with a UNIVERSAL tag and their own metadata.\n- Optional IDs, registration/editing APIs, profiles and independent actions.\n- HTTPS Pastefy raw URLs load only on explicit execution, with progress and cancellation.\n- Remote JSON catalogs remain metadata-only."}},{"Id":"retrobox-2.3.1","Version":"2.3.1","Date":"2026-10-20","Title":{"pt-BR":"Nova origem de distribuição","en-US":"New distribution origin"},"Description":{"pt-BR":"- Origem padrão do updater e bootstrap passam a ManoGustavo02/RetroBox.\n- Guias e exemplos ativos apontam para a conta nova; estrutura histórica, API 2 e temas preservados.\n- Nova release, sem reescrever os pins 2.0.0, 2.1.0, 2.2.0 e 2.3.0.\n- README bilíngue, banner e badges locais, guias de contribuição/segurança, formulários e CI de validação.\n- Canais Stable/Preview apontam para 2.3.1; resultados de publicação e acesso remoto ficam no relatório da release.","en-US":"- Default updater and bootstrap origin migrated to ManoGustavo02/RetroBox.\n- Active guides and examples point to the new account; historical releases are preserved.\n- Bilingual README, local artwork, contribution/security guides, issue forms and CI."}},{"Id":"retrobox-2.3.0","Version":"2.3.0","Date":"2026-10-19","Title":{"pt-BR":"Launcher padrão do Script Hub","en-US":"Standard Script Hub launcher"},"Description":{"pt-BR":"- Launcher padrão em CreateScriptHub, com catálogo, filtros, destaque, cards e barra fixa, compartilhado por todos os consumidores.\n- FallbackName/Notes nativos, SetCatalogFilter/GetCatalogFilter e compatibilidade dos IDs/perfis/API 2.\n- Temas, idioma, contraste dos cards, buscas/foco, detalhes completos e status de teleporte integrados.\n- Limpeza de Hold evita render em toggle/PixelIcon já destruído durante sinais diferidos.\n- Novo exemplo e regressões específicas de hubs genéricos e integração do consumidor.\n- GitHub retornou 403 de conta suspensa; este pacote não foi publicado.","en-US":"- Shared launcher layout for CreateScriptHub: filters, featured game, cards and fixed actions.\n- FallbackName, Notes and catalog filter APIs preserve existing IDs and API 2.\n- Improved themes, language, contrast, search, complete details and teleport status.\n- Historical note: publication from the old account was blocked; distribution later migrated in 2.3.1."}},{"Id":"retrobox-2.2.0","Version":"2.2.0","Date":"2026-10-19","Title":{"pt-BR":"Mini HUD, previews e etapas","en-US":"Mini HUD, previews and steppers"},"Description":{"pt-BR":"- Mini HUD com States compartilhados, valores/progresso/timers/status, arraste/trava, escala/opacidade, recolhimento e layout em perfis.\n- Fixar/Soltar de StatCard, Progress, ProgressChart, Label e Stepper; valores silenciosos e cleanup do controle preservados.\n- Barra compacta reutiliza FloatingButton e Press/Toggle/Hold, disabled/busy e liberação ao perder foco.\n- AddPreview com imagem/modelo clonado/WorldModel, câmera própria, zoom/rotação, Apply/Cancel, animações opcionais e renderer com scope.\n- AddStepper acompanha progressos/resultados de RunAction, com transições manuais e resumo fixável.\n- 32 regressões específicas e quatro exemplos novos; distribuição e bootstrap API 2 preservados.","en-US":"- Mini HUD with shared states, values, progress, timers, dragging, locking and profile layouts.\n- Pin/unpin existing components, compact action bar, image/model previews and operation stepper.\n- Scoped resources, explicit callbacks and additional regression examples."}},{"Id":"retrobox-2.1.0","Version":"2.1.0","Title":{"pt-BR":"Ícones, metadados e profiler","en-US":"Icons, metadata and profiler"},"Description":{"pt-BR":"- PixelIcon separa observação de Destroying da destruição explícita, com limpeza idempotente e soltura de referências, sem pcall de supressão.\n- Smart Game Metadata no Hub atual: campos manuais preservados, consulta assíncrona, provider opcional, cache/limite/deduplicação e integração com catálogos.\n- Profiler por tarefa/ação no Runtime Inspector existente, com tempos, contadores, espera instrumentada, histórico limitado e aviso de intervalo excedido.\n- Session Snapshots opcionais de States registrados, validados e independentes dos perfis.\n- CreateIntegration e cinco exemplos novos, incluindo operação cancelável de seis etapas.\n- API 2 e bootstrap permanente preservados; releases anteriores continuam imutáveis.","en-US":"- Idempotent PixelIcon lifecycle fixes and cleanup without suppressing destroyed-parent errors.\n- Smart game metadata with async providers, cache and field-level overrides.\n- Task/action profiler, optional registered session snapshots and integration helpers."}},{"Id":"retrobox-2.0.0","Version":"2.0.0","Title":{"pt-BR":"Bootstrap permanente e API 2","en-US":"Permanent bootstrap and API 2"},"Description":{"pt-BR":"- Bootstrap permanente de API 2; Stable/Preview/Pinned, SemVer, compatibilidade, SHA-256, cache opcional e rollback com histórico imutável.\n- Código do Hub por módulos Version/Start/LoadHub e catálogo JSON por CatalogUpdate/Actions, com origens explícitas e atualizações independentes.\n- Script Hub nativo com imagem ampla, sem rótulo Miniatura, listas adaptativas, seleção por jogo, um Executar script, cancelamento/feedback e panes responsivos.\n- Busca global passa a navegar ao pane correto; APIs, IDs/perfis, temas, ícones e componentes anteriores preservados.\n- Guias, migração, prompt completo, 24 exemplos, builders e verificação de distribuição. 256 testes de lógica e 2 de pipeline aprovados.","en-US":"- Permanent API 2 bootstrap with stable/preview/pinned channels, integrity checks and immutable releases.\n- Independent script hub modules and metadata catalogs.\n- Native Script Hub launcher with responsive lists, search, game selection and execution feedback.\n- Existing IDs, themes, profiles and controls retained."}}]]==])
     local function text(value,limit)
         local function part(s) assert(type(s)=='string' and utf8.len(s) and #s<=limit*4 and utf8.len(s)<=limit and not s:find('[%z\1-\8\11\12\14-\31]'),'Invalid update text');return s end
         if type(value)=='string' then return part(value) end
@@ -12773,5 +12782,257 @@ do
 end
 
 -- END RETRO211 REFINED CONTROLS
+
+-- BEGIN RETRO212 BOOT SCREEN
+-- RetroBox 2.12 boot screen: a short, skippable startup sequence that plays
+-- over the window while the script finishes building it. It never delays the
+-- script itself; only the presentation waits. Every timer is owned by a scope.
+do
+    local styles={Boot=true,Card=true}
+    local function bootOptions(options)
+        options=options or {}
+        assert(type(options)=='table','BootScreen options must be a table')
+        assert(options.Style==nil or styles[options.Style],'LoadingScreen Style must be Boot or Card')
+        for _,key in ipairs({'Title','Subtitle','Message'}) do
+            assert(options[key]==nil or type(options[key])=='string' and #options[key]<=256,'Boot '..key..' must contain at most 256 bytes')
+        end
+        assert(options.Duration==nil or finite(options.Duration) and options.Duration>=.6 and options.Duration<=8,'Boot Duration must be .6–8 seconds')
+        assert(options.Skippable==nil or type(options.Skippable)=='boolean','Boot Skippable must be boolean')
+        assert(options.OnComplete==nil or type(options.OnComplete)=='function','Boot OnComplete must be a function')
+        if options.Steps~=nil then
+            assert(type(options.Steps)=='table' and #options.Steps>=1 and #options.Steps<=8,'Boot Steps must contain 1–8 texts')
+            for _,step in ipairs(options.Steps) do assert(type(step)=='string' and #step>=1 and #step<=96,'Each boot step must contain 1–96 bytes') end
+        end
+        return options
+    end
+    Library._bootOptions=bootOptions
+    local function prefix(text,count)
+        local ok,offset=pcall(utf8.offset,text,count+1)
+        if ok and offset then return text:sub(1,offset-1) end
+        return text
+    end
+    local function length(text)
+        local ok,size=pcall(utf8.len,text)
+        return ok and size or #text
+    end
+    function Window:_bootStats()
+        local tabs,controls=0,0
+        for _,tab in ipairs(self.Tabs or {}) do if not tab.Hidden and tab~=self._settingsTab and tab~=self.NewsTab then tabs=tabs+1 end end
+        for _,control in pairs(self.Controls) do if not control._internal and not control.Destroyed then controls=controls+1 end end
+        return tabs,controls
+    end
+    function Window:ShowBootScreen(options)
+        assert(not self.Destroyed,'Window has been destroyed')
+        options=bootOptions(options)
+        if self._boot then self._boot:Destroy() end
+        local window=self
+        local animated=self:_motionAllowed(self.Main)
+        local duration=options.Duration or 2
+        local cells=24
+        local owner={Scope=self:CreateScope(),Blocking=true,Progress=0,Animated=animated,Duration=duration,Lines={},Cells={}}
+        -- Root covers the whole window, title bar included, like a monitor warming up.
+        owner.Frame=frame(self,self.Main,{Name='BootScreen',Size=UDim2.fromScale(1,1),ZIndex=300,Active=true,ClipsDescendants=true},'Background')
+        owner.Frame:SetAttribute('RetroBoxMotion',true)
+        owner.Backdrop=ui(self,'TextButton',{Parent=owner.Frame,Name='BootSkip',Size=UDim2.fromScale(1,1),Text='',BackgroundTransparency=1,BorderSizePixel=0,AutoButtonColor=false,Active=true,ZIndex=300})
+        local stage=frame(self,owner.Frame,{Name='BootStage',AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.new(1,-48,0,300),BackgroundTransparency=1,ZIndex=301})
+        local constraint=ui(self,'UISizeConstraint',{Parent=stage,MaxSize=Vector2.new(560,300)})
+        owner.Stage=stage; owner.Constraint=constraint
+        -- Emblem: the window's pixel icon, inflated from a small seed.
+        local emblem=frame(self,stage,{Name='BootEmblem',AnchorPoint=Vector2.new(.5,0),Position=UDim2.new(.5,0,0,0),Size=U2(56,56),BackgroundTransparency=1,ZIndex=302})
+        local emblemScale=ui(self,'UIScale',{Parent=emblem,Scale=animated and .35 or 1})
+        local spec=self._titleIcon and self._titleIcon.Spec
+        owner.Icon=iconSlot(self,emblem,spec,'retrobox',48,U2(4,4),'Accent')
+        owner.Emblem=emblem; owner.EmblemScale=emblemScale
+        local title=tostring(options.Title or self.Title or 'RetroBox')
+        owner.TitleText=title
+        owner.TitleLabel=label(self,stage,animated and '' or title,{Name='BootTitle',Position=U2(0,64),Size=UDim2.new(1,0,0,30),TextSize=22,
+            TextXAlignment=Enum.TextXAlignment.Center,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=302})
+        local subtitle=options.Subtitle or (self.Subtitle~='' and self.Subtitle) or ('RetroBox UI v'..Library.Version)
+        owner.SubtitleLabel=label(self,stage,subtitle,{Name='BootSubtitle',Position=U2(0,95),Size=UDim2.new(1,0,0,18),TextSize=12,
+            TextXAlignment=Enum.TextXAlignment.Center,TextTruncate=Enum.TextTruncate.AtEnd,TextTransparency=animated and 1 or 0,ZIndex=302},'Muted')
+        -- Boot log: a sunken terminal with one row per step and an [ OK ] stamp.
+        local log=frame(self,stage,{Name='BootLog',Position=U2(0,124),Size=UDim2.new(1,0,0,112),ZIndex=302},'Inset')
+        bevel(self,log,true)
+        owner.Log=log
+        local tabs,controls=self:_bootStats()
+        local steps=options.Steps or {
+            'RetroBox UI v'..Library.Version..' · API 2',
+            self:_t17('Tema ','Theme ')..tostring(self.Theme)..' · '..#Library:GetIconNames()..self:_t17(' ícones',' icons'),
+            '__layout',
+            self:_t17('Preferências e perfis','Preferences and profiles'),
+        }
+        owner.Steps={}
+        for index,text in ipairs(steps) do
+            local row=frame(self,log,{Name='BootLine',Position=U2(10,8+(index-1)*(96/#steps)),Size=UDim2.new(1,-20,0,math.min(22,96/#steps)),BackgroundTransparency=1,Visible=not animated,ZIndex=303})
+            local caption=label(self,row,'',{Name='Text',Size=UDim2.new(1,-60,1,0),TextSize=12,Font=Enum.Font.Code,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=303})
+            local status=label(self,row,animated and '' or '[ OK ]',{Name='Status',Position=UDim2.new(1,-56,0,0),Size=UDim2.new(0,56,1,0),TextSize=12,Font=Enum.Font.Code,TextXAlignment=Enum.TextXAlignment.Right,ZIndex=303},'Success')
+            owner.Lines[index]={Row=row,Text=caption,Status=status,Source=text}
+            owner.Steps[index]=text
+        end
+        local function stepText(source)
+            if source=='__layout' then
+                tabs,controls=window:_bootStats()
+                return window:_t17('Montando ','Building ')..tabs..window:_t17(' abas · ',' tabs · ')..controls..window:_t17(' controles',' controls')
+            end
+            return source
+        end
+        for _,line in ipairs(owner.Lines) do line.Text.Text='> '..stepText(line.Source) end
+        owner.Cursor=frame(self,log,{Name='BootCursor',Size=U2(7,12),Visible=false,ZIndex=304},'Accent')
+        -- Progress: discrete cells, filled in order, plus a three-digit percent.
+        local bar=frame(self,stage,{Name='BootProgress',Position=U2(0,248),Size=UDim2.new(1,-52,0,12),BackgroundTransparency=1,ZIndex=302})
+        owner.Bar=bar
+        for index=1,cells do
+            owner.Cells[index]=frame(self,bar,{Name='BootCell',Position=UDim2.new((index-1)/cells,1,0,0),Size=UDim2.new(1/cells,-2,1,0),ZIndex=303},'Border')
+        end
+        owner.PercentLabel=label(self,stage,animated and '000%' or '100%',{Name='BootPercent',Position=UDim2.new(1,-48,0,244),Size=U2(48,20),TextSize=12,Font=Enum.Font.Code,TextXAlignment=Enum.TextXAlignment.Right,ZIndex=302},'Muted')
+        owner.HintLabel=label(self,stage,options.Skippable~=false and self:_t17('Clique para pular','Click to skip') or (options.Message or ''),{Name='BootHint',Position=U2(0,272),Size=UDim2.new(1,0,0,18),TextSize=11,
+            TextXAlignment=Enum.TextXAlignment.Center,TextTransparency=animated and 1 or .2,ZIndex=302},'Muted')
+        if options.Message and options.Skippable~=false then owner.HintLabel.Text=options.Message..'  ·  '..owner.HintLabel.Text end
+        -- Scan line sweeping the screen; one tween at a time, owned by the boot.
+        owner.Scan=frame(self,owner.Frame,{Name='BootScan',Size=UDim2.new(1,0,0,2),BackgroundTransparency=.82,Visible=animated,ZIndex=305},'Highlight')
+
+        local function paint(progress)
+            if owner.Destroyed then return end
+            owner.Progress=progress
+            local filled=math.floor(progress*cells+.5)
+            for index,cell in ipairs(owner.Cells) do
+                local on=index<=filled
+                if cell:GetAttribute('On')~=on then
+                    cell:SetAttribute('On',on)
+                    window:_bind(cell,{BackgroundColor3=on and 'Accent' or 'Border'})
+                    if on and animated then cell.BackgroundTransparency=.6; window:_motion(cell,{BackgroundTransparency=0},.12,'boot-cell',owner) end
+                end
+            end
+            owner.PercentLabel.Text=string.format('%03d%%',math.floor(progress*100+.5))
+        end
+        local timers={}
+        local function later(delay,callback)
+            local thread=task.delay(delay,function()
+                if owner.Destroyed or window.Destroyed then return end
+                callback()
+            end)
+            timers[#timers+1]=thread
+            return thread
+        end
+        owner.Scope:Add(function()
+            for _,thread in ipairs(timers) do if coroutine.status(thread)=='suspended' then pcall(task.cancel,thread) end end
+            timers={}
+        end)
+        function owner:SetProgress(value)
+            assert(not self.Destroyed and finite(value) and value>=0 and value<=1,'Boot progress must be 0–1')
+            if not self.Finishing then paint(math.max(self.Progress,value)) end
+            return self
+        end
+        function owner:Destroy()
+            if self.Destroyed then return end
+            self.Destroyed=true
+            if window._boot==self then window._boot=nil end
+            local object=self.Frame
+            self.Scope:Destroy()
+            if object then window:_forgetSkin(object); if not self._engineDestroying and object.Parent then object:Destroy() end end
+            self.Frame=nil;self.Stage=nil;self.Log=nil;self.Bar=nil;self.Cells={};self.Lines={};self.Icon=nil
+            if not self.Completed and not window.Destroyed then
+                self.Completed=true
+                if type(options.OnComplete)=='function' then call(window,options.OnComplete,self.Skipped==true) end
+            end
+        end
+        local function reveal()
+            if window.Destroyed then return end
+            if window._powerOn and window._shown~=false then window:_powerOn() end
+            if window.ActiveTab and window._revealPage then window:_revealPage(window.ActiveTab) end
+        end
+        function owner:Finish(skipped)
+            if self.Destroyed or self.Finishing then return self end
+            self.Finishing=true; self.Skipped=skipped==true
+            paint(1)
+            for _,line in ipairs(self.Lines) do line.Row.Visible=true; line.Status.Text='[ OK ]' end
+            if self.Cursor then self.Cursor.Visible=false end
+            if not animated or not window:_motionAllowed(self.Frame) then self:Destroy(); reveal(); return self end
+            -- CRT power-off: fade the content, fold the screen into a line, then a dot.
+            for _,object in ipairs(self.Frame:GetDescendants()) do
+                if object:IsA('TextLabel') then window:_motion(object,{TextTransparency=1},.14,'boot-exit',self) end
+            end
+            self.Frame.AnchorPoint=Vector2.new(.5,.5); self.Frame.Position=UDim2.fromScale(.5,.5)
+            window:_animate(self.Stage,{Position=UDim2.new(.5,0,.5,-6)},.14,'boot-stage',self,nil,{Easing='Quint'})
+            window:_animate(self.Frame,{Size=UDim2.new(1,0,0,2)},.2,'boot-fold',self,function()
+                if self.Destroyed then return end
+                window:_bind(self.Frame,{BackgroundColor3='Accent'})
+                window:_animate(self.Frame,{Size=UDim2.new(0,6,0,2),BackgroundTransparency=.2},.12,'boot-fold',self,function()
+                    self:Destroy(); reveal()
+                end,{Easing='Quint',Direction='In'})
+            end,{Easing='Quint',Direction='In'})
+            return self
+        end
+        function owner:Skip()
+            if self.Destroyed or self.Finishing then return self end
+            if options.Skippable==false then return self end
+            return self:Finish(true)
+        end
+        self._boot=owner
+        owner.Scope:Add(function() owner:Destroy() end)
+        owner.Scope:Add(owner.Frame.Destroying:Connect(function() owner._engineDestroying=true; owner:Destroy() end),'Disconnect')
+        owner.Scope:Add(owner.Backdrop.Activated:Connect(function() owner:Skip() end),'Disconnect')
+        owner.Scope:Add(UserInputService.InputBegan:Connect(function(input,processed)
+            if not processed and input.UserInputType==Enum.UserInputType.Keyboard and window._shown~=false and (input.KeyCode==Enum.KeyCode.Return or input.KeyCode==Enum.KeyCode.Space or input.KeyCode==Enum.KeyCode.Escape) then owner:Skip() end
+        end),'Disconnect')
+        -- Hiding the window ends the presentation; it never replays on Show.
+        owner.Scope:Add(self.Main:GetPropertyChangedSignal('Visible'):Connect(function() if not window.Main.Visible then owner:Finish(true) end end),'Disconnect')
+
+        if not animated then
+            paint(1)
+            later(math.min(duration,.8),function() owner:Finish(false) end)
+            return owner
+        end
+        -- Choreography: emblem → typed title → subtitle → log rows → full bar.
+        window:_animate(emblemScale,{Scale=1},.42,'boot-emblem',owner,nil,{Easing='Back'})
+        local typing=math.min(.5,duration*.22); local total=length(title)
+        local count=math.min(total,32); local stride=total/math.max(1,count)
+        for index=1,count do
+            later(.12+typing*index/count,function() owner.TitleLabel.Text=prefix(title,math.min(total,math.floor(index*stride+.5))) end)
+        end
+        later(.12+typing+.02,function()
+            owner.TitleLabel.Text=title
+            window:_motion(owner.SubtitleLabel,{TextTransparency=0},.2,'boot-subtitle',owner)
+            window:_motion(owner.HintLabel,{TextTransparency=.2},.3,'boot-hint',owner)
+        end)
+        local start=.12+typing+.08; local span=math.max(.3,duration-start-.25)
+        for index,line in ipairs(owner.Lines) do
+            local at=start+span*(index-1)/#owner.Lines
+            later(at,function()
+                line.Text.Text='> '..stepText(line.Source)
+                line.Row.Visible=true; line.Text.TextTransparency=.6
+                window:_motion(line.Text,{TextTransparency=0},.14,'boot-line',owner)
+                owner.Cursor.Visible=true
+                owner.Cursor.Position=U2(10+math.min(line.Row.AbsoluteSize.X-70,(length(line.Text.Text)*7)),line.Row.Position.Y.Offset+5)
+                paint(math.max(owner.Progress,(index-.5)/#owner.Lines))
+            end)
+            later(at+span/#owner.Lines*.7,function()
+                line.Status.Text='[ OK ]'; line.Status.TextTransparency=.5
+                window:_motion(line.Status,{TextTransparency=0},.12,'boot-ok',owner)
+                paint(math.max(owner.Progress,index/#owner.Lines))
+            end)
+        end
+        -- Cursor blink and scan sweep are bounded by the boot's own lifetime.
+        local function blink()
+            later(.38,function()
+                if owner.Finishing then return end
+                if owner.Cursor and owner.Lines[1].Row.Visible then owner.Cursor.BackgroundTransparency=owner.Cursor.BackgroundTransparency==0 and 1 or 0 end
+                blink()
+            end)
+        end
+        blink()
+        local function sweep()
+            if owner.Destroyed or owner.Finishing or not owner.Scan then return end
+            owner.Scan.Position=UDim2.new(0,0,0,0)
+            window:_animate(owner.Scan,{Position=UDim2.new(0,0,1,0)},1.1,'boot-scan',owner,function() later(.25,sweep) end,{Easing='Linear',Exact=true})
+        end
+        sweep()
+        later(duration,function() owner:Finish(false) end)
+        return owner
+    end
+    function Window:GetBootScreen() return self._boot end
+end
+
+-- END RETRO212 BOOT SCREEN
 
 return Library

@@ -34,6 +34,7 @@ def embed():
         ('RETRO290 NEWS', ['News.lua'], 'return Library\n'),
         ('RETRO220 COMPACT COMPONENTS', ['CompactViews.lua', 'Preview.lua', 'Stepper.lua'], 'return Library\n'),
         ('RETRO211 REFINED CONTROLS', ['RefinedControls.lua'], 'return Library\n'),
+        ('RETRO212 BOOT SCREEN', ['BootScreen.lua'], 'return Library\n'),
     ]
     for name, modules, marker in additions:
         start, end = '-- BEGIN ' + name, '-- END ' + name

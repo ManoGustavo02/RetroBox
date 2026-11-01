@@ -66,4 +66,15 @@ if start then
  assert(created.Controls.resumo:GetCode():find('Aleatório',1,true) and created.Controls.resumo:GetCode():find('quantidade = 6',1,true))
  clean(created);print('PASS prompt 2.11 example: refined controls and summary code block')
 end
-print((start and '9/9' or '8/8')..' prompt examples passed with mocked HTTP and no executor files')
+local bootStart=prompt:find('Exemplo funcional da tela de boot da 2.12.0',1,true)
+if bootStart then
+ code=example('Exemplo funcional da tela de boot da 2.12.0')
+ local created=assert(load(code..'\nreturn window','@prompt-boot'))()
+ local boot=assert(created:GetBootScreen(),'boot plays when the prompt example opens');Mock.pump(.1)
+ assert(created.Controls.exemplo and #boot.Lines==3 and boot.Lines[1].Source=='Lendo preferências')
+ boot:Skip();Mock.pump(1);assert(boot.Destroyed and created:GetBootScreen()==nil)
+ assert(created.Controls['rever-boot']:Press());Mock.pump();assert(created:GetBootScreen());Mock.pump(3);assert(created:GetBootScreen()==nil)
+ clean(created);print('PASS prompt 2.12 example: boot screen, custom steps, skip and replay')
+end
+local total=8+(start and 1 or 0)+(bootStart and 1 or 0)
+print(total..'/'..total..' prompt examples passed with mocked HTTP and no executor files')

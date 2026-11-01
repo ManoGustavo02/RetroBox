@@ -8,6 +8,8 @@ local Library = loadstring(game:HttpGet(
 ))({Channel = "stable", MinVersion = "2.11.0"})
 ```
 
+![Componentes 2.11](refined-controls.png)
+
 [Exemplo completo](../examples/refined-controls.lua) · [Release](RELEASE-2.11.md) · [API](API.md)
 
 ## Segmented

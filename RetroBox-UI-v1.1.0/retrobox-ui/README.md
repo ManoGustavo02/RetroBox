@@ -1,6 +1,10 @@
 # RetroBox UI
 
-**Novo na 2.11:** [Segmented, RangeSlider, Number, Callout e CodeBlock](docs/REFINED-CONTROLS.md), além de movimento refinado: abertura CRT, pulso de clique, check com salto e barra de tempo nas notificações.
+**Novo na 2.12:** [tela de boot retrô](docs/BOOT-SCREEN.md) ao executar o script, com duração configurável e clique para pular. [Detalhes](docs/RELEASE-2.12.md) · [Demonstração](examples/boot-screen.lua).
+
+![Tela de boot](docs/boot-screen.png)
+
+**2.11:** [Segmented, RangeSlider, Number, Callout e CodeBlock](docs/REFINED-CONTROLS.md), além de movimento refinado: abertura CRT, pulso de clique, check com salto e barra de tempo nas notificações.
 
 **2.11.0:** [Detalhes](docs/RELEASE-2.11.md) · [Demonstração](examples/refined-controls.lua). Na 2.10: [Central de Ideias com interface própria](docs/FEEDBACK-HUB.md) e [Novidades](docs/NEWS.md) como histórico.
 

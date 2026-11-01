@@ -1,3 +1,15 @@
+# Validação · RetroBox UI 2.12.0
+
+- **636/636 testes de lógica**, incluindo **45 exemplos** pelo bootstrap real (novo `boot-screen`). As **4 novas regressões** cobrem a sequência padrão (título digitado, progresso que nunca recua, contagem real de abas/controles, término em `Duration`), pular por clique/Enter/ocultar, `Skippable=false`, Reduced Motion, `Style="Card"`, validação das opções, troca de tema durante o boot, substituição e destruição no meio da sequência sem conexões pendentes.
+- O teste de inicialização de `appearance.lua` passou a descrever o novo contrato (boot por padrão; `Card` imediato e não bloqueante). Os demais testes anteriores continuam sem alteração.
+- **10/10 exemplos do prompt** com o prompt 2.12.0, **2/2 testes Python** do pipeline, **24 manifests**, migração de origem, links/assets, incorporação estável dos módulos e Designer (`--check`) conferidos.
+- Imagens regeneradas por `tools/build_docs_images.py` com a versão atual; ícones SVG e fixture de contraste saíram idênticos.
+- Runtime: **925618 bytes**, SHA-256 **d21af852c5363255a5eedb88d5e5cc89f7ae0b8ea0a633a9eb079a903c8ef2a0**. Stable/Preview 2.12.0; bootstrap e releases anteriores preservados.
+
+Tempo, tweens e geometria são simulados; não há renderer Roblox neste ambiente. [Relatório](RELEASE-2.12.md) · [Tela de boot](BOOT-SCREEN.md).
+
+---
+
 # Validação · RetroBox UI 2.11.0
 
 - **632/632 testes de lógica**, incluindo **44 exemplos** pelo bootstrap real (novo `refined-controls`). As **7 novas regressões** cobrem Segmented, RangeSlider, Number, Callout, CodeBlock, integração com componentes/formulários e o movimento refinado.
