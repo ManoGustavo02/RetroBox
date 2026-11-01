@@ -33,6 +33,7 @@ def embed():
         ('RETRO280 FEEDBACK HUB', ['FeedbackLauncher.lua', 'FeedbackDiagnostics.lua', 'FeedbackHub.lua'], 'return Library\n'),
         ('RETRO290 NEWS', ['News.lua'], 'return Library\n'),
         ('RETRO220 COMPACT COMPONENTS', ['CompactViews.lua', 'Preview.lua', 'Stepper.lua'], 'return Library\n'),
+        ('RETRO211 REFINED CONTROLS', ['RefinedControls.lua'], 'return Library\n'),
     ]
     for name, modules, marker in additions:
         start, end = '-- BEGIN ' + name, '-- END ' + name

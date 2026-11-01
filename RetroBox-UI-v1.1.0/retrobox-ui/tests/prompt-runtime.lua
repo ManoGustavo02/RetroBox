@@ -57,4 +57,13 @@ for _,spec in ipairs({
  else created.Controls.amount:SetValue(42,true);assert(created.Controls.summary:GetValue()=='Quantidade: 42');assert(created.Controls.run:Press());Mock.pump() end
  clean(created);print('PASS prompt 2.5 example: '..spec[2])
 end
-print('8/8 prompt examples passed with mocked HTTP and no executor files')
+local start=prompt:find('Exemplo funcional dos componentes da 2.11.0',1,true)
+if start then
+ code=example('Exemplo funcional dos componentes da 2.11.0')
+ local created=assert(load(code..'\nreturn window','@prompt-refined'))();Mock.pump()
+ assert(created.Controls.modo:GetValue()=='Próximo' and created.Controls.intervalo:GetValue().Max==1.5 and created.Controls.quantidade:GetValue()==5)
+ created.Controls.modo:SetValue('Aleatório');created.Controls.quantidade:Increment(1);Mock.pump()
+ assert(created.Controls.resumo:GetCode():find('Aleatório',1,true) and created.Controls.resumo:GetCode():find('quantidade = 6',1,true))
+ clean(created);print('PASS prompt 2.11 example: refined controls and summary code block')
+end
+print((start and '9/9' or '8/8')..' prompt examples passed with mocked HTTP and no executor files')

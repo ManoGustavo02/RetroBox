@@ -486,3 +486,14 @@ Todas as janelas incluem a categoria Novidades. ScriptUpdates é opcional; notas
 CreateFeedbackHub usa Layout='Launcher' por padrão: cartões de categoria, etapas Compose/Diagnostics/Review, contexto e ações. GetPage/SetPage selecionam etapas sem enviar ou coletar logs. Layout='Classic' preserva o formulário anterior. A tela independente usa navegação horizontal; anexar a Central a uma janela não altera as outras abas. Controles públicos e transporte existentes permanecem compatíveis. [Layout e opções](FEEDBACK-HUB.md).
 
 Novidades permanece como histórico separado da library e do script, sem alertas, badges ou marcação de leitura. GetUnreadUpdateCount valida a origem e retorna 0; MarkUpdateRead valida a entrada e retorna a janela, sem persistência. Perfis antigos têm NewsRead validado e descartado. [Contrato](NEWS.md).
+
+## Componentes refinados · 2.11 / API 2
+
+- `section:AddSegmented({Id, Title, Options, Default?, Callback})` — 2–8 opções exclusivas; valor string. `SetOptions`, `GetOptions`, `GetIndex`.
+- `section:AddRangeSlider({Id, Title, Min, Max, Step, MinGap?, Default={Min,Max}, Suffix?, Precision?, Callback})` — valor `{Min,Max}`. `SetRange(min,max,silent?)`, `GetRange()`.
+- `section:AddNumber({Id, Title, Min?, Max?, Step, Precision?, Default?, Suffix?, Callback})` — `-`/`+`, digitação e repetição ao segurar. `Increment(direction?, silent?)`.
+- `section:AddCallout({Title?, Content, Kind="Info"/"Tip"/"Success"/"Warning"/"Danger", Icon?})` ou `AddCallout("texto")` — `SetContent`, `GetContent`, `SetKind`, `GetKind`, `SetTitle`, `SetIcon`. Não persiste.
+- `section:AddCodeBlock({Title, Code, Language?, Height?, LineNumbers=true, Copy=true, OnCopy?})` — `SetCode`, `GetCode`, `Copy() -> ok, reason`. Não persiste.
+- `window:Notify({..., Timer=false})` oculta a barra de tempo restante.
+
+Segmented, RangeSlider e Number persistem nos perfis e são campos de `CreateForm`; os cinco tipos funcionam em `RegisterComponent`. [Guia completo e movimento](REFINED-CONTROLS.md).

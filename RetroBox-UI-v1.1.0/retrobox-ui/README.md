@@ -1,8 +1,8 @@
 # RetroBox UI
 
-**Novo na 2.10:** [Central de Ideias com interface própria](docs/FEEDBACK-HUB.md), cartões de categoria e etapas de mensagem, diagnóstico e revisão. [Novidades](docs/NEWS.md) mantém os históricos, sem avisos ou marcação de leitura.
+**Novo na 2.11:** [Segmented, RangeSlider, Number, Callout e CodeBlock](docs/REFINED-CONTROLS.md), além de movimento refinado: abertura CRT, pulso de clique, check com salto e barra de tempo nas notificações.
 
-**2.10.0:** tela responsiva, prévia completa, PT/EN e transporte configurável. [Detalhes](docs/RELEASE-2.10.md) · [Demonstração](examples/feedback-hub.lua).
+**2.11.0:** [Detalhes](docs/RELEASE-2.11.md) · [Demonstração](examples/refined-controls.lua). Na 2.10: [Central de Ideias com interface própria](docs/FEEDBACK-HUB.md) e [Novidades](docs/NEWS.md) como histórico.
 
 Library de GUI em Luau para desenvolvedores de scripts executados no cliente Roblox por executores. Um arquivo independente, carregado pelo link **raw do GitHub**, com visual retrô e API para conectar componentes às funções do seu script.
 

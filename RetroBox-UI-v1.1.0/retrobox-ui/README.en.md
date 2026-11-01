@@ -1,8 +1,8 @@
 # RetroBox UI
 
-**New in 2.10:** [dedicated Ideas Center interface](docs/FEEDBACK-HUB.md) with category cards and message, diagnostics and review pages. [Updates](docs/NEWS.md) keeps both histories without unread alerts or read markers.
+**New in 2.11:** [Segmented, RangeSlider, Number, Callout and CodeBlock](docs/REFINED-CONTROLS.md), plus refined motion: CRT power-on, press pulse, bouncing check and notification countdown.
 
-**2.10.0:** responsive layout, complete review, PT/EN and configurable delivery. [Details](docs/RELEASE-2.10.md) · [Demo](examples/feedback-hub.lua).
+**2.11.0:** [Details](docs/RELEASE-2.11.md) · [Demo](examples/refined-controls.lua). In 2.10: [dedicated Ideas Center](docs/FEEDBACK-HUB.md) and passive [Updates](docs/NEWS.md).
 
 **New in 2.5:** [offline Designer with visual blocks](../../designer/README.md), automatic locale, transactional forms, reusable components, recycled CardGrid, native flow graphs and read-only catalog diagnostics. [APIs](docs/DEVELOPMENT-TOOLS.md).
 

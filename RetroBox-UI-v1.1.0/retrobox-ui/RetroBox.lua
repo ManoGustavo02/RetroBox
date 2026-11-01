@@ -1,4 +1,4 @@
--- RetroBox UI 2.8.0 | Mano Gustavo | MIT License
+-- RetroBox UI 2.11.0 | Mano Gustavo | MIT License
 -- Standalone GUI library for Roblox client executors.
 -- Load the raw GitHub source with loadstring(game:HttpGet(URL))().
 
@@ -9,7 +9,7 @@ local HttpService = game:GetService("HttpService")
 local TweenService = game:GetService("TweenService")
 local TextService = game:GetService("TextService")
 
-local Library = { Version = "2.10.0", Themes = {}, Windows = {} }
+local Library = { Version = "2.11.0", Themes = {}, Windows = {} }
 local Window = {}; Window.__index = Window
 local Tab = {}; Tab.__index = Tab
 local Section = {}; Section.__index = Section
@@ -1658,7 +1658,16 @@ do
         end
         for _,target in ipairs(targets) do self:_cancelTrack(target[1],target[2],finish) end
     end
-    function Window:_animate(object,goals,duration,channel,owner,complete)
+    -- Optional motion styles keep Quad/Out as the shared default. Exact keeps
+    -- wall-clock timers (notification countdowns) independent from Speed.
+    local easingStyles={Quad=true,Quint=true,Back=true,Sine=true,Linear=true,Cubic=true,Exponential=true,Circular=true}
+    local function tweenInfo(time,style)
+        local easing=style and easingStyles[style.Easing] and style.Easing or "Quad"
+        local direction=style and (style.Direction=="In" or style.Direction=="InOut") and style.Direction or "Out"
+        return TweenInfo.new(time,Enum.EasingStyle[easing],Enum.EasingDirection[direction])
+    end
+    Library._tweenInfo=tweenInfo
+    function Window:_animate(object,goals,duration,channel,owner,complete,style)
         if self.Destroyed or self._closing or not object.Parent then return end
         channel=channel or "style"; local tracks=self._tweens[object]
         local prior=tracks and tracks[channel]
@@ -1686,9 +1695,13 @@ do
             if complete then complete() end
             return
         end
-        local time=(duration or .12)/self.Animations.Speed
-        if self.Animations.Intensity=="Subtle" then time=time*.75 end
-        local tween=TweenService:Create(object,TweenInfo.new(time,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),goals)
+        local time=duration or .12
+        if not (style and style.Exact) then
+            time=time/self.Animations.Speed
+            if self.Animations.Intensity=="Subtle" then time=time*.75 end
+        end
+        if style and style.Easing=="Back" and self.Animations.Intensity=="Subtle" then style={Easing="Quint",Direction=style.Direction,Exact=style.Exact} end
+        local tween=TweenService:Create(object,tweenInfo(time,style),goals)
         local record={Tween=tween,Goals=goals,Owner=owner,Complete=complete}
         self._tweens[object]=self._tweens[object] or {}; self._tweens[object][channel]=record
         record.Connection=tween.Completed:Connect(function(state)
@@ -1700,9 +1713,29 @@ do
         end)
         tween:Play(); return tween
     end
-    function Window:_motion(object,goals,duration,channel,owner,complete)
+    function Window:_motion(object,goals,duration,channel,owner,complete,style)
         if not object or not object.Parent or self.Destroyed or self._closing or owner and owner.Destroyed then return end
-        return self:_animate(object,goals,self:_motionAllowed(object) and duration or 0,channel,owner,complete)
+        return self:_animate(object,goals,self:_motionAllowed(object) and duration or 0,channel,owner,complete,style)
+    end
+    -- Press pulse: one reusable square that grows from the centre of the
+    -- control. It never changes the hit box and hides when motion is reduced.
+    function Window:_pressPulse(object,owner)
+        if self.Destroyed or self._closing or not object or not object.Parent or owner and owner.Destroyed then return end
+        local pulse=object:FindFirstChild('PressPulse')
+        if not self:_motionAllowed(object) or self.Animations.Intensity=='Subtle' then
+            if pulse then self:_cancelAnimations(pulse,false);pulse.Visible=false end
+            return
+        end
+        if not pulse then
+            pulse=frame(self,object,{Name='PressPulse',AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.new(),BackgroundTransparency=1,Active=false,Visible=false,ZIndex=object.ZIndex+2},'Highlight')
+        end
+        local role=(self._skin[object] or {}).BackgroundColor3=='Accent' and 'AccentText' or 'Accent'
+        self:_bind(pulse,{BackgroundColor3=role})
+        self:_cancelAnimations(pulse,false)
+        pulse.Size=UDim2.new(.25,0,.25,0);pulse.BackgroundTransparency=.72;pulse.Visible=true
+        self:_animate(pulse,{Size=UDim2.new(1,-4,1,-4),BackgroundTransparency=1},.22,'press-pulse',owner,function()
+            if pulse.Parent then pulse.Visible=false end
+        end,{Easing='Quint'})
     end
     function Window:_revealText(object,owner,channel)
         if not object or not object.Parent or self.Destroyed or self._closing then return end
@@ -1728,6 +1761,7 @@ do
         local goals={Size=UDim2.new(visible and 1 or 0,visible and -4 or 0,0,2),BackgroundTransparency=visible and (phase=='down' and 0 or .25) or 1}
         if phase=='activate' then
             goals.BackgroundTransparency=0
+            self:_pressPulse(object,owner)
             self:_motion(line,goals,.06,'feedback',owner,function()
                 if owner.Destroyed or not line.Parent then return end
                 self:_buttonFeedback(object,owner,line:GetAttribute('Hover') and 'up' or 'leave')
@@ -1749,14 +1783,15 @@ do
     function Window:_resetMotionAccents()
         for _,object in ipairs(self.Gui:GetDescendants()) do
             if object.Name=='MotionAccent' then self:_cancelAnimations(object,false);object.Size=UDim2.new(0,0,0,2);object.BackgroundTransparency=1;object:SetAttribute('Hover',false) end
+            if object.Name=='PressPulse' or object.Name=='PowerOnLine' then self:_cancelAnimations(object,false);object.Visible=false end
         end
     end
     function Window:_selectionMotion(mark,selected,size,hidden,owner)
         mark:SetAttribute('Selected',selected)
         if selected then mark.Visible=true end
-        self:_motion(mark,{Size=selected and size or hidden,BackgroundTransparency=selected and 0 or 1},.18,'selection',owner,function()
+        self:_motion(mark,{Size=selected and size or hidden,BackgroundTransparency=selected and 0 or 1},selected and .24 or .16,'selection',owner,function()
             if mark.Parent and not mark:GetAttribute('Selected') then mark.Visible=false end
-        end)
+        end,selected and {Easing='Back'} or nil)
     end
     function Window:_selectionMark(parent,selected,owner)
         local mark=parent:FindFirstChild('SelectionMotion')
@@ -1775,6 +1810,24 @@ do
         self:_syncSettings(); self:_scheduleSave(); return self
     end
     function Window:GetAnimations() return copy(self.Animations) end
+    -- CRT power-on: a thin accent scanline opens vertically and fades away.
+    -- Decorative only; it is skipped for Subtle/Off/ReducedMotion.
+    function Window:_powerOn()
+        local main=self.Main; if not main or not main.Parent then return end
+        local line=main:FindFirstChild('PowerOnLine')
+        if self.ReducedMotion or not self.Animations.Enabled or self.Animations.Intensity~='Normal' or main:GetAttribute('RetroBoxMotion')==false then
+            if line then self:_cancelAnimations(line,false);line.Visible=false end
+            return
+        end
+        if not line then
+            line=frame(self,main,{Name='PowerOnLine',AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.new(1,0,0,2),BackgroundTransparency=1,Active=false,Visible=false,ZIndex=400},'Accent')
+        end
+        self:_cancelAnimations(line,false)
+        line.Size=UDim2.new(.2,0,0,2);line.BackgroundTransparency=0;line.Visible=true
+        self:_animate(line,{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1},.32,'power-on',self,function()
+            if line.Parent then line.Visible=false end
+        end,{Easing='Quint'})
+    end
     function Window:_animateWindow(visible)
         self._visibilityToken=self._visibilityToken+1; local token=self._visibilityToken
         self:_cancelTrack(self.Main,"window",false)
@@ -1786,8 +1839,9 @@ do
             local subtle=self.Animations.Intensity=="Subtle"
             self.Main.Position=UDim2.new(target.X.Scale,target.X.Offset,target.Y.Scale,target.Y.Offset+(subtle and 3 or 6))
             self.Main.BackgroundTransparency=.08; self.ScaleObject.Scale=scale*(subtle and .995 or .985)
-            self:_animate(self.Main,{Position=target,BackgroundTransparency=0},.14,"window",self)
-            self:_animate(self.ScaleObject,{Scale=scale},.14,"window",self)
+            self:_animate(self.Main,{Position=target,BackgroundTransparency=0},.18,"window",self,nil,{Easing="Quint"})
+            self:_animate(self.ScaleObject,{Scale=scale},.18,"window",self,nil,{Easing=subtle and "Quint" or "Back"})
+            self:_powerOn()
         else
             local position=self.Main.Position
             self:_animate(self.Main,{Position=UDim2.new(position.X.Scale,position.X.Offset,position.Y.Scale,position.Y.Offset+4),BackgroundTransparency=.15},.1,"window",self,function()
@@ -2343,8 +2397,8 @@ function Section:AddToggle(options)
             self._checkIcon:Set(self.Value and self._window.PixelIcons and "check" or false)
             self._checkIcon:SetOpacity(self.Disabled and .5 or 0)
             if self.Value and self._hasDefault and self._checkIcon.Frame then
-                self._checkIcon.Frame.Position=U2(7,5)
-                self._window:_animate(self._checkIcon.Frame,{Position=U2(7,6)},.1,"toggle",self)
+                self._checkIcon.Frame.Position=U2(7,2)
+                self._window:_animate(self._checkIcon.Frame,{Position=U2(7,6)},.2,"toggle",self,nil,{Easing="Back"})
             end
         end
     end
@@ -4487,8 +4541,13 @@ function Window:Notify(options)
     end
     pixelButton(self,notification,notification.Frame,"X","close",{ Position=UDim2.new(1,-32,0,8),Size=U2(22,22),TextSize=12 },function() notification:Destroy() end)
     table.insert(self._notifications,notification)
+    -- Countdown strip: wall-clock duration, independent from animation speed.
+    notification.Timer=frame(self,notification.Frame,{Name="NoticeTimer",Position=UDim2.new(0,4,1,-2),Size=UDim2.new(1,-4,0,2),Active=false,ZIndex=81},role)
     notification.Frame.BackgroundTransparency=.4; notification.Frame.Size=U2(width,4)
-    self:_animate(notification.Frame,{BackgroundTransparency=0,Size=U2(width,82)},.14,"notice",notification)
+    self:_animate(notification.Frame,{BackgroundTransparency=0,Size=U2(width,82)},.2,"notice",notification,nil,{Easing="Quint"})
+    if options.Timer~=false and self:_motionAllowed(notification.Frame) then
+        self:_animate(notification.Timer,{Size=UDim2.new(0,0,0,2)},duration,"notice-timer",notification,nil,{Easing="Linear",Exact=true})
+    elseif options.Timer==false then notification.Timer.Visible=false end
     task.delay(duration,function() notification:Destroy() end)
     return notification
 end
@@ -9814,7 +9873,8 @@ end
 do
     local allowed={Toggle=true,Slider=true,Button=true,Input=true,Dropdown=true,ColorPicker=true,Label=true,Separator=true,
         StatCard=true,Progress=true,Chart=true,Console=true,Image=true,VirtualList=true,DataTable=true,TreeView=true,
-        Preview=true,Stepper=true,CardGrid=true,Keybind=true}
+        Preview=true,Stepper=true,CardGrid=true,Keybind=true,
+        Segmented=true,RangeSlider=true,Number=true,Callout=true,CodeBlock=true}
     local function id(value)
         assert(type(value)=='string' and #value>=1 and #value<=64 and value:match('^[%w_.%-]+$'),'Group Id must contain 1–64 letters, numbers, dots, underscores or hyphens')
         return value
@@ -9901,7 +9961,7 @@ do
         return handle
     end
 
-    local formTypes={Input=true,Toggle=true,Slider=true,Dropdown=true,ColorPicker=true}
+    local formTypes={Input=true,Toggle=true,Slider=true,Dropdown=true,ColorPicker=true,Segmented=true,RangeSlider=true,Number=true}
     function Section:CreateForm(options)
         assert(type(options)=='table' and type(options.Fields)=='table' and #options.Fields>=1 and #options.Fields<=64,'Form needs 1–64 Fields')
         local window=self._window;local name=id(options.Id)
@@ -12178,7 +12238,7 @@ end
 -- BEGIN RETRO290 NEWS
 -- Built-in release notes are owned by the library; consumers only set ScriptUpdates.
 do
-    local official=HttpService:JSONDecode([==[[{"Id":"retrobox-2.10.0","Version":"2.10.0","Date":"2026-10-28","Title":{"pt-BR":"Central de Ideias própria e Novidades sem avisos","en-US":"Dedicated Ideas Center and passive update history"},"Description":{"pt-BR":"- Central de Ideias com launcher próprio: cartões de categoria, mensagem, diagnóstico opcional e revisão do envio.\n- Painel de jogo, jogador e status; layout adaptável e nomes alinhados, preservando API, temas e traduções.\n- Novidades fica somente como histórico: sem contadores, etiquetas de não lida, botão de leitura ou avisos.\n- Perfis antigos não reativam indicadores; credenciais e rascunhos continuam fora dos perfis.\n- Prévia de diagnóstico permanece somente para leitura após atualizações da tela.","en-US":"- Dedicated Ideas Center launcher with category cards, message composer, optional diagnostics and submission review.\n- Game/player context and delivery status, adaptive layout and aligned labels; existing API, themes and localization retained.\n- Updates is a passive history: no unread counts, tags, mark-as-read buttons or alerts.\n- Legacy profiles cannot restore update badges; credentials and drafts remain outside profiles.\n- Diagnostic preview stays read-only after refresh."}},{"Id":"retrobox-2.9.0","Version":"2.9.0","Date":"2026-10-27","Title":{"pt-BR":"Novidades e relatos com diagnóstico","en-US":"Updates and diagnostic bug reports"},"Description":{"pt-BR":"- Área Novidades em todas as janelas, com histórico oficial da RetroBox e updates opcionais do script em fontes separadas.\n- Marcação de leitura por conteúdo, idioma PT/EN e persistência no perfil; conteúdo oficial não aceita substituição pela API pública.\n- Diagnóstico opcional na Central de Ideias: erro colado, código/tag, reprodução e seleção de registros disponíveis.\n- Captura de console explícita e limitada, prévia, cópia e remoção de padrões reconhecidos de segredo; anexos não entram nos perfis.\n- Limites do embed conferidos antes do envio, preservação de rascunho e encerramento seguro de captura e respostas tardias.","en-US":"- Updates in every window, with official RetroBox history and optional script updates in separate sources.\n- Content-based read markers, PT/EN and saved read state; public consumer APIs cannot replace official notes.\n- Optional Ideas Center diagnostics: pasted error, error tag, reproduction steps and selected available records.\n- Explicit bounded console capture, preview, copy and recognized-secret redaction; attachments stay out of profiles.\n- Embed limits checked before sending, draft preservation and managed capture/request cleanup."}},{"Id":"retrobox-2.8.0","Version":"2.8.0","Date":"2026-10-27","Title":{"pt-BR":"Central de Ideias","en-US":"Ideas Center"},"Description":{"pt-BR":"- Central de Ideias opt-in e independente do Script Hub, com categorias, formulário, prévia e PT/EN.\n- Jogo atual ou outro por ID/link; nome automático, identidade real e avatar HTTPS opcional.\n- Webhook Discord ou transporte customizado, confirmação, limites e duplicatas; nenhum envio na abertura.\n- Falhas e timeout mantêm o texto; respostas tardias não alteram GUI nova. Rascunho/credencial fora dos perfis.\n- Regressões de comunicação, idioma, ciclo de vida e layouts. API 2, bootstrap, Designer e releases anteriores preservados.","en-US":"- Standalone or attached Ideas Center with requests, suggestions, feedback and bug reports.\n- Current or selected game, real player identity, optional avatar and PT/EN preview.\n- Explicit Discord webhook or custom transport, confirmed delivery, cooldown and duplicate handling.\n- Draft preservation, timeout handling and safe cleanup; no send when opening."}},{"Id":"retrobox-2.7.0","Version":"2.7.0","Date":"2026-10-26","Title":{"pt-BR":"Acabamento visual, RGB e tema do Hub","en-US":"Visual polish, RGB and Hub theme"},"Description":{"pt-BR":"- Acabamento compartilhado: entrada coordenada de textos nas páginas, tela de preparação opcional, skeletons nativos e SetLoading para controles comuns.\n- RGB opt-in para títulos, descrições, valores e botões; contraste contextual, preferências de movimento e agendador compartilhado com ColorPickers.\n- Perfil independente de aparência por Hub, preset Launcher, botão Tema e editor de cores; snapshots persistentes e importação atômica.\n- Capas e metadados com placeholders, falha observável e fade de imagem; menus, tooltips e ícones acompanham a paleta local.\n- Orçamentos de efeitos, encerramento seguro ao ocultar/destruir/reexecutar e regressões adicionais. API 2, consumidores, bootstrap, Designer e releases anteriores preservados.","en-US":"- Shared visual polish, coordinated entrances, optional loading screens and native skeletons.\n- Optional RGB for titles, descriptions, values and buttons, respecting contrast and motion preferences.\n- Independent Hub appearance profiles, Launcher preset and palette editor.\n- Image placeholders and status, local theme integration and bounded managed effects."}},{"Id":"retrobox-2.6.0","Version":"2.6.0","Date":"2026-10-26","Title":{"pt-BR":"Identidade e animações","en-US":"Identity and animations"},"Description":{"pt-BR":"- Perfil observa LocalPlayer e Name/DisplayName/UserId, recupera inicialização tardia e confere identidade ao reabrir; avatar e tradução não bloqueiam nomes.\n- Respostas de avatar antigas são invalidadas; observers e referências da interface são liberados na destruição.\n- Feedback de botões, foco, seleção, abas, listas/cards, menus, tooltips, estatísticas, gráficos, Hub/HUD e etapas usam o animador central.\n- Gráficos/StatCards animam por padrão; Animated=false desliga movimento por controle. Arraste suavizado passa a ser padrão, respeitando saves e acessibilidade.\n- Geometria dos gráficos usa unidades lógicas, máscaras de progresso acompanham a transição e há orçamento de 96 segmentos animados por gráfico.\n- Novas regressões de identidade/movimento e demonstração nativa com dados fictícios. API 2, bootstrap, Designer e releases anteriores preservados.","en-US":"- Player profile follows real LocalPlayer identity, including delayed initialization and changes.\n- Stale avatar responses are discarded and observers are cleaned up.\n- Central animation system covers interactions, charts, statistics, Hubs and compact views.\n- Smooth dragging and animated charts by default, with accessibility and explicit opt-outs."}},{"Id":"retrobox-2.5.2","Version":"2.5.2","Date":"2026-10-21","Title":{"pt-BR":"Layout e interação do launcher","en-US":"Launcher layout and interaction"},"Description":{"pt-BR":"- Ordenação do Hub usa a camada de ContextMenu já existente, fora de ancestrais com recorte; respeita a janela e abre para cima quando necessário.\n- Botões do launcher reservam espaço pelo texto, fonte, escala e ícone reais; ações e filtros quebram em linhas quando necessário.\n- Cabeçalhos tradicionais compartilham o cálculo de informação, fixação, Keybind integrado e controle principal, com altura responsiva.\n- Remoção/recriação de ajuda e fixação não acumula deslocamentos; callbacks, captura de teclas, preferências e IDs preservados.\n- Regressões de geometria/interação e compatibilidade com o Hub anexado. Sem redesign, mudança de API ou modificação dos consumidores.","en-US":"- Launcher sorting uses the existing context-menu overlay without clipping.\n- Action widths use actual text, font, scale and icons; rows wrap when needed.\n- Control headers reserve responsive room for help, pinning and keybinds.\n- Existing callbacks, IDs and saved preferences are preserved."}},{"Id":"retrobox-2.5.1","Version":"2.5.1","Date":"2026-10-20","Title":{"pt-BR":"Desempenho dos grafos","en-US":"Flow graph performance"},"Description":{"pt-BR":"- Avaliação memoizada por expressão nos grafos nativos e na prévia, evitando recálculo exponencial de subexpressões compartilhadas.\n- Cada leitura de entrada usa um cache novo, preservando mudanças de valores entre bindings e ações.\n- Comparação de registros na prévia independe da ordem das chaves, como no runtime.\n- Regressões com 28 operações compartilhadas e refresh; release 2.5.0 preservada por bytes.","en-US":"- Memoized flow expressions prevent exponential recalculation of shared inputs.\n- Every new evaluation gets a fresh cache so state changes remain visible.\n- Preview record comparisons ignore map-key order, matching the native runtime."}},{"Id":"retrobox-2.5.0","Version":"2.5.0","Date":"2026-10-20","Title":{"pt-BR":"Designer e ferramentas de desenvolvimento","en-US":"Designer and developer tools"},"Description":{"pt-BR":"- Designer HTML offline com 21 componentes, Row, 22 blocos tipados, prévia, PT/EN, JSON e compilador Luau real.\n- Localização automática por janela, dicionários, parâmetros, provider explícito e preferência em perfis.\n- Formulários transacionais, componentes reutilizáveis, CardGrid com pool limitado e grafos sem ciclos.\n- Diagnóstico de catálogo por download/compilação explícitos, sem executar o conteúdo.\n- Fontes do editor, catálogo compartilhado, exemplos, testes Chromium e integração contínua.\n- API 2, bootstrap, estrutura histórica, jogos/IDs dos consumidores e pins publicados preservados.","en-US":"- Offline HTML Designer with 21 components, rows, 22 typed blocks, preview and a real Luau compiler.\n- Automatic window localization, dictionaries, parameters and explicit translation provider.\n- Transactional forms, reusable components, bounded CardGrid and acyclic flows.\n- Explicit catalog diagnostics and Chromium tests; existing API 2 consumers preserved."}},{"Id":"retrobox-2.4.0","Version":"2.4.0","Date":"2026-10-20","Title":{"pt-BR":"Scripts universais","en-US":"Universal scripts"},"Description":{"pt-BR":"- UniversalScripts nativo e separado de Games, com categoria, tag UNIVERSAL e nome/descrição/URL ou Callback.\n- Id opcional, APIs de cadastro/edição/execução, perfis e ações independentes por categoria.\n- Raw do Pastefy aceito por URL HTTPS; download apenas na execução, com progresso, erros e cancelamento cooperativo.\n- Catálogos JSON continuam sem URL/código e atualizam universais de forma atômica por metadados/Actions locais.\n- Preserva API 2, estrutura histórica, tema/PixelIcons, jogos e artefatos até 2.3.1.","en-US":"- UniversalScripts live separately from game entries, with a UNIVERSAL tag and their own metadata.\n- Optional IDs, registration/editing APIs, profiles and independent actions.\n- HTTPS Pastefy raw URLs load only on explicit execution, with progress and cancellation.\n- Remote JSON catalogs remain metadata-only."}},{"Id":"retrobox-2.3.1","Version":"2.3.1","Date":"2026-10-20","Title":{"pt-BR":"Nova origem de distribuição","en-US":"New distribution origin"},"Description":{"pt-BR":"- Origem padrão do updater e bootstrap passam a ManoGustavo02/RetroBox.\n- Guias e exemplos ativos apontam para a conta nova; estrutura histórica, API 2 e temas preservados.\n- Nova release, sem reescrever os pins 2.0.0, 2.1.0, 2.2.0 e 2.3.0.\n- README bilíngue, banner e badges locais, guias de contribuição/segurança, formulários e CI de validação.\n- Canais Stable/Preview apontam para 2.3.1; resultados de publicação e acesso remoto ficam no relatório da release.","en-US":"- Default updater and bootstrap origin migrated to ManoGustavo02/RetroBox.\n- Active guides and examples point to the new account; historical releases are preserved.\n- Bilingual README, local artwork, contribution/security guides, issue forms and CI."}},{"Id":"retrobox-2.3.0","Version":"2.3.0","Date":"2026-10-19","Title":{"pt-BR":"Launcher padrão do Script Hub","en-US":"Standard Script Hub launcher"},"Description":{"pt-BR":"- Launcher padrão em CreateScriptHub, com catálogo, filtros, destaque, cards e barra fixa, compartilhado por todos os consumidores.\n- FallbackName/Notes nativos, SetCatalogFilter/GetCatalogFilter e compatibilidade dos IDs/perfis/API 2.\n- Temas, idioma, contraste dos cards, buscas/foco, detalhes completos e status de teleporte integrados.\n- Limpeza de Hold evita render em toggle/PixelIcon já destruído durante sinais diferidos.\n- Novo exemplo e regressões específicas de hubs genéricos e integração do consumidor.\n- GitHub retornou 403 de conta suspensa; este pacote não foi publicado.","en-US":"- Shared launcher layout for CreateScriptHub: filters, featured game, cards and fixed actions.\n- FallbackName, Notes and catalog filter APIs preserve existing IDs and API 2.\n- Improved themes, language, contrast, search, complete details and teleport status.\n- Historical note: publication from the old account was blocked; distribution later migrated in 2.3.1."}},{"Id":"retrobox-2.2.0","Version":"2.2.0","Date":"2026-10-19","Title":{"pt-BR":"Mini HUD, previews e etapas","en-US":"Mini HUD, previews and steppers"},"Description":{"pt-BR":"- Mini HUD com States compartilhados, valores/progresso/timers/status, arraste/trava, escala/opacidade, recolhimento e layout em perfis.\n- Fixar/Soltar de StatCard, Progress, ProgressChart, Label e Stepper; valores silenciosos e cleanup do controle preservados.\n- Barra compacta reutiliza FloatingButton e Press/Toggle/Hold, disabled/busy e liberação ao perder foco.\n- AddPreview com imagem/modelo clonado/WorldModel, câmera própria, zoom/rotação, Apply/Cancel, animações opcionais e renderer com scope.\n- AddStepper acompanha progressos/resultados de RunAction, com transições manuais e resumo fixável.\n- 32 regressões específicas e quatro exemplos novos; distribuição e bootstrap API 2 preservados.","en-US":"- Mini HUD with shared states, values, progress, timers, dragging, locking and profile layouts.\n- Pin/unpin existing components, compact action bar, image/model previews and operation stepper.\n- Scoped resources, explicit callbacks and additional regression examples."}},{"Id":"retrobox-2.1.0","Version":"2.1.0","Title":{"pt-BR":"Ícones, metadados e profiler","en-US":"Icons, metadata and profiler"},"Description":{"pt-BR":"- PixelIcon separa observação de Destroying da destruição explícita, com limpeza idempotente e soltura de referências, sem pcall de supressão.\n- Smart Game Metadata no Hub atual: campos manuais preservados, consulta assíncrona, provider opcional, cache/limite/deduplicação e integração com catálogos.\n- Profiler por tarefa/ação no Runtime Inspector existente, com tempos, contadores, espera instrumentada, histórico limitado e aviso de intervalo excedido.\n- Session Snapshots opcionais de States registrados, validados e independentes dos perfis.\n- CreateIntegration e cinco exemplos novos, incluindo operação cancelável de seis etapas.\n- API 2 e bootstrap permanente preservados; releases anteriores continuam imutáveis.","en-US":"- Idempotent PixelIcon lifecycle fixes and cleanup without suppressing destroyed-parent errors.\n- Smart game metadata with async providers, cache and field-level overrides.\n- Task/action profiler, optional registered session snapshots and integration helpers."}},{"Id":"retrobox-2.0.0","Version":"2.0.0","Title":{"pt-BR":"Bootstrap permanente e API 2","en-US":"Permanent bootstrap and API 2"},"Description":{"pt-BR":"- Bootstrap permanente de API 2; Stable/Preview/Pinned, SemVer, compatibilidade, SHA-256, cache opcional e rollback com histórico imutável.\n- Código do Hub por módulos Version/Start/LoadHub e catálogo JSON por CatalogUpdate/Actions, com origens explícitas e atualizações independentes.\n- Script Hub nativo com imagem ampla, sem rótulo Miniatura, listas adaptativas, seleção por jogo, um Executar script, cancelamento/feedback e panes responsivos.\n- Busca global passa a navegar ao pane correto; APIs, IDs/perfis, temas, ícones e componentes anteriores preservados.\n- Guias, migração, prompt completo, 24 exemplos, builders e verificação de distribuição. 256 testes de lógica e 2 de pipeline aprovados.","en-US":"- Permanent API 2 bootstrap with stable/preview/pinned channels, integrity checks and immutable releases.\n- Independent script hub modules and metadata catalogs.\n- Native Script Hub launcher with responsive lists, search, game selection and execution feedback.\n- Existing IDs, themes, profiles and controls retained."}}]]==])
+    local official=HttpService:JSONDecode([==[[{"Id":"retrobox-2.11.0","Version":"2.11.0","Date":"2026-11-01","Title":{"pt-BR":"Movimento refinado e novos componentes","en-US":"Refined motion and new components"},"Description":{"pt-BR":"- Novos componentes: Segmented com indicador deslizante, RangeSlider de dois polos, Number com -/+ e repetição ao segurar, Callout informativo e CodeBlock com números de linha e Copiar.\n- Animador central com curvas Back/Quint: abertura com linha CRT, pulso de clique nos botões, check com salto e seleção com elasticidade.\n- Notificações ganham barra de tempo restante, independente da velocidade das animações; Timer=false a oculta.\n- Movimento respeita Reduced Motion, intensidade Discreta/Desativada e Animated=false; hit boxes não mudam.\n- Novos tipos funcionam em perfis, busca, temas, formulários e componentes reutilizáveis. API 2 preservada.","en-US":"- New components: Segmented with sliding indicator, two-thumb RangeSlider, Number with -/+ and hold-to-repeat, informative Callout and CodeBlock with line numbers and Copy.\n- Central animator gains Back/Quint curves: CRT power-on line, button press pulse, bouncing check and elastic selection.\n- Notifications show a remaining-time bar that ignores animation speed; Timer=false hides it.\n- Motion honours Reduced Motion, Subtle/Off intensity and Animated=false without moving hit boxes.\n- New types support profiles, search, themes, forms and reusable components. API 2 preserved."}},{"Id":"retrobox-2.10.0","Version":"2.10.0","Date":"2026-10-28","Title":{"pt-BR":"Central de Ideias própria e Novidades sem avisos","en-US":"Dedicated Ideas Center and passive update history"},"Description":{"pt-BR":"- Central de Ideias com launcher próprio: cartões de categoria, mensagem, diagnóstico opcional e revisão do envio.\n- Painel de jogo, jogador e status; layout adaptável e nomes alinhados, preservando API, temas e traduções.\n- Novidades fica somente como histórico: sem contadores, etiquetas de não lida, botão de leitura ou avisos.\n- Perfis antigos não reativam indicadores; credenciais e rascunhos continuam fora dos perfis.\n- Prévia de diagnóstico permanece somente para leitura após atualizações da tela.","en-US":"- Dedicated Ideas Center launcher with category cards, message composer, optional diagnostics and submission review.\n- Game/player context and delivery status, adaptive layout and aligned labels; existing API, themes and localization retained.\n- Updates is a passive history: no unread counts, tags, mark-as-read buttons or alerts.\n- Legacy profiles cannot restore update badges; credentials and drafts remain outside profiles.\n- Diagnostic preview stays read-only after refresh."}},{"Id":"retrobox-2.9.0","Version":"2.9.0","Date":"2026-10-27","Title":{"pt-BR":"Novidades e relatos com diagnóstico","en-US":"Updates and diagnostic bug reports"},"Description":{"pt-BR":"- Área Novidades em todas as janelas, com histórico oficial da RetroBox e updates opcionais do script em fontes separadas.\n- Marcação de leitura por conteúdo, idioma PT/EN e persistência no perfil; conteúdo oficial não aceita substituição pela API pública.\n- Diagnóstico opcional na Central de Ideias: erro colado, código/tag, reprodução e seleção de registros disponíveis.\n- Captura de console explícita e limitada, prévia, cópia e remoção de padrões reconhecidos de segredo; anexos não entram nos perfis.\n- Limites do embed conferidos antes do envio, preservação de rascunho e encerramento seguro de captura e respostas tardias.","en-US":"- Updates in every window, with official RetroBox history and optional script updates in separate sources.\n- Content-based read markers, PT/EN and saved read state; public consumer APIs cannot replace official notes.\n- Optional Ideas Center diagnostics: pasted error, error tag, reproduction steps and selected available records.\n- Explicit bounded console capture, preview, copy and recognized-secret redaction; attachments stay out of profiles.\n- Embed limits checked before sending, draft preservation and managed capture/request cleanup."}},{"Id":"retrobox-2.8.0","Version":"2.8.0","Date":"2026-10-27","Title":{"pt-BR":"Central de Ideias","en-US":"Ideas Center"},"Description":{"pt-BR":"- Central de Ideias opt-in e independente do Script Hub, com categorias, formulário, prévia e PT/EN.\n- Jogo atual ou outro por ID/link; nome automático, identidade real e avatar HTTPS opcional.\n- Webhook Discord ou transporte customizado, confirmação, limites e duplicatas; nenhum envio na abertura.\n- Falhas e timeout mantêm o texto; respostas tardias não alteram GUI nova. Rascunho/credencial fora dos perfis.\n- Regressões de comunicação, idioma, ciclo de vida e layouts. API 2, bootstrap, Designer e releases anteriores preservados.","en-US":"- Standalone or attached Ideas Center with requests, suggestions, feedback and bug reports.\n- Current or selected game, real player identity, optional avatar and PT/EN preview.\n- Explicit Discord webhook or custom transport, confirmed delivery, cooldown and duplicate handling.\n- Draft preservation, timeout handling and safe cleanup; no send when opening."}},{"Id":"retrobox-2.7.0","Version":"2.7.0","Date":"2026-10-26","Title":{"pt-BR":"Acabamento visual, RGB e tema do Hub","en-US":"Visual polish, RGB and Hub theme"},"Description":{"pt-BR":"- Acabamento compartilhado: entrada coordenada de textos nas páginas, tela de preparação opcional, skeletons nativos e SetLoading para controles comuns.\n- RGB opt-in para títulos, descrições, valores e botões; contraste contextual, preferências de movimento e agendador compartilhado com ColorPickers.\n- Perfil independente de aparência por Hub, preset Launcher, botão Tema e editor de cores; snapshots persistentes e importação atômica.\n- Capas e metadados com placeholders, falha observável e fade de imagem; menus, tooltips e ícones acompanham a paleta local.\n- Orçamentos de efeitos, encerramento seguro ao ocultar/destruir/reexecutar e regressões adicionais. API 2, consumidores, bootstrap, Designer e releases anteriores preservados.","en-US":"- Shared visual polish, coordinated entrances, optional loading screens and native skeletons.\n- Optional RGB for titles, descriptions, values and buttons, respecting contrast and motion preferences.\n- Independent Hub appearance profiles, Launcher preset and palette editor.\n- Image placeholders and status, local theme integration and bounded managed effects."}},{"Id":"retrobox-2.6.0","Version":"2.6.0","Date":"2026-10-26","Title":{"pt-BR":"Identidade e animações","en-US":"Identity and animations"},"Description":{"pt-BR":"- Perfil observa LocalPlayer e Name/DisplayName/UserId, recupera inicialização tardia e confere identidade ao reabrir; avatar e tradução não bloqueiam nomes.\n- Respostas de avatar antigas são invalidadas; observers e referências da interface são liberados na destruição.\n- Feedback de botões, foco, seleção, abas, listas/cards, menus, tooltips, estatísticas, gráficos, Hub/HUD e etapas usam o animador central.\n- Gráficos/StatCards animam por padrão; Animated=false desliga movimento por controle. Arraste suavizado passa a ser padrão, respeitando saves e acessibilidade.\n- Geometria dos gráficos usa unidades lógicas, máscaras de progresso acompanham a transição e há orçamento de 96 segmentos animados por gráfico.\n- Novas regressões de identidade/movimento e demonstração nativa com dados fictícios. API 2, bootstrap, Designer e releases anteriores preservados.","en-US":"- Player profile follows real LocalPlayer identity, including delayed initialization and changes.\n- Stale avatar responses are discarded and observers are cleaned up.\n- Central animation system covers interactions, charts, statistics, Hubs and compact views.\n- Smooth dragging and animated charts by default, with accessibility and explicit opt-outs."}},{"Id":"retrobox-2.5.2","Version":"2.5.2","Date":"2026-10-21","Title":{"pt-BR":"Layout e interação do launcher","en-US":"Launcher layout and interaction"},"Description":{"pt-BR":"- Ordenação do Hub usa a camada de ContextMenu já existente, fora de ancestrais com recorte; respeita a janela e abre para cima quando necessário.\n- Botões do launcher reservam espaço pelo texto, fonte, escala e ícone reais; ações e filtros quebram em linhas quando necessário.\n- Cabeçalhos tradicionais compartilham o cálculo de informação, fixação, Keybind integrado e controle principal, com altura responsiva.\n- Remoção/recriação de ajuda e fixação não acumula deslocamentos; callbacks, captura de teclas, preferências e IDs preservados.\n- Regressões de geometria/interação e compatibilidade com o Hub anexado. Sem redesign, mudança de API ou modificação dos consumidores.","en-US":"- Launcher sorting uses the existing context-menu overlay without clipping.\n- Action widths use actual text, font, scale and icons; rows wrap when needed.\n- Control headers reserve responsive room for help, pinning and keybinds.\n- Existing callbacks, IDs and saved preferences are preserved."}},{"Id":"retrobox-2.5.1","Version":"2.5.1","Date":"2026-10-20","Title":{"pt-BR":"Desempenho dos grafos","en-US":"Flow graph performance"},"Description":{"pt-BR":"- Avaliação memoizada por expressão nos grafos nativos e na prévia, evitando recálculo exponencial de subexpressões compartilhadas.\n- Cada leitura de entrada usa um cache novo, preservando mudanças de valores entre bindings e ações.\n- Comparação de registros na prévia independe da ordem das chaves, como no runtime.\n- Regressões com 28 operações compartilhadas e refresh; release 2.5.0 preservada por bytes.","en-US":"- Memoized flow expressions prevent exponential recalculation of shared inputs.\n- Every new evaluation gets a fresh cache so state changes remain visible.\n- Preview record comparisons ignore map-key order, matching the native runtime."}},{"Id":"retrobox-2.5.0","Version":"2.5.0","Date":"2026-10-20","Title":{"pt-BR":"Designer e ferramentas de desenvolvimento","en-US":"Designer and developer tools"},"Description":{"pt-BR":"- Designer HTML offline com 21 componentes, Row, 22 blocos tipados, prévia, PT/EN, JSON e compilador Luau real.\n- Localização automática por janela, dicionários, parâmetros, provider explícito e preferência em perfis.\n- Formulários transacionais, componentes reutilizáveis, CardGrid com pool limitado e grafos sem ciclos.\n- Diagnóstico de catálogo por download/compilação explícitos, sem executar o conteúdo.\n- Fontes do editor, catálogo compartilhado, exemplos, testes Chromium e integração contínua.\n- API 2, bootstrap, estrutura histórica, jogos/IDs dos consumidores e pins publicados preservados.","en-US":"- Offline HTML Designer with 21 components, rows, 22 typed blocks, preview and a real Luau compiler.\n- Automatic window localization, dictionaries, parameters and explicit translation provider.\n- Transactional forms, reusable components, bounded CardGrid and acyclic flows.\n- Explicit catalog diagnostics and Chromium tests; existing API 2 consumers preserved."}},{"Id":"retrobox-2.4.0","Version":"2.4.0","Date":"2026-10-20","Title":{"pt-BR":"Scripts universais","en-US":"Universal scripts"},"Description":{"pt-BR":"- UniversalScripts nativo e separado de Games, com categoria, tag UNIVERSAL e nome/descrição/URL ou Callback.\n- Id opcional, APIs de cadastro/edição/execução, perfis e ações independentes por categoria.\n- Raw do Pastefy aceito por URL HTTPS; download apenas na execução, com progresso, erros e cancelamento cooperativo.\n- Catálogos JSON continuam sem URL/código e atualizam universais de forma atômica por metadados/Actions locais.\n- Preserva API 2, estrutura histórica, tema/PixelIcons, jogos e artefatos até 2.3.1.","en-US":"- UniversalScripts live separately from game entries, with a UNIVERSAL tag and their own metadata.\n- Optional IDs, registration/editing APIs, profiles and independent actions.\n- HTTPS Pastefy raw URLs load only on explicit execution, with progress and cancellation.\n- Remote JSON catalogs remain metadata-only."}},{"Id":"retrobox-2.3.1","Version":"2.3.1","Date":"2026-10-20","Title":{"pt-BR":"Nova origem de distribuição","en-US":"New distribution origin"},"Description":{"pt-BR":"- Origem padrão do updater e bootstrap passam a ManoGustavo02/RetroBox.\n- Guias e exemplos ativos apontam para a conta nova; estrutura histórica, API 2 e temas preservados.\n- Nova release, sem reescrever os pins 2.0.0, 2.1.0, 2.2.0 e 2.3.0.\n- README bilíngue, banner e badges locais, guias de contribuição/segurança, formulários e CI de validação.\n- Canais Stable/Preview apontam para 2.3.1; resultados de publicação e acesso remoto ficam no relatório da release.","en-US":"- Default updater and bootstrap origin migrated to ManoGustavo02/RetroBox.\n- Active guides and examples point to the new account; historical releases are preserved.\n- Bilingual README, local artwork, contribution/security guides, issue forms and CI."}},{"Id":"retrobox-2.3.0","Version":"2.3.0","Date":"2026-10-19","Title":{"pt-BR":"Launcher padrão do Script Hub","en-US":"Standard Script Hub launcher"},"Description":{"pt-BR":"- Launcher padrão em CreateScriptHub, com catálogo, filtros, destaque, cards e barra fixa, compartilhado por todos os consumidores.\n- FallbackName/Notes nativos, SetCatalogFilter/GetCatalogFilter e compatibilidade dos IDs/perfis/API 2.\n- Temas, idioma, contraste dos cards, buscas/foco, detalhes completos e status de teleporte integrados.\n- Limpeza de Hold evita render em toggle/PixelIcon já destruído durante sinais diferidos.\n- Novo exemplo e regressões específicas de hubs genéricos e integração do consumidor.\n- GitHub retornou 403 de conta suspensa; este pacote não foi publicado.","en-US":"- Shared launcher layout for CreateScriptHub: filters, featured game, cards and fixed actions.\n- FallbackName, Notes and catalog filter APIs preserve existing IDs and API 2.\n- Improved themes, language, contrast, search, complete details and teleport status.\n- Historical note: publication from the old account was blocked; distribution later migrated in 2.3.1."}},{"Id":"retrobox-2.2.0","Version":"2.2.0","Date":"2026-10-19","Title":{"pt-BR":"Mini HUD, previews e etapas","en-US":"Mini HUD, previews and steppers"},"Description":{"pt-BR":"- Mini HUD com States compartilhados, valores/progresso/timers/status, arraste/trava, escala/opacidade, recolhimento e layout em perfis.\n- Fixar/Soltar de StatCard, Progress, ProgressChart, Label e Stepper; valores silenciosos e cleanup do controle preservados.\n- Barra compacta reutiliza FloatingButton e Press/Toggle/Hold, disabled/busy e liberação ao perder foco.\n- AddPreview com imagem/modelo clonado/WorldModel, câmera própria, zoom/rotação, Apply/Cancel, animações opcionais e renderer com scope.\n- AddStepper acompanha progressos/resultados de RunAction, com transições manuais e resumo fixável.\n- 32 regressões específicas e quatro exemplos novos; distribuição e bootstrap API 2 preservados.","en-US":"- Mini HUD with shared states, values, progress, timers, dragging, locking and profile layouts.\n- Pin/unpin existing components, compact action bar, image/model previews and operation stepper.\n- Scoped resources, explicit callbacks and additional regression examples."}},{"Id":"retrobox-2.1.0","Version":"2.1.0","Title":{"pt-BR":"Ícones, metadados e profiler","en-US":"Icons, metadata and profiler"},"Description":{"pt-BR":"- PixelIcon separa observação de Destroying da destruição explícita, com limpeza idempotente e soltura de referências, sem pcall de supressão.\n- Smart Game Metadata no Hub atual: campos manuais preservados, consulta assíncrona, provider opcional, cache/limite/deduplicação e integração com catálogos.\n- Profiler por tarefa/ação no Runtime Inspector existente, com tempos, contadores, espera instrumentada, histórico limitado e aviso de intervalo excedido.\n- Session Snapshots opcionais de States registrados, validados e independentes dos perfis.\n- CreateIntegration e cinco exemplos novos, incluindo operação cancelável de seis etapas.\n- API 2 e bootstrap permanente preservados; releases anteriores continuam imutáveis.","en-US":"- Idempotent PixelIcon lifecycle fixes and cleanup without suppressing destroyed-parent errors.\n- Smart game metadata with async providers, cache and field-level overrides.\n- Task/action profiler, optional registered session snapshots and integration helpers."}},{"Id":"retrobox-2.0.0","Version":"2.0.0","Title":{"pt-BR":"Bootstrap permanente e API 2","en-US":"Permanent bootstrap and API 2"},"Description":{"pt-BR":"- Bootstrap permanente de API 2; Stable/Preview/Pinned, SemVer, compatibilidade, SHA-256, cache opcional e rollback com histórico imutável.\n- Código do Hub por módulos Version/Start/LoadHub e catálogo JSON por CatalogUpdate/Actions, com origens explícitas e atualizações independentes.\n- Script Hub nativo com imagem ampla, sem rótulo Miniatura, listas adaptativas, seleção por jogo, um Executar script, cancelamento/feedback e panes responsivos.\n- Busca global passa a navegar ao pane correto; APIs, IDs/perfis, temas, ícones e componentes anteriores preservados.\n- Guias, migração, prompt completo, 24 exemplos, builders e verificação de distribuição. 256 testes de lógica e 2 de pipeline aprovados.","en-US":"- Permanent API 2 bootstrap with stable/preview/pinned channels, integrity checks and immutable releases.\n- Independent script hub modules and metadata catalogs.\n- Native Script Hub launcher with responsive lists, search, game selection and execution feedback.\n- Existing IDs, themes, profiles and controls retained."}}]]==])
     local function text(value,limit)
         local function part(s) assert(type(s)=='string' and utf8.len(s) and #s<=limit*4 and utf8.len(s)<=limit and not s:find('[%z\1-\8\11\12\14-\31]'),'Invalid update text');return s end
         if type(value)=='string' then return part(value) end
@@ -12335,5 +12395,383 @@ do
 end
 
 -- END RETRO290 NEWS
+
+-- BEGIN RETRO211 REFINED CONTROLS
+-- RetroBox 2.11 refined controls: Segmented, RangeSlider, Number, Callout and
+-- CodeBlock. They reuse base/init, the palette registry, the focus order and
+-- the central animator, so themes, profiles, search and Reduced Motion apply.
+do
+    local function canActivate(control,object)
+        local window=control._window
+        if window.Destroyed or control.Destroyed or control.Disabled or window._shown==false then return false end
+        local section=control._section and (control._section._parentSection or control._section)
+        if section and (section._collapsed or not section._visible) then return false end
+        if window._dialog or window._binding then return false end
+        if window._interactionAllowed and not window:_interactionAllowed(object) then return false end
+        return true
+    end
+    local function decimals(step)
+        local text=string.format('%.10g',step); local dot=text:find('%.')
+        return dot and math.min(6,#text-dot) or 0
+    end
+    local function snap(value,base,step)
+        local result=base+math.floor((value-base)/step+.5)*step
+        return tonumber(string.format('%.10g',result))
+    end
+    local function numberText(value,precision)
+        if precision then return string.format('%.'..precision..'f',value) end
+        return string.format('%.6g',value)
+    end
+
+    -- Segmented: 2–8 exclusive choices with a sliding accent indicator.
+    function Section:AddSegmented(options)
+        options=options or {}
+        local choices=names(options.Options or {})
+        assert(#choices>=2 and #choices<=8,'Segmented needs 2–8 Options')
+        local self=base(self,'Segmented',options,78)
+        local window=self._window
+        self.Options=choices; self.Segments={}
+        local track=frame(window,self.Frame,{Name='SegmentTrack',Position=U2(0,44),Size=UDim2.new(1,0,0,30),Active=false},'Inset')
+        bevel(window,track,true)
+        local indicator=frame(window,track,{Name='SegmentIndicator',Position=U2(2,2),Size=UDim2.new(0,0,1,-4),ZIndex=track.ZIndex+1},'Accent')
+        bevel(window,indicator,false)
+        self.Track=track; self.Indicator=indicator
+        local function clear()
+            for _,segment in ipairs(self.Segments) do window:_forgetSkin(segment); if segment.Parent then segment:Destroy() end end
+            self.Segments={}
+        end
+        local function build()
+            clear()
+            local count=#self.Options
+            for index,name in ipairs(self.Options) do
+                local segment=ui(window,'TextButton',{Parent=track,Name='Segment',Text=name,Font=window.Font,TextSize=13,BorderSizePixel=0,AutoButtonColor=false,
+                    BackgroundTransparency=1,Active=true,Selectable=true,RichText=false,TextTruncate=Enum.TextTruncate.AtEnd,
+                    Position=UDim2.new((index-1)/count,0,0,0),Size=UDim2.new(1/count,0,1,0),ZIndex=track.ZIndex+3},{TextColor3='Text',BackgroundColor3='Surface'})
+                local function activate()
+                    if canActivate(self,segment) then window:_pressPulse(segment,self);self:SetValue(name) end
+                end
+                connect(self,segment.Activated,activate)
+                connect(self,segment.MouseEnter,function()
+                    if not self.Disabled and self.Value~=name then window:_motion(segment,{BackgroundTransparency=.55},.1,'segment-hover',self) end
+                end)
+                connect(self,segment.MouseLeave,function() window:_motion(segment,{BackgroundTransparency=1},.12,'segment-hover',self) end)
+                window:_registerFocus(segment,activate)
+                self.Segments[index]=segment
+            end
+        end
+        function self:_normalize(value)
+            assert(type(value)=='string' or type(value)=='number','Segmented value must be one of its Options')
+            value=tostring(value); assert(table.find(self.Options,value),'Unknown segmented option: '..value)
+            return value
+        end
+        function self:_render()
+            if self.Destroyed or not self.Frame.Parent then return end
+            local count=#self.Options; local index=table.find(self.Options,self.Value) or 1
+            local goals={Position=UDim2.new((index-1)/count,2,0,2),Size=UDim2.new(1/count,-4,1,-4)}
+            if self._hasDefault then window:_motion(indicator,goals,.24,'segment',self,nil,{Easing='Back'})
+            else window:_cancelTrack(indicator,'segment',false); indicator.Position=goals.Position; indicator.Size=goals.Size end
+            for i,segment in ipairs(self.Segments) do
+                local selected=i==index
+                window._inkSurfaces[segment]=selected and 'Accent' or nil
+                window:_bind(segment,{TextColor3=selected and 'AccentText' or 'Text'})
+                if selected then window:_cancelTrack(segment,'segment-hover',false); segment.BackgroundTransparency=1 end
+                segment.Active=not self.Disabled; segment.TextTransparency=self.Disabled and .45 or 0
+            end
+            indicator.BackgroundTransparency=self.Disabled and .45 or 0
+        end
+        function self:SetOptions(list)
+            assert(not self.Destroyed,'This control has been destroyed')
+            local nextChoices=names(list or {}); assert(#nextChoices>=2 and #nextChoices<=8,'Segmented needs 2–8 Options')
+            self.Options=nextChoices; build()
+            if table.find(nextChoices,self.Value) then self:_render() else self:SetValue(nextChoices[1]) end
+            return self
+        end
+        function self:GetOptions() return copy(self.Options) end
+        function self:GetIndex() return table.find(self.Options,self.Value) end
+        build()
+        return init(self,options,choices[1])
+    end
+
+    -- RangeSlider: one {Min,Max} value with two thumbs on a shared track.
+    function Section:AddRangeSlider(options)
+        options=options or {}
+        local minimum,maximum,step,gap=options.Min or 0,options.Max or 100,options.Step or 1,options.MinGap or 0
+        assert(finite(minimum) and finite(maximum) and maximum>minimum,'RangeSlider requires finite Min < Max')
+        assert(finite(step) and step>0,'RangeSlider Step must be positive')
+        assert(finite(gap) and gap>=0 and gap<=maximum-minimum,'RangeSlider MinGap must be between 0 and Max-Min')
+        local self=base(self,'RangeSlider',options,78)
+        local window=self._window
+        self.Min,self.Max,self.Step,self.MinGap=minimum,maximum,step,gap
+        self.TitleLabel.Size=UDim2.new(1,-128,0,21)
+        local valueLabel=label(window,self.Frame,'',{Name='RangeValue',Position=UDim2.new(1,-120,0,0),Size=U2(120,25),TextSize=12,TextXAlignment=Enum.TextXAlignment.Right},'Muted')
+        local track=frame(window,self.Frame,{Name='RangeTrack',Position=U2(0,49),Size=UDim2.new(1,0,0,10),Active=true},'Inset')
+        bevel(window,track,true)
+        local fill=frame(window,track,{Name='RangeFill',Size=UDim2.new(0,0,1,0)},'Accent')
+        local function thumb(name)
+            local object=frame(window,track,{Name=name,AnchorPoint=Vector2.new(.5,.5),Position=UDim2.new(0,0,.5,0),Size=U2(12,22),Active=true,ZIndex=track.ZIndex+2},'Surface')
+            bevel(window,object,false); return object
+        end
+        local low,high=thumb('LowThumb'),thumb('HighThumb')
+        local function round(value) return clamp(snap(clamp(value,self.Min,self.Max),self.Min,self.Step),self.Min,self.Max) end
+        function self:_normalize(value)
+            assert(type(value)=='table' and finite(value.Min) and finite(value.Max),'RangeSlider value must be {Min=number,Max=number}')
+            local a,b=round(value.Min),round(value.Max)
+            assert(a<=b,'RangeSlider Min must not exceed Max')
+            assert(b-a>=self.MinGap-1e-9,'RangeSlider range is narrower than MinGap')
+            return {Min=a,Max=b}
+        end
+        function self:_render()
+            local span=self.Max-self.Min
+            local a,b=(self.Value.Min-self.Min)/span,(self.Value.Max-self.Min)/span
+            local dragging=window._drag and window._drag.Owner==self
+            local targets={[low]=UDim2.new(a,0,.5,0),[high]=UDim2.new(b,0,.5,0)}
+            local fillGoals={Position=UDim2.new(a,0,0,0),Size=UDim2.new(b-a,0,1,0)}
+            if self._hasDefault and not dragging then
+                for object,goal in pairs(targets) do window:_motion(object,{Position=goal},.1,'range-thumb',self,nil,{Easing='Quint'}) end
+                window:_motion(fill,fillGoals,.1,'range-fill',self,nil,{Easing='Quint'})
+            else
+                for object,goal in pairs(targets) do window:_cancelTrack(object,'range-thumb',false); object.Position=goal end
+                window:_cancelTrack(fill,'range-fill',false); fill.Position=fillGoals.Position; fill.Size=fillGoals.Size
+            end
+            local suffix=options.Suffix or ''
+            valueLabel.Text=numberText(self.Value.Min,options.Precision)..suffix..' – '..numberText(self.Value.Max,options.Precision)..suffix
+            fill.BackgroundTransparency=self.Disabled and .45 or 0
+        end
+        function self:SetRange(minimum,maximum,silent) return self:SetValue({Min=minimum,Max=maximum},silent) end
+        function self:GetRange() return self.Value.Min,self.Value.Max end
+        local function start(input,which)
+            local active=which
+            window:_beginDrag(self,input,function(p)
+                local width=track.AbsoluteSize.X; if width<=0 or self.Destroyed then return end
+                local value=round(self.Min+clamp((p.X-track.AbsolutePosition.X)/width,0,1)*(self.Max-self.Min))
+                local a,b=self.Value.Min,self.Value.Max
+                if not active then
+                    if value<=a then active='Min' elseif value>=b then active='Max'
+                    else active=math.abs(value-a)<=math.abs(value-b) and 'Min' or 'Max' end
+                end
+                if active=='Min' then a=math.max(self.Min,math.min(value,b-self.MinGap)) else b=math.min(self.Max,math.max(value,a+self.MinGap)) end
+                local ok,normalized=pcall(self._normalize,self,{Min=a,Max=b})
+                if ok then self:SetValue(normalized) end
+            end)
+        end
+        connect(self,track.InputBegan,function(input) start(input,nil) end)
+        connect(self,low.InputBegan,function(input) start(input,'Min') end)
+        connect(self,high.InputBegan,function(input) start(input,'Max') end)
+        self.Track=track; self.LowThumb=low; self.HighThumb=high; self.ValueLabel=valueLabel
+        local default=options.Default or {Min=self.Min,Max=self.Max}
+        return init(self,options,default)
+    end
+
+    -- Number: precise numeric entry with -/+ steps and hold-to-repeat.
+    function Section:AddNumber(options)
+        options=options or {}
+        local minimum,maximum,step=options.Min or -math.huge,options.Max or math.huge,options.Step or 1
+        assert(type(minimum)=='number' and type(maximum)=='number' and minimum==minimum and maximum==maximum and maximum>minimum,'Number requires Min < Max')
+        assert(finite(step) and step>0,'Number Step must be positive')
+        assert(options.Precision==nil or finite(options.Precision) and options.Precision%1==0 and options.Precision>=0 and options.Precision<=6,'Number Precision must be 0–6')
+        local self=base(self,'Number',options,80)
+        local window=self._window
+        self.Min,self.Max,self.Step=minimum,maximum,step
+        self.Precision=options.Precision or decimals(self.Step)
+        local origin=finite(self.Min) and self.Min or 0
+        local minus=button(window,self,self.Frame,'-',{Name='Decrement',Position=U2(0,44),Size=U2(32,32),TextSize=16},function() self:Increment(-1) end)
+        local plus=button(window,self,self.Frame,'+',{Name='Increment',Position=UDim2.new(1,-32,0,44),Size=U2(32,32),TextSize=16},function() self:Increment(1) end)
+        local box=textbox(window,self.Frame,'',{Name='NumberValue',Position=U2(38,44),Size=UDim2.new(1,-76,0,32),TextXAlignment=Enum.TextXAlignment.Center})
+        local padding=box:FindFirstChild('TextPadding')
+        function self:_normalize(value)
+            if type(value)=='string' then value=tonumber(value) end
+            assert(finite(value),'Number value must be a finite number')
+            return clamp(snap(clamp(value,self.Min,self.Max),origin,self.Step),self.Min,self.Max)
+        end
+        function self:_render()
+            if not box:IsFocused() then box.Text=numberText(self.Value,self.Precision)..(options.Suffix or '') end
+            box.TextEditable=not self.Disabled
+            minus.Active=not self.Disabled and self.Value>self.Min; plus.Active=not self.Disabled and self.Value<self.Max
+            minus.TextTransparency=minus.Active and 0 or .45; plus.TextTransparency=plus.Active and 0 or .45
+        end
+        function self:Increment(direction,silent)
+            assert(not self.Destroyed,'This control has been destroyed')
+            direction=direction or 1; assert(finite(direction),'Increment needs a finite multiplier')
+            if self.Disabled then return false end
+            local before=self.Value; self:SetValue(self.Value+self.Step*direction,silent)
+            if self.Value==before then return false end
+            if padding and window:_motionAllowed(box) then
+                local up=direction>0
+                padding.PaddingTop=UDim.new(0,up and 0 or 5); padding.PaddingBottom=UDim.new(0,up and 5 or 0)
+                window:_motion(padding,{PaddingTop=UDim.new(0,0),PaddingBottom=UDim.new(0,0)},.16,'number-bump',self,nil,{Easing='Back'})
+            end
+            return true
+        end
+        local holdToken=0
+        local function stopHold() holdToken=holdToken+1 end
+        local function hold(direction)
+            stopHold(); local token=holdToken
+            local function step(delay)
+                task.delay(delay,function()
+                    if token~=holdToken or self.Destroyed or self.Disabled or window.Destroyed or window._shown==false then return end
+                    if self:Increment(direction) then step(.07) else stopHold() end
+                end)
+            end
+            step(.45)
+        end
+        for object,direction in pairs({[minus]=-1,[plus]=1}) do
+            connect(self,object.InputBegan,function(input) if pointer(input) and canActivate(self,object) then hold(direction) end end)
+            connect(self,object.InputEnded,function(input) if pointer(input) then stopHold() end end)
+            connect(self,object.MouseLeave,stopHold)
+        end
+        connect(self,box.Focused,function() box.Text=numberText(self.Value,self.Precision) end)
+        connect(self,box.FocusLost,function()
+            local value=tonumber((box.Text:gsub('[^%d%.%-eE+]','')))
+            if finite(value) and not self.Disabled then self:SetValue(value) end
+            self:_render()
+        end)
+        self:Manage(stopHold)
+        self.Input=box; self.DecrementButton=minus; self.IncrementButton=plus
+        local default=options.Default
+        if default==nil then default=finite(self.Min) and self.Min or 0 end
+        return init(self,options,default)
+    end
+
+    -- Callout: informative panel with a kind stripe, icon and wrapped body.
+    local kinds={
+        Info={Role='Accent',Icon='info',PT='Informação',EN='Information'},
+        Tip={Role='Accent',Icon='spark',PT='Dica',EN='Tip'},
+        Success={Role='Success',Icon='success',PT='Sucesso',EN='Success'},
+        Warning={Role='Danger',Icon='warning',PT='Atenção',EN='Warning'},
+        Danger={Role='Danger',Icon='error',PT='Perigo',EN='Danger'},
+    }
+    function Section:AddCallout(options)
+        if type(options)=='string' then options={Content=options} end
+        options=options or {}
+        local kind=options.Kind or 'Info'; assert(kinds[kind],'Callout Kind is Info, Tip, Success, Warning or Danger')
+        assert(options.Content==nil or type(options.Content)=='string' and #options.Content<=4096,'Callout Content must contain at most 4096 bytes')
+        local passed={}; for key,value in pairs(options) do passed[key]=value end
+        passed.ShowDescription=false; passed.Tooltip=nil; passed.Tip=nil
+        if passed.Title==nil then passed.Title='' end
+        local self=base(self,'Callout',passed,64)
+        local window=self._window
+        self.Persist=false; self.Kind=kind; self._descriptionLayout={Height=64,Children={},HeaderFields={},Reserve=0}
+        self.TitleLabel.Visible=false; self.DescriptionLabel.Visible=false
+        local panel=frame(window,self.Frame,{Name='CalloutPanel',Size=UDim2.fromScale(1,1),BorderSizePixel=1},'Inset')
+        window:_bind(panel,{BackgroundColor3='Inset',BorderColor3='Border'})
+        local stripe=frame(window,panel,{Name='CalloutStripe',Size=UDim2.new(0,4,1,0),ZIndex=panel.ZIndex+1},kinds[kind].Role)
+        local heading=label(window,panel,'',{Name='CalloutTitle',Position=U2(36,8),Size=UDim2.new(1,-46,0,20),TextSize=14,TextTruncate=Enum.TextTruncate.AtEnd})
+        local body=label(window,panel,'',{Name='CalloutBody',Position=U2(36,30),Size=UDim2.new(1,-46,0,18),TextSize=12,TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top},'Muted')
+        local icon=iconSlot(window,panel,options.Icon,kinds[kind].Icon,16,U2(13,10),kinds[kind].Role)
+        self.Panel=panel; self.Stripe=stripe; self.Heading=heading; self.Body=body; self.Icon=icon.Frame
+        local function measure(object,width)
+            local ok,size=pcall(TextService.GetTextSize,TextService,object.Text,object.TextSize,object.Font,Vector2.new(math.max(1,width),100000))
+            if ok and finite(size.Y) then return size.Y end
+            local lines=0
+            for line in (object.Text..'\n'):gmatch('(.-)\n') do lines=lines+math.max(1,math.ceil(#line*object.TextSize*.6/math.max(1,width))) end
+            return lines*(object.TextSize+3)
+        end
+        function self:_layoutDescription()
+            if self.Destroyed or self._layingCallout then return end
+            self._layingCallout=true
+            local width=self.Frame.AbsoluteSize.X/math.max(.01,window._actualScale or 1)-46
+            local hasTitle=#heading.Text>0; local hasBody=#body.Text>0
+            body.Position=U2(36,hasTitle and 30 or 9)
+            local bodyHeight=hasBody and math.max(16,measure(body,width)+3) or 0
+            body.Size=UDim2.new(1,-46,0,bodyHeight); body.Visible=hasBody; heading.Visible=hasTitle
+            local total=(hasTitle and 30 or 9)+bodyHeight+(hasBody and 9 or 0)
+            self.Frame.Size=UDim2.new(self.Frame.Size.X.Scale,self.Frame.Size.X.Offset,0,math.max(36,total))
+            self._layingCallout=false
+        end
+        local function reveal()
+            if window:_motionAllowed(stripe) then
+                stripe.Size=UDim2.new(0,4,0,0)
+                window:_motion(stripe,{Size=UDim2.new(0,4,1,0)},.3,'callout',self,nil,{Easing='Quint'})
+            else window:_cancelTrack(stripe,'callout',false); stripe.Size=UDim2.new(0,4,1,0) end
+        end
+        function self:_normalize(value)
+            value=tostring(value or ''); assert(#value<=4096,'Callout Content must contain at most 4096 bytes'); return value
+        end
+        function self:_render()
+            heading.Text=self.Title; body.Text=self.Value
+            heading.TextTransparency=self.Disabled and .15 or 0; body.TextTransparency=self.Disabled and .15 or 0
+            self:_layoutDescription()
+        end
+        function self:SetTitle(text)
+            self.Title=tostring(text or ''); self.TitleLabel.Text=self.Title; heading.Text=self.Title
+            self:_layoutDescription(); window:SetSearch(window._query); return self
+        end
+        function self:SetContent(text) return self:SetValue(text,true) end
+        function self:GetContent() return self.Value end
+        function self:SetKind(nextKind)
+            assert(kinds[nextKind],'Callout Kind is Info, Tip, Success, Warning or Danger')
+            self.Kind=nextKind; window:_bind(stripe,{BackgroundColor3=kinds[nextKind].Role})
+            icon.Default=kinds[nextKind].Icon; icon:SetRole(kinds[nextKind].Role); icon:Set(options.Icon)
+            reveal(); return self
+        end
+        function self:GetKind() return self.Kind end
+        function self:SetIcon(value) icon:Set(value); return self end
+        connect(self,self.Frame:GetPropertyChangedSignal('AbsoluteSize'),function() self:_layoutDescription() end)
+        connect(self,body:GetPropertyChangedSignal('TextSize'),function() self:_layoutDescription() end)
+        self.Description=self.Description..' '..tostring(options.Content or '')
+        local control=init(self,passed,options.Content or '')
+        reveal()
+        return control
+    end
+
+    -- CodeBlock: read-only monospace snippet with line numbers and Copy.
+    function Section:AddCodeBlock(options)
+        options=options or {}
+        assert(options.Height==nil or finite(options.Height) and options.Height>=48 and options.Height<=600,'CodeBlock Height must be 48–600')
+        assert(options.Code==nil or type(options.Code)=='string','CodeBlock Code must be a string')
+        local self=base(self,'CodeBlock',options,(options.Height or 150)+44)
+        local window=self._window
+        self.Persist=false; self.Language=options.Language and tostring(options.Language):sub(1,16) or nil
+        self.TitleLabel.Size=UDim2.new(1,-170,0,21)
+        local copyText=window:_t17('Copiar','Copy')
+        local copyButton
+        if options.Copy~=false then
+            copyButton=button(window,self,self.Frame,copyText,{Name='CopyCode',Position=UDim2.new(1,-78,0,0),Size=U2(78,22),TextSize=12},function() self:Copy() end)
+        end
+        if self.Language then
+            label(window,self.Frame,self.Language:upper(),{Name='CodeLanguage',Position=UDim2.new(1,copyButton and -164 or -80,0,0),Size=U2(80,22),TextSize=11,TextXAlignment=Enum.TextXAlignment.Right},'Muted')
+        end
+        local scroll=ui(window,'ScrollingFrame',{Parent=self.Frame,Name='CodeScroll',Position=U2(0,42),Size=UDim2.new(1,0,1,-42),BorderSizePixel=1,
+            ScrollBarThickness=4,CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.XY,ScrollingDirection=Enum.ScrollingDirection.XY},
+            {BackgroundColor3='Inset',BorderColor3='Border',ScrollBarImageColor3='Border'})
+        local gutter=label(window,scroll,'',{Name='LineNumbers',Position=U2(6,6),Size=U2(28,0),AutomaticSize=Enum.AutomaticSize.Y,Font=Enum.Font.Code,
+            TextSize=12,TextXAlignment=Enum.TextXAlignment.Right,TextYAlignment=Enum.TextYAlignment.Top,Visible=options.LineNumbers~=false},'Muted')
+        local code=label(window,scroll,'',{Name='Code',Position=U2(options.LineNumbers==false and 8 or 42,6),Size=U2(0,0),AutomaticSize=Enum.AutomaticSize.XY,
+            Font=Enum.Font.Code,TextSize=12,TextYAlignment=Enum.TextYAlignment.Top,TextWrapped=false})
+        function self:_normalize(value)
+            value=tostring(value or ''):gsub('\r\n','\n'):gsub('\t','    ')
+            assert(#value<=65536,'CodeBlock accepts at most 65536 bytes')
+            return value
+        end
+        function self:_render()
+            code.Text=self.Value
+            local count=1; for _ in self.Value:gmatch('\n') do count=count+1 end
+            local numbers={}; for i=1,math.min(count,4000) do numbers[i]=tostring(i) end
+            gutter.Text=table.concat(numbers,'\n')
+            code.TextTransparency=self.Disabled and .15 or 0
+        end
+        function self:SetCode(text) return self:SetValue(text,true) end
+        function self:GetCode() return self.Value end
+        function self:Copy()
+            assert(not self.Destroyed,'This control has been destroyed')
+            if self.Disabled then return false,'disabled' end
+            local clip=type(setclipboard)=='function' and setclipboard or type(toclipboard)=='function' and toclipboard or nil
+            local ok=false
+            if clip then ok=pcall(clip,self.Value) end
+            if copyButton then
+                self._copyToken=(self._copyToken or 0)+1; local token=self._copyToken
+                copyButton.Text=ok and window:_t17('Copiado!','Copied!') or window:_t17('Indisponível','Unavailable')
+                task.delay(1.6,function() if not self.Destroyed and self._copyToken==token and copyButton.Parent then copyButton.Text=copyText end end)
+            end
+            if not ok and not clip then window:Notify({Title=self.Title,Content=window:_t17('Este executor não oferece setclipboard.','This executor does not provide setclipboard.'),Kind='warning'}) end
+            if ok and type(options.OnCopy)=='function' then call(window,options.OnCopy,self.Value) end
+            return ok,ok and nil or 'unavailable'
+        end
+        self.Scroll=scroll; self.CodeLabel=code; self.CopyButton=copyButton
+        return init(self,options,options.Code or '')
+    end
+end
+
+-- END RETRO211 REFINED CONTROLS
 
 return Library

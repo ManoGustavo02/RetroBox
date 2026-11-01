@@ -2,7 +2,8 @@
 do
     local allowed={Toggle=true,Slider=true,Button=true,Input=true,Dropdown=true,ColorPicker=true,Label=true,Separator=true,
         StatCard=true,Progress=true,Chart=true,Console=true,Image=true,VirtualList=true,DataTable=true,TreeView=true,
-        Preview=true,Stepper=true,CardGrid=true,Keybind=true}
+        Preview=true,Stepper=true,CardGrid=true,Keybind=true,
+        Segmented=true,RangeSlider=true,Number=true,Callout=true,CodeBlock=true}
     local function id(value)
         assert(type(value)=='string' and #value>=1 and #value<=64 and value:match('^[%w_.%-]+$'),'Group Id must contain 1–64 letters, numbers, dots, underscores or hyphens')
         return value
@@ -89,7 +90,7 @@ do
         return handle
     end
 
-    local formTypes={Input=true,Toggle=true,Slider=true,Dropdown=true,ColorPicker=true}
+    local formTypes={Input=true,Toggle=true,Slider=true,Dropdown=true,ColorPicker=true,Segmented=true,RangeSlider=true,Number=true}
     function Section:CreateForm(options)
         assert(type(options)=='table' and type(options.Fields)=='table' and #options.Fields>=1 and #options.Fields<=64,'Form needs 1–64 Fields')
         local window=self._window;local name=id(options.Id)
